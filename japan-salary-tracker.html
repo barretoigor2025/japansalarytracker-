@@ -1,0 +1,3923 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#09090b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Kyuyo Kanri" />
+  <title>給与管理 — Japan Salary Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body, #root { height: 100%; min-height: -webkit-fill-available; }
+    body { background: #09090b; color: #f4f4f5; font-family: 'DM Sans','Noto Sans JP',sans-serif; -webkit-font-smoothing: antialiased; overscroll-behavior: none; }
+    #root { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 2px; }
+    input, select, textarea { font-size: 16px !important; }
+    input[type="time"], input[type="date"], input[type="month"] { color-scheme: dark; }
+    button:active { opacity: 0.78; transform: scale(0.97); transition: all 0.1s; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/sw.js').catch(function(){});
+      });
+    }
+  </script>
+  <script type="text/babel">
+    const { useState, useEffect, useCallback, useMemo } = React;
+
+/**
+ * JAPAN SALARY TRACKER
+ * Sistema completo de controle de jornada e salário para trabalhadores no Japão
+ * 
+ * Arquitetura:
+ * - calcEngine.js   → Motor de cálculo centralizado (regras JP + personalizadas)
+ * - storage.js      → Camada de persistência (localStorage)
+ * - components/     → UI componentizada
+ * 
+ * Regras financeiras centralizadas em JAPAN_RULES e workerSettings
+ */
+
+// ─────────────────────────────────────────────
+// MOTOR DE CÁLCULO CENTRALIZADO
+// ─────────────────────────────────────────────
+
+const JAPAN_RULES = {
+  dailyHours: 8,
+  weeklyHours: 40,
+  monthlyOvertimeThreshold: 60, // horas extras > 60h/mês → +50%
+  overtimeRate: 0.25,           // +25%
+  nightRate: 0.25,              // +25% (22:00–05:00)
+  holidayRate: 0.35,            // +35%
+  overtimeHighRate: 0.50,       // +50% (acima de 60h extras no mês)
+  nightStart: 22,               // 22:00
+  nightEnd: 5,                  // 05:00
+};
+
+function parseTime(timeStr) {
+  const [h, m] = timeStr.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function formatMinutes(mins) {
+  if (mins < 0) mins = 0;
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  return `${h}h${m > 0 ? String(m).padStart(2, "0") + "m" : ""}`;
+}
+
+function minutesToHours(mins) {
+  return mins / 60;
+}
+
+/**
+ * Calcula minutos noturnos dentro de um intervalo [start, end] em minutos absolutos
+ * (pode cruzar meia-noite; start e end são relativos ao início do dia de referência)
+ */
+function calcNightMinutes(startMin, endMin, rules = JAPAN_RULES) {
+  // Faixa noturna: 22:00 (1320) até 29:00 (1740 = 05:00 do dia seguinte)
+  const nightS = rules.nightStart * 60;       // 1320
+  const nightE = (24 + rules.nightEnd) * 60;  // 1740
+
+  // Normalizar para cruzamento de meia-noite: se endMin <= startMin, adicionar 1440
+  let s = startMin;
+  let e = endMin <= startMin ? endMin + 1440 : endMin;
+
+  // Calcular interseção com [nightS, nightE] e também [nightS - 1440, nightE - 1440]
+  let night = 0;
+  for (const offset of [0, 1440]) {
+    const ns = nightS - offset;
+    const ne = nightE - offset;
+    const overlapS = Math.max(s, ns);
+    const overlapE = Math.min(e, ne);
+    if (overlapE > overlapS) night += overlapE - overlapS;
+  }
+  return Math.min(night, e - s);
+}
+
+
+// ─────────────────────────────────────────────
+// MOTOR DE 有給休暇 (LSA Art.39)
+// ─────────────────────────────────────────────
+
+// Tabela legal de acúmulo por tempo de serviço (meses completos desde contratação)
+const YUKYU_TABLE = [
+  { monthsMin: 6,   monthsMax: 17,  days: 10 },
+  { monthsMin: 18,  monthsMax: 29,  days: 11 },
+  { monthsMin: 30,  monthsMax: 41,  days: 12 },
+  { monthsMin: 42,  monthsMax: 53,  days: 14 },
+  { monthsMin: 54,  monthsMax: 65,  days: 16 },
+  { monthsMin: 66,  monthsMax: 77,  days: 18 },
+  { monthsMin: 78,  monthsMax: Infinity, days: 20 },
+];
+
+function getMonthsDiff(fromDate, toDate) {
+  const from = new Date(fromDate);
+  const to = new Date(toDate);
+  return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
+}
+
+function getYukyuEntitlement(hireDate) {
+  if (!hireDate) return null;
+  const today = new Date();
+  const hire = new Date(hireDate);
+  const totalMonths = getMonthsDiff(hireDate, today);
+
+  if (totalMonths < 6) {
+    const monthsToFirst = 6 - totalMonths;
+    return { eligible: false, monthsToFirst, daysTotal: 0, grants: [] };
+  }
+
+  // Calcular cada concessão recebida
+  const grants = [];
+  let grantDate = new Date(hire);
+  grantDate.setMonth(grantDate.getMonth() + 6); // primeira concessão: 6 meses
+
+  while (grantDate <= today) {
+    const monthsAtGrant = getMonthsDiff(hireDate, grantDate);
+    const row = YUKYU_TABLE.find(r => monthsAtGrant >= r.monthsMin && monthsAtGrant <= r.monthsMax);
+    if (row) {
+      const expiry = new Date(grantDate);
+      expiry.setFullYear(expiry.getFullYear() + 2); // vence em 2 anos
+      const expired = expiry < today;
+      grants.push({
+        date: grantDate.toISOString().slice(0, 10),
+        days: row.days,
+        expiry: expiry.toISOString().slice(0, 10),
+        expired,
+        monthsService: monthsAtGrant,
+      });
+    }
+    // próxima concessão: +12 meses
+    grantDate = new Date(grantDate);
+    grantDate.setFullYear(grantDate.getFullYear() + 1);
+  }
+
+  // Próxima concessão futura
+  const nextGrantDate = new Date(grantDate);
+  const daysToNext = Math.ceil((nextGrantDate - today) / 86400000);
+
+  // Saldo disponível: apenas grants não expirados (últimos 2 anos)
+  const availableGrants = grants.filter(g => !g.expired);
+  const daysTotal = availableGrants.reduce((a, g) => a + g.days, 0);
+
+  // Próximo lote que vai ganhar
+  const nextMonths = getMonthsDiff(hireDate, nextGrantDate);
+  const nextRow = YUKYU_TABLE.find(r => nextMonths >= r.monthsMin && nextMonths <= r.monthsMax);
+
+  // Alertas de expiração: grants que vencem nos próximos 90 dias
+  const expiringAlerts = availableGrants.filter(g => {
+    const exp = new Date(g.expiry);
+    const daysLeft = Math.ceil((exp - today) / 86400000);
+    return daysLeft <= 90 && daysLeft > 0;
+  }).map(g => {
+    const daysLeft = Math.ceil((new Date(g.expiry) - today) / 86400000);
+    return { ...g, daysLeft };
+  });
+
+  return {
+    eligible: true,
+    daysTotal,
+    grants,
+    availableGrants,
+    nextGrantDate: nextGrantDate.toISOString().slice(0, 10),
+    nextGrantDays: nextRow?.days || 0,
+    daysToNext,
+    expiringAlerts,
+    totalMonths,
+    yearsService: Math.floor(totalMonths / 12),
+    monthsRemainder: totalMonths % 12,
+  };
+}
+
+function getYukyuUsed(entries) {
+  return entries.filter(e => e.dayType === "yukyu");
+}
+
+/**
+ * Motor de cálculo principal para um dia
+ * Retorna breakdown detalhado
+ */
+function calcDay(entry, settings, monthlyOvertimeSoFar = 0) {
+  const rules = settings.mode === "japan" ? JAPAN_RULES : settings.customRules;
+  const hourlyRate = settings.hourlyRate || 0;
+
+  const inMin = parseTime(entry.start);
+  let outMin = parseTime(entry.end);
+  if (outMin <= inMin) outMin += 1440; // cruzou meia-noite
+
+  const breakMin = (entry.breakMinutes != null && !isNaN(entry.breakMinutes)) ? Number(entry.breakMinutes) : 0;
+  const totalMin = outMin - inMin - breakMin;
+  const totalHours = minutesToHours(totalMin);
+
+  // Horas noturnas (no período trabalhado, descontando break proporcionalmente)
+  const nightMin = calcNightMinutes(inMin, outMin - breakMin, rules);
+  // Horas normais diárias
+  const dailyLimitMin = (rules.dailyHours || 8) * 60;
+
+  let normalMin = Math.min(totalMin, dailyLimitMin);
+  let overtimeDailyMin = Math.max(0, totalMin - dailyLimitMin);
+
+  // Tipo do dia
+  const isHoliday = entry.dayType === "holiday";   // feriado estatutário → +35%
+  const isSaturday = entry.dayType === "saturday"; // 6º dia → todas as horas são OT +25%
+  const isSunday = entry.dayType === "sunday";     // depende de config da empresa
+  const isYukyu = entry.dayType === "yukyu";       // 有給休暇 → 8h base, sem OT/noturno
+
+  // 有給休暇: paga 8h normais independente de entrada/saída
+  if (isYukyu) {
+    const yukyuHours = rules.dailyHours || 8;
+    const grossPay = Math.round(yukyuHours * hourlyRate);
+    return {
+      totalMin: yukyuHours * 60,
+      totalHours: yukyuHours,
+      normalMin: yukyuHours * 60,
+      normalHours: yukyuHours,
+      overtimeDailyMin: 0,
+      overtimeHours: 0,
+      nightMin: 0,
+      nightHours: 0,
+      isHoliday: false,
+      isSaturday: false,
+      isSunday: false,
+      isYukyu: true,
+      normalPay: grossPay,
+      overtimePay: 0,
+      nightPay: 0,
+      holidayPay: 0,
+      satSunPay: 0,
+      grossPay,
+      breakdown: {
+        baseHours: yukyuHours,
+        overtimeNormal: 0,
+        overtimeHigh: 0,
+        nightHours: 0,
+        isYukyu: true,
+        jpSaturdayIsAllOT: false,
+        rates: { overtimeRate: 0, nightRate: 0, holidayRate: 0 },
+      },
+    };
+  }
+
+  // No modo padrão Japão: sábado = 6º dia trabalhado = ultrapassou 40h semanais
+  // → TODAS as horas do sábado são hora extra (+25%), não apenas acima de 8h
+  // Fonte: Labor Standards Act Art.37 + Monolith Law / ICLG Japan 2025
+  const jpSaturdayIsAllOT = settings.mode === "japan" && isSaturday;
+
+  // Adicional manual configurável (modo personalizado)
+  const saturdayRate = settings.saturdayRate || 0;
+  const sundayRate = settings.sundayRate || 0;
+
+  // Acúmulo mensal de horas extras
+  const prevOTHours = monthlyOvertimeSoFar;
+
+  // Horas extras do dia: no sábado JP todas as horas contam como OT
+  const thisDayOTHours = jpSaturdayIsAllOT
+    ? totalHours                        // todas as horas do sábado são OT
+    : minutesToHours(overtimeDailyMin); // só acima de 8h nos outros dias
+
+  const highOTHours = Math.max(0, prevOTHours + thisDayOTHours - (rules.monthlyOvertimeThreshold || 60));
+  const normalOTHours = thisDayOTHours - highOTHours;
+
+  // Pagamento base (horas normais — no sábado JP = 0, tudo vira OT)
+  const normalBaseHours = jpSaturdayIsAllOT ? 0 : minutesToHours(normalMin);
+  const normalPay = normalBaseHours * hourlyRate;
+
+  // Pagamento hora extra
+  // Feriado usa holidayRate; sábado JP e dias normais usam overtimeRate
+  const overtimeRate = isHoliday ? rules.holidayRate : rules.overtimeRate;
+  const overtimePay =
+    normalOTHours * hourlyRate * (1 + overtimeRate) +
+    highOTHours * hourlyRate * (1 + (rules.overtimeHighRate || 0.5));
+
+  // Adicional noturno (acumulativo com outros adicionais)
+  const nightHours = minutesToHours(nightMin);
+  const nightPay = nightHours * hourlyRate * rules.nightRate;
+
+  // Adicional de feriado estatutário (+35% sobre TUDO)
+  let holidayPay = 0;
+  if (isHoliday) {
+    holidayPay = totalHours * hourlyRate * rules.holidayRate;
+  }
+
+  // Sábado/domingo modo personalizado
+  let satSunPay = 0;
+  if (!jpSaturdayIsAllOT) {
+    if (isSaturday && saturdayRate > 0) satSunPay = totalHours * hourlyRate * saturdayRate;
+    if (isSunday && sundayRate > 0) satSunPay = totalHours * hourlyRate * sundayRate;
+  }
+
+  const grossPay = Math.round(normalPay + overtimePay + nightPay + holidayPay + satSunPay);
+
+  return {
+    totalMin,
+    totalHours: +totalHours.toFixed(2),
+    normalMin,
+    normalHours: +minutesToHours(normalMin).toFixed(2),
+    overtimeDailyMin,
+    overtimeHours: +thisDayOTHours.toFixed(2),
+    nightMin,
+    nightHours: +nightHours.toFixed(2),
+    isHoliday,
+    isSaturday,
+    isSunday,
+    normalPay: Math.round(normalPay),
+    overtimePay: Math.round(overtimePay),
+    nightPay: Math.round(nightPay),
+    holidayPay: Math.round(holidayPay),
+    satSunPay: Math.round(satSunPay),
+    grossPay,
+    breakdown: {
+      baseHours: +normalBaseHours.toFixed(2),
+      overtimeNormal: +normalOTHours.toFixed(2),
+      overtimeHigh: +highOTHours.toFixed(2),
+      nightHours: +nightHours.toFixed(2),
+      jpSaturdayIsAllOT,
+      rates: { overtimeRate, nightRate: rules.nightRate, holidayRate: rules.holidayRate },
+    },
+  };
+}
+
+// ─────────────────────────────────────────────
+// TAXAS REAIS — baseadas no holerite de Aichi-ken, Toyota-shi
+// Calculadas sobre bruto tributável (sem transporte)
+// Atualizado: março 2026
+// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// TAXAS DE DESCONTO — 愛知県トラック事業健康保険組合
+// Cooperativa de Saúde do Setor de Caminhões de Aichi-ken
+// Fonte: holerite real de março/2025 (Fujishouji, Toyota-shi)
+// Base de cálculo: 標準報酬月額 (salário padronizado tabelado)
+// Diferente da 協会けんぽ padrão — taxas específicas do setor
+// ─────────────────────────────────────────────
+const AICHI_RATES = {
+  // 健康保険 — Cooperativa caminhões Aichi (10.5% total / 5.25% empregado)
+  // Taxa real do holerite: 25,075 / 488,969 = 5.1281%
+  // (diferença devida à 標準報酬月額)
+  kenkouHoken: 0.051281,
+
+  // 厚生年金 — pensão (18.3% total / 9.15% empregado)
+  // Taxa real: 45,750 / 488,969 = 9.3564%
+  kouseiNenkin: 0.093564,
+
+  // 介護保険 — seguro cuidados 40+ (1.64% total / 0.82% empregado)
+  // Taxa real: 3,975 / 488,969 = 0.8129%
+  kaigoHoken: 0.008129,
+
+  // 雇用保険 — seguro desemprego (0.6% empregado)
+  // Taxa real: 2,760 / 488,969 = 0.5645%
+  koyouHoken: 0.005645,
+
+  shotokuZeiRate: 0.027425,
+};
+
+function estimateDeductions(grossMonthly, settings) {
+  const age = settings.age || 35;
+  const hasEmploymentInsurance = settings.employmentInsurance !== false;
+  const hasHealthInsurance = settings.healthInsurance !== false;
+  const hasPension = settings.pension !== false;
+  const rates = AICHI_RATES;
+
+  let deductions = [];
+
+  if (hasHealthInsurance) {
+    const health = Math.round(grossMonthly * rates.kenkouHoken);
+    deductions.push({
+      name: "健康保険 (Kenkou Hoken)",
+      amount: health,
+      rate: rates.kenkouHoken,
+      note: `${(rates.kenkouHoken*100).toFixed(4)}% — Aichi-ken (holerite real)`
+    });
+  }
+
+  if (hasPension) {
+    const pension = Math.round(grossMonthly * rates.kouseiNenkin);
+    deductions.push({
+      name: "厚生年金 (Kousei Nenkin)",
+      amount: pension,
+      rate: rates.kouseiNenkin,
+      note: `${(rates.kouseiNenkin*100).toFixed(4)}% — holerite real`
+    });
+  }
+
+  if (age >= 40) {
+    const kaigo = Math.round(grossMonthly * rates.kaigoHoken);
+    deductions.push({
+      name: "介護保険 (Kaigo Hoken)",
+      amount: kaigo,
+      rate: rates.kaigoHoken,
+      note: `${(rates.kaigoHoken*100).toFixed(4)}% — aplicado aos 40+ anos`
+    });
+  }
+
+  if (hasEmploymentInsurance) {
+    const emp = Math.round(grossMonthly * rates.koyouHoken);
+    deductions.push({
+      name: "雇用保険 (Koyou Hoken)",
+      amount: emp,
+      rate: rates.koyouHoken,
+      note: `${(rates.koyouHoken*100).toFixed(4)}% — holerite real`
+    });
+  }
+
+  // Imposto de renda — cálculo progressivo simplificado (tabela 2025)
+  const totalSocialSec = deductions.reduce((a, b) => a + b.amount, 0);
+  const taxableIncome = grossMonthly - totalSocialSec;
+  let incomeTax = 0;
+  let taxNote = "";
+  if (taxableIncome > 0) {
+    // Tabela progressiva mensal simplificada (扶養0人)
+    if (taxableIncome <= 88000) { incomeTax = 0; taxNote = "isento"; }
+    else if (taxableIncome <= 162500) { incomeTax = Math.round((taxableIncome - 88000) * 0.05); taxNote = "5%"; }
+    else if (taxableIncome <= 300000) { incomeTax = Math.round(3725 + (taxableIncome - 162500) * 0.10); taxNote = "10%"; }
+    else if (taxableIncome <= 500000) { incomeTax = Math.round(17475 + (taxableIncome - 300000) * 0.20); taxNote = "20%"; }
+    else { incomeTax = Math.round(57475 + (taxableIncome - 500000) * 0.23); taxNote = "23%"; }
+  }
+  const incomeTaxRate = grossMonthly > 0 ? incomeTax / grossMonthly : 0;
+  deductions.push({
+    name: "所得税 (Shotoku Zei)",
+    amount: incomeTax,
+    rate: incomeTaxRate,
+    note: `faixa ${taxNote} — estimativa progressiva 2025`
+  });
+
+  if (settings.municipalTax) {
+    const municipal = Math.round(grossMonthly * 0.1 / 12);
+    deductions.push({
+      name: "住民税 (Juumin Zei)",
+      amount: municipal,
+      rate: 0.1/12,
+      note: "estimativa 10%/ano — Toyota-shi, Aichi"
+    });
+  }
+
+  const totalDeductions = deductions.reduce((a, b) => a + b.amount, 0);
+  const netPay = grossMonthly - totalDeductions;
+  const totalRate = grossMonthly > 0 ? totalDeductions / grossMonthly : 0;
+
+  return { deductions, totalDeductions, netPay, totalRate };
+}
+
+// ─────────────────────────────────────────────
+// STORAGE (localStorage)
+// ─────────────────────────────────────────────
+
+const STORAGE_KEYS = {
+  entries: "jst_entries",
+  settings: "jst_settings",
+  payslips: "jst_payslips",
+  gastos: "jst_gastos",
+  payslipAudit: "jst_audit",
+  carro: "jst_carro",
+};
+
+const TABS = [
+  { id: "dashboard", label: "Início", icon: "🏠" },
+  { id: "entries", label: "Jornada", icon: "📋" },
+  { id: "reports", label: "Relatórios", icon: "📊" },
+  { id: "compare", label: "Comparar", icon: "📈" },
+  { id: "gastos", label: "Gastos", icon: "💸" },
+  { id: "carro", label: "Carro", icon: "🚗" },
+  { id: "settings", label: "Config", icon: "⚙️" },
+];
+
+const defaultCarro = {
+  financiamentos: [
+    {
+      id: "f1",
+      nome: "Outlander Roadest",
+      valorTotal: 570000,
+      entradas: [
+        { id: "e1", descricao: "Honda Insight", valor: 100000, pago: true },
+        { id: "e2", descricao: "Dinheiro", valor: 100000, pago: true },
+      ],
+      parcelas: [
+        { id: "p1", numero: 1, valor: 50000, mesRef: "2020-01", pago: true },
+        { id: "p2", numero: 2, valor: 50000, mesRef: "2020-02", pago: true },
+        { id: "p3", numero: 3, valor: 50000, mesRef: "2020-03", pago: true },
+        { id: "p4", numero: 4, valor: 50000, mesRef: "2020-04", pago: false },
+        { id: "p5", numero: 5, valor: 50000, mesRef: "2020-05", pago: false },
+        { id: "p6", numero: 6, valor: 50000, mesRef: "2020-06", pago: false },
+        { id: "p7", numero: 7, valor: 50000, mesRef: "2020-07", pago: false },
+        { id: "p8", numero: 8, valor: 20000, mesRef: "2020-08", pago: false },
+      ],
+    },
+  ],
+};
+
+const defaultGastos = {
+  rendas: [
+    { id: "r1", name: "Salário", amount: 0, active: true },
+    { id: "r2", name: "Outro", amount: 0, active: false },
+  ],
+  despesas: [
+    { id: "d1", name: "KDDI Telefonia", amount: 43851, tipo: "debito", active: true },
+    { id: "d2", name: "Seguro Outlander", amount: 10580, tipo: "debito", active: true },
+    { id: "d3", name: "Seguro Acqua", amount: 5960, tipo: "debito", active: true },
+    { id: "d4", name: "Seguro Casa", amount: 4500, tipo: "debito", active: true },
+    { id: "d5", name: "Internet", amount: 7450, tipo: "debito", active: true },
+    { id: "d6", name: "Netflix", amount: 2290, tipo: "debito", active: true },
+    { id: "d7", name: "YouTube Premium", amount: 1280, tipo: "debito", active: true },
+    { id: "d8", name: "Hotmart 99Vidas", amount: 295, tipo: "debito", active: true },
+    { id: "d9", name: "Cartão de Crédito", amount: 173588, tipo: "hagaki", active: true },
+    { id: "d10", name: "Eletricidade", amount: 38790, tipo: "hagaki", active: true },
+    { id: "d11", name: "Gás", amount: 18376, tipo: "hagaki", active: true },
+    { id: "d12", name: "Água", amount: 7301, tipo: "hagaki", active: true },
+    { id: "d13", name: "Imposto Casa", amount: 0, tipo: "hagaki", active: false },
+    { id: "d14", name: "Imposto Igor", amount: 0, tipo: "hagaki", active: false },
+    { id: "d15", name: "Imposto Patrícia", amount: 0, tipo: "hagaki", active: false },
+    { id: "d16", name: "Imposto Outlander", amount: 0, tipo: "hagaki", active: false },
+    { id: "d17", name: "Imposto Acqua", amount: 0, tipo: "hagaki", active: false },
+    { id: "d18", name: "Empréstimo", amount: 0, tipo: "hagaki", active: false },
+  ],
+  // Sobrescritas mensais: { "2026-03": { "d1": 45000, ... } }
+  overrides: {},
+};
+
+const defaultSettings = {
+  name: "",
+  hourlyRate: 1500,
+  mode: "japan",
+  age: 35,
+  healthInsurance: true,
+  pension: true,
+  employmentInsurance: true,
+  municipalTax: false,
+  saturdayRate: 0,
+  sundayRate: 0,
+  defaultBreak: 60,
+  hireDate: "",
+  customRules: { ...JAPAN_RULES },
+  // 手当 (Teate) — benefícios fixos mensais
+  // Pré-carregados com valores do holerite real (Aichi-ken, Toyota-shi)
+  teate: [
+    { id: "t1", name: "非課税通勤手当", label: "Vale Transporte (通勤手当)", amount: 12900, taxable: false, active: true },
+    { id: "t2", name: "調用旅費", label: "Deslocamento/Viagem (eventual)", amount: 0, taxable: false, active: false },
+    { id: "t3", name: "住宅手当①", label: "Moradia 1 (住宅手当)", amount: 15000, taxable: true, active: true },
+    { id: "t4", name: "住宅手当②", label: "Moradia 2 (住宅手当)", amount: 10000, taxable: true, active: true },
+    { id: "t5", name: "その他手当", label: "Outro benefício", amount: 0, taxable: true, active: false },
+  ],
+};
+
+function loadData(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveData(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+// ─────────────────────────────────────────────
+// COMPONENTES UI
+// ─────────────────────────────────────────────
+
+const YEN = (v) =>
+  new Intl.NumberFormat("ja-JP", { style: "currency", currency: "JPY" }).format(v);
+
+const DAY_TYPES = [
+  { value: "normal", label: "Normal" },
+  { value: "yukyu", label: "有給休暇 (Folga Remunerada)" },
+  { value: "saturday", label: "Sábado" },
+  { value: "sunday", label: "Domingo" },
+  { value: "holiday", label: "Feriado Legal" },
+  { value: "company_off", label: "Folga da Empresa" },
+  { value: "overtime_special", label: "Hora Extra Especial" },
+];
+
+// ─── Badge ───
+function Badge({ color, children }) {
+  const colors = {
+    red: "bg-red-900/40 text-red-300 border-red-800/50",
+    yellow: "bg-yellow-900/40 text-yellow-300 border-yellow-800/50",
+    blue: "bg-blue-900/40 text-blue-300 border-blue-800/50",
+    green: "bg-green-900/40 text-green-300 border-green-800/50",
+    gray: "bg-zinc-800 text-zinc-400 border-zinc-700",
+    purple: "bg-purple-900/40 text-purple-300 border-purple-800/50",
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${colors[color] || colors.gray}`}>
+      {children}
+    </span>
+  );
+}
+
+// ─── Input ───
+function Input({ label, ...props }) {
+  return (
+    <div className="flex flex-col gap-1">
+      {label && <label className="text-xs text-zinc-400 font-medium tracking-wide uppercase">{label}</label>}
+      <input
+        className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 transition-all placeholder:text-zinc-600"
+        {...props}
+      />
+    </div>
+  );
+}
+
+// ─── Select ───
+function Select({ label, options, ...props }) {
+  return (
+    <div className="flex flex-col gap-1">
+      {label && <label className="text-xs text-zinc-400 font-medium tracking-wide uppercase">{label}</label>}
+      <select
+        className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 transition-all"
+        {...props}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+// ─── Toggle ───
+function Toggle({ label, checked, onChange, note }) {
+  return (
+    <label className="flex items-center gap-3 cursor-pointer">
+      <div
+        onClick={() => onChange(!checked)}
+        className={`relative w-10 h-5 rounded-full transition-colors ${checked ? "bg-amber-500" : "bg-zinc-700"}`}
+      >
+        <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-5" : ""}`} />
+      </div>
+      <div>
+        <div className="text-sm text-zinc-200">{label}</div>
+        {note && <div className="text-xs text-zinc-500">{note}</div>}
+      </div>
+    </label>
+  );
+}
+
+// ─── Card ───
+function Card({ children, className = "", light = false }) {
+  return (
+    <div className={`rounded-xl p-3 border ${className}`}
+      style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+      {children}
+    </div>
+  );
+}
+
+// ─── SummaryCard ───
+function SummaryCard({ icon, label, value, sub, accent }) {
+  return (
+    <Card className="flex flex-col gap-0.5">
+      <div className="flex items-center gap-1.5 text-zinc-500 text-xs mb-0.5">
+        <span>{icon}</span>
+        <span className="uppercase tracking-widest font-medium">{label}</span>
+      </div>
+      <div className={`text-xl font-bold font-mono ${accent || "text-zinc-100"}`}>{value}</div>
+      {sub && <div className="text-xs text-zinc-500">{sub}</div>}
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────
+// MODAL: Formulário de entrada
+// ─────────────────────────────────────────────
+
+function EntryForm({ initial, settings, onSave, onClose, entries = [] }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [form, setForm] = useState(
+    initial || {
+      date: today,
+      start: "09:00",
+      end: "18:00",
+      breakMinutes: 0,
+      dayType: "normal",
+      note: "",
+    }
+  );
+
+  const calc = useMemo(() => {
+    try {
+      return calcDay(form, settings);
+    } catch {
+      return null;
+    }
+  }, [form, settings]);
+
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.75)" }}>
+      <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
+          <h2 className="text-base font-semibold text-zinc-100">
+            {initial ? "Editar Lançamento" : "Novo Lançamento"}
+          </h2>
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 transition-colors text-xl">×</button>
+        </div>
+
+        <div className="p-4 grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <Input label="Data" type="date" value={form.date} onChange={(e) => set("date", e.target.value)} />
+          </div>
+          {form.dayType !== "yukyu" && <Input label="Entrada" type="time" value={form.start} onChange={(e) => set("start", e.target.value)} />}
+          {form.dayType !== "yukyu" && <Input label="Saída" type="time" value={form.end} onChange={(e) => set("end", e.target.value)} />}
+          {/* Break */}
+          {form.dayType !== "yukyu" && <div className="col-span-2 flex flex-col gap-2">
+            <label className="text-xs text-zinc-400 font-medium tracking-wide uppercase">Intervalo / Break</label>
+            <div className="flex gap-2">
+              {[{l:"Sem intervalo",v:0},{l:"30min",v:30},{l:"45min",v:45},{l:"1h",v:60}].map((p) => (
+                <button key={p.v} onClick={() => set("breakMinutes", p.v)}
+                  className={"flex-1 py-1 rounded-lg text-xs font-medium border transition-all " + (form.breakMinutes === p.v ? "bg-amber-500 border-amber-500 text-black" : "border-zinc-700 text-zinc-400 hover:border-zinc-500")}>
+                  {p.l}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="number" min="0" max="480" value={form.breakMinutes}
+                onChange={(e) => set("breakMinutes", e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value,10)||0))}
+                className="w-24 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-amber-500 transition-all"
+              />
+              <span className="text-xs text-zinc-500">min {form.breakMinutes === 0 && <span className="text-amber-400 font-semibold">· sem intervalo ✓</span>}</span>
+            </div>
+          </div>}
+          <div className="col-span-2 flex flex-col gap-1.5">
+            <label className="text-xs text-zinc-400 font-medium tracking-wide uppercase">Tipo de Dia</label>
+            <div className="flex items-center gap-2">
+              <select
+                value={form.dayType}
+                onChange={(e) => set("dayType", e.target.value)}
+                className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 transition-all">
+                {DAY_TYPES.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+              </select>
+              <button
+                onClick={() => setForm(f => ({ ...f, dayType: "normal", start: "05:45", end: "17:00", breakMinutes: 60 }))}
+                className="shrink-0 px-2.5 py-2 rounded-lg text-xs font-bold border-2 transition-all"
+                style={{
+                  background: form.start === "05:45" && form.end === "17:00" ? "#f59e0b" : "transparent",
+                  borderColor: "#f59e0b",
+                  color: form.start === "05:45" && form.end === "17:00" ? "#000" : "#f59e0b"
+                }}>
+                ☀️ 昼勤
+              </button>
+              <button
+                onClick={() => setForm(f => ({ ...f, dayType: "normal", start: "17:00", end: "03:45", breakMinutes: 60 }))}
+                className="shrink-0 px-2.5 py-2 rounded-lg text-xs font-bold border-2 transition-all"
+                style={{
+                  background: form.start === "17:00" && form.end === "03:45" ? "#a855f7" : "transparent",
+                  borderColor: "#a855f7",
+                  color: form.start === "17:00" && form.end === "03:45" ? "#fff" : "#a855f7"
+                }}>
+                🌙 夜勤
+              </button>
+            </div>
+          </div>
+          <div className="col-span-2">
+            <Input label="Observação" value={form.note} onChange={(e) => set("note", e.target.value)} placeholder="opcional" />
+          </div>
+        </div>
+
+        {/* Conflict warning */}
+        {form.dayType !== "yukyu" && (() => {
+          const conflict = checkConflict(form, entries || [], initial?.id);
+          if (!conflict) return null;
+          return (
+            <div className="px-4 pb-2">
+              <div className="bg-red-900/30 border border-red-700/50 rounded-xl p-3 flex items-start gap-2">
+                <span className="text-red-400 text-base shrink-0">⚠️</span>
+                <div>
+                  <div className="text-xs font-semibold text-red-300">Conflito de horário detectado</div>
+                  <div className="text-xs text-red-400 mt-0.5">{conflict.message}</div>
+                  <div className="text-xs text-zinc-500 mt-1">Verifique os horários antes de salvar.</div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Preview yukyu */}
+        {form.dayType === "yukyu" && (
+          <div className="px-4 pb-3">
+            <div className="bg-green-900/20 border border-green-800/30 rounded-xl p-3 text-center">
+              <div className="text-lg mb-1">🌿</div>
+              <div className="text-sm font-semibold text-green-400">有給休暇</div>
+              <div className="text-xs text-zinc-500 mt-1">8h remuneradas · sem hora extra · sem noturno</div>
+              <div className="font-mono font-bold text-green-400 mt-2">{YEN(8 * settings.hourlyRate)}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Preview rápido */}
+        {form.dayType !== "yukyu" && calc && calc.totalHours > 0 && (
+          <div className="px-4 pb-3">
+            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 grid grid-cols-3 gap-3 text-center">
+              <div>
+                <div className="text-xs text-zinc-500 mb-1">Total</div>
+                <div className="text-sm font-mono font-bold text-zinc-200">{formatMinutes(calc.totalMin)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-zinc-500 mb-1">HE</div>
+                <div className="text-sm font-mono font-bold text-amber-400">{formatMinutes(calc.overtimeDailyMin)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-zinc-500 mb-1">Bruto</div>
+                <div className="text-sm font-mono font-bold text-green-400">{YEN(calc.grossPay)}</div>
+              </div>
+            </div>
+            {(calc.nightHours > 0 || calc.isHoliday) && (
+              <div className="flex gap-2 mt-2">
+                {calc.nightHours > 0 && <Badge color="purple">🌙 {formatMinutes(calc.nightMin)} noturno</Badge>}
+                {calc.isHoliday && <Badge color="red">📅 Feriado Legal</Badge>}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex gap-3 px-4 pb-4">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => onSave({ ...form, id: initial?.id || Date.now().toString() })}
+            className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm transition-colors"
+          >
+            Salvar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// MODAL: Detalhamento do Cálculo
+// ─────────────────────────────────────────────
+
+function CalcDetailModal({ entry, settings, onClose }) {
+  const calc = calcDay(entry, settings);
+
+  const rows = [
+    calc.breakdown?.isYukyu
+      ? { label: "有給休暇", value: "8h remuneradas", note: "folga remunerada — salário base × 8h, sem hora extra ou noturno" }
+      : { label: "Horas trabalhadas (líquido)", value: formatMinutes(calc.totalMin), note: `entrada ${entry.start} → saída ${entry.end}, break ${entry.breakMinutes}min` },
+    { label: "Horas normais", value: calc.breakdown.jpSaturdayIsAllOT ? "0h (sábado)" : formatMinutes(calc.normalMin), note: calc.breakdown.jpSaturdayIsAllOT ? "sábado JP: todas as horas são hora extra" : `até ${settings.mode === "japan" ? "8h" : settings.customRules?.dailyHours + "h"} diárias` },
+    { label: "Horas extras", value: formatMinutes(Math.round(calc.breakdown.overtimeNormal * 60 + calc.breakdown.overtimeHigh * 60)), note: calc.breakdown.jpSaturdayIsAllOT ? "6º dia → +25% em todas as horas (LSA Art.37)" : "acima do limite diário" },
+    { label: "Horas noturnas (22h–05h)", value: formatMinutes(calc.nightMin), note: "+25% adicional noturno" },
+    calc.isHoliday && { label: "Horas em feriado", value: formatMinutes(calc.totalMin), note: "+35% adicional feriado" },
+    { label: "—", value: "", note: "" },
+    { label: "Pagamento base", value: YEN(calc.normalPay), note: `${calc.normalHours}h × ¥${settings.hourlyRate}` },
+    { label: "Pagamento hora extra", value: YEN(calc.overtimePay), note: `+${(calc.breakdown.rates.overtimeRate * 100).toFixed(0)}%` },
+    { label: "Adicional noturno", value: YEN(calc.nightPay), note: `+${(calc.breakdown.rates.nightRate * 100).toFixed(0)}%` },
+    calc.holidayPay > 0 && { label: "Adicional feriado", value: YEN(calc.holidayPay), note: `+${(calc.breakdown.rates.holidayRate * 100).toFixed(0)}%` },
+    calc.satSunPay > 0 && { label: "Adicional sáb/dom", value: YEN(calc.satSunPay), note: "" },
+    { label: "—", value: "", note: "" },
+    { label: "BRUTO DO DIA", value: YEN(calc.grossPay), note: "", bold: true },
+  ].filter(Boolean);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.75)" }}>
+      <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
+          <h2 className="text-base font-semibold text-zinc-100">Detalhamento do Cálculo</h2>
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 transition-colors text-xl">×</button>
+        </div>
+        <div className="p-4 space-y-0.5 max-h-80 overflow-y-auto">
+          {rows.map((r, i) =>
+            r.label === "—" ? (
+              <div key={i} className="border-t border-zinc-800 my-2" />
+            ) : (
+              <div key={i} className={`flex justify-between items-start py-1.5 ${r.bold ? "text-amber-400 font-bold" : ""}`}>
+                <div>
+                  <div className={`text-sm ${r.bold ? "text-amber-400" : "text-zinc-300"}`}>{r.label}</div>
+                  {r.note && <div className="text-xs text-zinc-600">{r.note}</div>}
+                </div>
+                <div className={`font-mono text-sm ${r.bold ? "text-amber-400 text-base" : "text-zinc-200"}`}>{r.value}</div>
+              </div>
+            )
+          )}
+        </div>
+        <div className="px-4 pb-4">
+          <button onClick={onClose} className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm transition-colors">
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// COMPONENTE: Gestão de Teate (手当)
+// ─────────────────────────────────────────────
+
+function TeateSection({ teate = [], onChange }) {
+  function update(id, field, value) {
+    onChange(teate.map(t => t.id === id ? { ...t, [field]: value } : t));
+  }
+  function add() {
+    const newT = {
+      id: "t" + Date.now(),
+      name: "新手当",
+      label: "Novo benefício",
+      amount: 0,
+      taxable: true,
+      active: true,
+    };
+    onChange([...teate, newT]);
+  }
+  function remove(id) {
+    onChange(teate.filter(t => t.id !== id));
+  }
+
+  const totalActive = teate.filter(t => t.active).reduce((a, t) => a + (t.amount || 0), 0);
+  const totalNonTaxable = teate.filter(t => t.active && !t.taxable).reduce((a, t) => a + (t.amount || 0), 0);
+  const totalTaxable = teate.filter(t => t.active && t.taxable).reduce((a, t) => a + (t.amount || 0), 0);
+
+  return (
+    <div className="space-y-2">
+      {teate.map(t => (
+        <div key={t.id} className={`border rounded-xl p-3 space-y-2 transition-all ${t.active ? "border-zinc-700 bg-zinc-900/50" : "border-zinc-800 bg-zinc-900/20 opacity-50"}`}>
+          <div className="flex items-center gap-2">
+            <div
+              onClick={() => update(t.id, "active", !t.active)}
+              className={`w-8 h-4 rounded-full transition-colors cursor-pointer shrink-0 ${t.active ? "bg-amber-500" : "bg-zinc-700"}`}
+            >
+              <div className={`w-3 h-3 bg-white rounded-full m-0.5 transition-transform ${t.active ? "translate-x-4" : ""}`} />
+            </div>
+            <input
+              value={t.label}
+              onChange={e => update(t.id, "label", e.target.value)}
+              className="flex-1 bg-transparent text-sm font-medium text-zinc-200 focus:outline-none"
+              placeholder="Nome do benefício"
+            />
+            <button onClick={() => remove(t.id)} className="text-zinc-600 hover:text-red-400 text-xs transition-colors">✕</button>
+          </div>
+          <div className="flex gap-2 items-center">
+            <input
+              value={t.name}
+              onChange={e => update(t.id, "name", e.target.value)}
+              className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-xs text-zinc-400 focus:outline-none focus:border-amber-500 transition-all"
+              placeholder="Nome em japonês (opcional)"
+            />
+            <div className="relative flex items-center">
+              <span className="absolute left-2 text-xs text-zinc-500">¥</span>
+              <input
+                type="number"
+                min="0"
+                value={t.amount}
+                onChange={e => update(t.id, "amount", parseInt(e.target.value)||0)}
+                className="w-28 bg-zinc-800 border border-zinc-700 rounded-lg pl-5 pr-2 py-1.5 text-xs text-zinc-200 font-mono focus:outline-none focus:border-amber-500 transition-all"
+              />
+            </div>
+            <button
+              onClick={() => update(t.id, "taxable", !t.taxable)}
+              className={`text-xs px-2 py-1.5 rounded-lg border transition-all whitespace-nowrap ${t.taxable ? "border-orange-700/50 text-orange-400 bg-orange-900/20" : "border-blue-700/50 text-blue-400 bg-blue-900/20"}`}
+            >
+              {t.taxable ? "tributável" : "não trib."}
+            </button>
+          </div>
+        </div>
+      ))}
+
+      <button
+        onClick={add}
+        className="w-full py-2 rounded-xl border border-dashed border-zinc-700 text-xs text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 transition-all"
+      >
+        + Adicionar benefício
+      </button>
+
+      {teate.some(t => t.active) && (
+        <div className="bg-zinc-800/50 rounded-xl p-2.5 space-y-1">
+          <div className="flex justify-between text-xs">
+            <span className="text-zinc-500">Tributáveis</span>
+            <span className="font-mono text-orange-400">{YEN(totalTaxable)}</span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-zinc-500">Não tributáveis</span>
+            <span className="font-mono text-blue-400">{YEN(totalNonTaxable)}</span>
+          </div>
+          <div className="flex justify-between text-xs border-t border-zinc-700 pt-1.5">
+            <span className="text-zinc-300 font-medium">Total 手当</span>
+            <span className="font-mono font-bold text-amber-400">{YEN(totalActive)}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// TELA: SETTINGS
+// ─────────────────────────────────────────────
+
+function SettingsScreen({ settings, onSave, entries = [], auditHistory = [], onSaveAudit }) {
+  const [s, setS] = useState({ ...settings });
+  const set = (k, v) => setS((prev) => ({ ...prev, [k]: v }));
+  const [auditMonth, setAuditMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [auditBruto, setAuditBruto] = useState("");
+  const [auditLiquido, setAuditLiquido] = useState("");
+  const [auditSaved, setAuditSaved] = useState(false);
+
+  return (
+    <div className="space-y-3 pb-24 sm:pb-28">
+      <Card>
+        <h3 className="text-sm font-semibold text-amber-400 mb-2 uppercase tracking-widest">Trabalhador</h3>
+        <div className="grid grid-cols-1 gap-3">
+          <Input label="Nome" value={s.name} onChange={(e) => set("name", e.target.value)} placeholder="Seu nome" />
+          <Input label="Salário por hora (¥)" type="number" value={s.hourlyRate} onChange={(e) => set("hourlyRate", Number(e.target.value))} />
+          <Input label="Idade" type="number" value={s.age} onChange={(e) => set("age", Number(e.target.value))} />
+          <Input label="Prefeitura (para seguro saúde)" value={s.prefecture || ""} onChange={(e) => set("prefecture", e.target.value)} placeholder="Ex: Tokyo" />
+          <div className="col-span-1">
+            <Input label="Data de Contratação" type="date" value={s.hireDate || ""} onChange={(e) => set("hireDate", e.target.value)} />
+          </div>
+          {s.hireDate && (() => {
+            const ent = getYukyuEntitlement(s.hireDate);
+            if (!ent) return null;
+            const yrs = ent.yearsService;
+            const mos = ent.monthsRemainder;
+            return (
+              <div className="col-span-2 space-y-3">
+
+                {/* ── Tempo de empresa ── */}
+                <div className="bg-zinc-800/40 rounded-xl p-3">
+                  <div className="text-xs text-zinc-500 uppercase tracking-widest mb-1">Tempo de empresa</div>
+                  <div className="text-base font-semibold text-zinc-100">
+                    {yrs > 0 ? `${yrs} ano${yrs > 1 ? "s" : ""}` : ""}{yrs > 0 && mos > 0 ? " e " : ""}{mos > 0 ? `${mos} ${mos === 1 ? "mês" : "meses"}` : ""}
+                  </div>
+                  <div className="text-xs text-zinc-500 mt-0.5">desde {new Date(s.hireDate + "T12:00:00").toLocaleDateString("pt-BR", {day:"2-digit", month:"long", year:"numeric"})}</div>
+                </div>
+
+                {ent.eligible ? (
+                  <>
+                    {/* ── Lotes de 有給 ── */}
+                    <div className="space-y-2">
+                      <div className="text-xs text-zinc-500 uppercase tracking-widest">Lotes de 有給休暇</div>
+                      {ent.availableGrants.map((g, i) => {
+                        const daysLeft = Math.ceil((new Date(g.expiry) - new Date()) / 86400000);
+                        const urgency = daysLeft <= 90 ? "red" : daysLeft <= 180 ? "yellow" : "green";
+                        const colors = {
+                          red: { bar: "bg-red-500", text: "text-red-400", bg: "bg-red-900/20 border-red-800/40" },
+                          yellow: { bar: "bg-yellow-500", text: "text-yellow-400", bg: "bg-yellow-900/20 border-yellow-800/40" },
+                          green: { bar: "bg-green-500", text: "text-green-400", bg: "bg-green-900/20 border-green-800/40" },
+                        }[urgency];
+                        return (
+                          <div key={i} className={`border rounded-xl p-3 ${colors.bg}`}>
+                            <div className="flex justify-between items-start mb-2">
+                              <div>
+                                <div className="text-sm font-semibold text-zinc-200">{g.days} dias</div>
+                                <div className="text-xs text-zinc-500">concedidos em {new Date(g.date + "T12:00:00").toLocaleDateString("pt-BR", {month:"long", year:"numeric"})}</div>
+                              </div>
+                              <div className="text-right">
+                                <div className={`text-xs font-semibold ${colors.text}`}>
+                                  {daysLeft <= 0 ? "Vencido" : daysLeft <= 90 ? `⚠️ Vence em ${daysLeft} dias` : `Válido por ${Math.floor(daysLeft/30)} meses`}
+                                </div>
+                                <div className="text-xs text-zinc-600">{new Date(g.expiry + "T12:00:00").toLocaleDateString("pt-BR", {day:"2-digit", month:"short", year:"numeric"})}</div>
+                              </div>
+                            </div>
+                            <div className="w-full h-1.5 bg-zinc-700 rounded-full overflow-hidden">
+                              <div className={`h-1.5 rounded-full ${colors.bar}`} style={{width: `${Math.max(5, Math.min(100, (daysLeft / 730) * 100))}%`}} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* ── Saldo total ── */}
+                    <div className="flex items-center justify-between bg-zinc-800/40 rounded-xl px-3 py-2.5">
+                      <div>
+                        <div className="text-xs text-zinc-500">Saldo disponível</div>
+                        <div className="text-xs text-zinc-600">todos os lotes ativos</div>
+                      </div>
+                      <div className="text-2xl font-bold text-green-400">{ent.daysTotal} <span className="text-sm font-normal text-zinc-500">dias</span></div>
+                    </div>
+
+                    {/* ── Próxima concessão ── */}
+                    <div className="bg-amber-900/10 border border-amber-800/30 rounded-xl p-3">
+                      <div className="text-xs text-zinc-500 uppercase tracking-widest mb-1">Próxima concessão</div>
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <div className="text-sm font-semibold text-zinc-100">Você receberá <span className="text-amber-400">+{ent.nextGrantDays} dias</span></div>
+                          <div className="text-xs text-zinc-500 mt-0.5">em {new Date(ent.nextGrantDate + "T12:00:00").toLocaleDateString("pt-BR", {day:"2-digit", month:"long", year:"numeric"})}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-amber-400">{ent.daysToNext}</div>
+                          <div className="text-xs text-zinc-500">dias</div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="bg-zinc-800/40 rounded-xl p-3">
+                    <div className="text-sm text-zinc-300">Ainda não elegível para 有給</div>
+                    <div className="text-xs text-zinc-500 mt-1">Faltam <span className="text-amber-400 font-semibold">{ent.monthsToFirst} {ent.monthsToFirst === 1 ? "mês" : "meses"}</span> para receber os primeiros 10 dias</div>
+                    <div className="w-full h-1.5 bg-zinc-700 rounded-full overflow-hidden mt-2">
+                      <div className="h-1.5 bg-amber-500 rounded-full" style={{width: `${Math.round(((6 - ent.monthsToFirst) / 6) * 100)}%`}} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      </Card>
+
+      <Card>
+        <h3 className="text-sm font-semibold text-amber-400 mb-2 uppercase tracking-widest">Modo de Cálculo</h3>
+        <div className="flex gap-3">
+          {[{ value: "japan", label: "🇯🇵 Padrão Japão" }, { value: "custom", label: "⚙️ Personalizado" }].map((m) => (
+            <button
+              key={m.value}
+              onClick={() => set("mode", m.value)}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all border ${
+                s.mode === m.value
+                  ? "bg-amber-500 text-black border-amber-500"
+                  : "border-zinc-700 text-zinc-400 hover:border-zinc-500"
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+        {s.mode === "japan" && (
+          <div className="mt-3 p-3 bg-zinc-800/50 rounded-lg text-xs text-zinc-500 space-y-1">
+            <div>• Jornada: 8h/dia, 40h/semana</div>
+            <div>• Hora extra: +25% | Noturno (22h–05h): +25%</div>
+            <div>• Feriado legal: +35% | HE acima de 60h/mês: +50%</div>
+          </div>
+        )}
+      </Card>
+
+      {s.mode === "custom" && (
+        <Card>
+          <h3 className="text-sm font-semibold text-amber-400 mb-2 uppercase tracking-widest">Regras Personalizadas</h3>
+          <div className="grid grid-cols-2 gap-2">
+            <Input
+              label="Horas normais/dia"
+              type="number"
+              value={s.customRules?.dailyHours || 8}
+              onChange={(e) => set("customRules", { ...s.customRules, dailyHours: Number(e.target.value) })}
+            />
+            <Input
+              label="Horas normais/sem"
+              type="number"
+              value={s.customRules?.weeklyHours || 40}
+              onChange={(e) => set("customRules", { ...s.customRules, weeklyHours: Number(e.target.value) })}
+            />
+            <Input
+              label="Adicional HE (%)"
+              type="number"
+              value={((s.customRules?.overtimeRate || 0.25) * 100).toFixed(0)}
+              onChange={(e) => set("customRules", { ...s.customRules, overtimeRate: Number(e.target.value) / 100 })}
+            />
+            <Input
+              label="Adicional Noturno (%)"
+              type="number"
+              value={((s.customRules?.nightRate || 0.25) * 100).toFixed(0)}
+              onChange={(e) => set("customRules", { ...s.customRules, nightRate: Number(e.target.value) / 100 })}
+            />
+            <Input
+              label="Adicional Sábado (%)"
+              type="number"
+              value={((s.saturdayRate || 0) * 100).toFixed(0)}
+              onChange={(e) => set("saturdayRate", Number(e.target.value) / 100)}
+            />
+            <Input
+              label="Adicional Domingo (%)"
+              type="number"
+              value={((s.sundayRate || 0) * 100).toFixed(0)}
+              onChange={(e) => set("sundayRate", Number(e.target.value) / 100)}
+            />
+          </div>
+        </Card>
+      )}
+
+      <Card>
+        <h3 className="text-sm font-semibold text-amber-400 mb-2 uppercase tracking-widest">Descontos & Seguros</h3>
+        <div className="space-y-2">
+          <Toggle label="Kousei Nenkin (厚生年金)" note="aprox. 9.15%" checked={s.pension} onChange={(v) => set("pension", v)} />
+          <Toggle label="Seguro Saúde (健康保険)" note="aprox. 5%" checked={s.healthInsurance} onChange={(v) => set("healthInsurance", v)} />
+          <Toggle label="Seguro Desemprego (雇用保険)" note="aprox. 0.6%" checked={s.employmentInsurance} onChange={(v) => set("employmentInsurance", v)} />
+          <Toggle label="Imposto Municipal (住民税)" note="aprox. 10%/ano via holerite" checked={s.municipalTax} onChange={(v) => set("municipalTax", v)} />
+        </div>
+        {s.age >= 40 && (
+          <div className="mt-3 p-2 bg-zinc-800/50 rounded-lg text-xs text-zinc-500">
+            ℹ️ Kaigo Hoken (介護保険) aplicado automaticamente — você tem {s.age} anos
+          </div>
+        )}
+        <div className="mt-3 p-3 bg-blue-900/20 border border-blue-800/30 rounded-xl space-y-1.5">
+          <div className="text-xs font-semibold text-blue-400">🏥 Cooperativa de Saúde</div>
+          <div className="text-xs font-medium text-zinc-300">愛知県トラック事業健康保険組合</div>
+          <div className="text-xs text-zinc-500">Setor de Caminhões — Aichi-ken · Toyota-shi</div>
+          <div className="mt-1.5 space-y-1 text-xs">
+            <div className="flex justify-between"><span className="text-zinc-500">健康保険</span><span className="font-mono text-zinc-400">10.5% total · 5.25% emp.</span></div>
+            <div className="flex justify-between"><span className="text-zinc-500">介護保険 (40+)</span><span className="font-mono text-zinc-400">1.64% total · 0.82% emp.</span></div>
+            <div className="flex justify-between"><span className="text-zinc-500">厚生年金</span><span className="font-mono text-zinc-400">18.3% total · 9.15% emp.</span></div>
+            <div className="flex justify-between"><span className="text-zinc-500">雇用保険</span><span className="font-mono text-zinc-400">0.6% emp.</span></div>
+          </div>
+          <div className="text-xs text-zinc-600 mt-1">* Cálculo sobre 標準報酬月額 — taxas do holerite real</div>
+        </div>
+      </Card>
+
+      <Card>
+        <h3 className="text-sm font-semibold text-amber-400 mb-2 uppercase tracking-widest">Padrões de Jornada</h3>
+        <div className="grid grid-cols-2 gap-2">
+          <Input
+            label="Break padrão (min)"
+            type="number"
+            value={s.defaultBreak}
+            onChange={(e) => set("defaultBreak", Number(e.target.value))}
+          />
+        </div>
+      </Card>
+
+      <Card>
+        <h3 className="text-sm font-semibold text-amber-400 mb-1 uppercase tracking-widest">手当 — Benefícios Fixos</h3>
+        <p className="text-xs text-zinc-500 mb-4">Valores do seu holerite. Aparecem no resumo mensal separado do salário.</p>
+        <TeateSection
+          teate={s.teate || []}
+          onChange={(t) => set("teate", t)}
+        />
+      </Card>
+
+      {/* ── Auditoria de Acertividade ── */}
+      <Card>
+        <h3 className="text-sm font-semibold text-amber-400 mb-1 uppercase tracking-widest">🎯 Auditoria de Acertividade</h3>
+        <p className="text-xs mb-3" style={{color:"var(--text-muted)"}}>Compare o cálculo do app com seu holerite real e acompanhe a precisão mês a mês.</p>
+
+        <div className="space-y-2">
+          <input type="month" value={auditMonth} onChange={e => setAuditMonth(e.target.value)}
+            className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500 border transition-all"
+            style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
+
+          {(() => {
+            // Calculate what app predicted for this month
+            const mEntries = entries.filter(e => e.date.startsWith(auditMonth));
+            let accOT = 0;
+            const calcs = mEntries.map(e => { const c = calcDay(e, s, accOT); accOT += c.overtimeHours; return c; });
+            const appBruto = calcs.reduce((a,c) => a + c.grossPay, 0);
+            const totalTeate = (s.teate||[]).filter(t=>t.active).reduce((a,t)=>a+(t.amount||0),0);
+            const appBrutoTotal = appBruto + totalTeate;
+            const { netPay: appLiquido } = estimateDeductions(appBrutoTotal, s);
+
+            return (
+              <div className="bg-zinc-800/40 rounded-xl p-3 space-y-1.5">
+                <div className="text-xs font-semibold mb-2" style={{color:"var(--text-sub)"}}>App calculou para {auditMonth}:</div>
+                <div className="flex justify-between text-xs">
+                  <span style={{color:"var(--text-muted)"}}>Bruto estimado</span>
+                  <span className="font-mono text-green-400">{YEN(appBrutoTotal)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span style={{color:"var(--text-muted)"}}>Líquido estimado</span>
+                  <span className="font-mono text-amber-400">{YEN(appLiquido)}</span>
+                </div>
+                {mEntries.length === 0 && <div className="text-xs text-zinc-600">Sem lançamentos neste mês</div>}
+              </div>
+            );
+          })()}
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Bruto real (holerite)</label>
+              <input type="number" placeholder="¥0" value={auditBruto}
+                onChange={e => setAuditBruto(e.target.value)}
+                className="rounded-lg px-3 py-2 text-sm border focus:outline-none focus:border-amber-500 font-mono"
+                style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Líquido real (holerite)</label>
+              <input type="number" placeholder="¥0" value={auditLiquido}
+                onChange={e => setAuditLiquido(e.target.value)}
+                className="rounded-lg px-3 py-2 text-sm border focus:outline-none focus:border-amber-500 font-mono"
+                style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              if (!auditBruto && !auditLiquido) return;
+              const mEntries = entries.filter(e => e.date.startsWith(auditMonth));
+              let accOT = 0;
+              const calcs = mEntries.map(e => { const c = calcDay(e, s, accOT); accOT += c.overtimeHours; return c; });
+              const appBruto = calcs.reduce((a,c) => a + c.grossPay, 0);
+              const totalTeate = (s.teate||[]).filter(t=>t.active).reduce((a,t)=>a+(t.amount||0),0);
+              const appBrutoTotal = appBruto + totalTeate;
+              const { netPay: appLiquido } = estimateDeductions(appBrutoTotal, s);
+              const realBruto = parseInt(auditBruto) || 0;
+              const realLiquido = parseInt(auditLiquido) || 0;
+              const brutoAcc = realBruto > 0 ? Math.round((1 - Math.abs(appBrutoTotal - realBruto) / realBruto) * 100) : null;
+              const liquidoAcc = realLiquido > 0 ? Math.round((1 - Math.abs(appLiquido - realLiquido) / realLiquido) * 100) : null;
+              const entry = { month: auditMonth, appBruto: appBrutoTotal, appLiquido, realBruto, realLiquido, brutoAcc, liquidoAcc, savedAt: new Date().toISOString() };
+              const updated = [...auditHistory.filter(a => a.month !== auditMonth), entry].sort((a,b) => b.month.localeCompare(a.month));
+              onSaveAudit(updated);
+              setAuditBruto(""); setAuditLiquido(""); setAuditSaved(true);
+              setTimeout(() => setAuditSaved(false), 2500);
+            }}
+            className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm transition-colors"
+          >
+            {auditSaved ? "✓ Salvo!" : "Registrar Holerite Real"}
+          </button>
+        </div>
+
+        {/* Histórico de auditoria */}
+        {auditHistory.length > 0 && (
+          <div className="mt-4 space-y-2">
+            <div className="text-xs font-semibold uppercase tracking-widest" style={{color:"var(--text-muted)"}}>Histórico de Acertividade</div>
+            {(() => {
+              const avgBruto = Math.round(auditHistory.filter(a => a.brutoAcc !== null).reduce((s,a) => s + a.brutoAcc, 0) / auditHistory.filter(a => a.brutoAcc !== null).length);
+              const avgLiquido = Math.round(auditHistory.filter(a => a.liquidoAcc !== null).reduce((s,a) => s + a.liquidoAcc, 0) / auditHistory.filter(a => a.liquidoAcc !== null).length);
+              return (
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div className="bg-zinc-800/40 rounded-xl p-2.5 text-center">
+                    <div className="text-xs" style={{color:"var(--text-muted)"}}>Média Bruto</div>
+                    <div className={`text-xl font-bold ${avgBruto >= 95 ? "text-green-400" : avgBruto >= 85 ? "text-amber-400" : "text-red-400"}`}>{avgBruto}%</div>
+                  </div>
+                  <div className="bg-zinc-800/40 rounded-xl p-2.5 text-center">
+                    <div className="text-xs" style={{color:"var(--text-muted)"}}>Média Líquido</div>
+                    <div className={`text-xl font-bold ${avgLiquido >= 95 ? "text-green-400" : avgLiquido >= 85 ? "text-amber-400" : "text-red-400"}`}>{avgLiquido}%</div>
+                  </div>
+                </div>
+              );
+            })()}
+            {auditHistory.map((a, i) => (
+              <div key={a.month} className="rounded-xl p-3 border" style={{borderColor:"var(--border)", background:"var(--bg-card)"}}>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-semibold" style={{color:"var(--text)"}}>
+                    {new Date(a.month + "-01").toLocaleDateString("pt-BR", {month:"long", year:"numeric"})}
+                  </span>
+                  <div className="flex gap-2">
+                    {a.brutoAcc !== null && (
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${a.brutoAcc >= 95 ? "bg-green-900/40 text-green-400" : a.brutoAcc >= 85 ? "bg-amber-900/40 text-amber-400" : "bg-red-900/40 text-red-400"}`}>
+                        B: {a.brutoAcc}%
+                      </span>
+                    )}
+                    {a.liquidoAcc !== null && (
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${a.liquidoAcc >= 95 ? "bg-green-900/40 text-green-400" : a.liquidoAcc >= 85 ? "bg-amber-900/40 text-amber-400" : "bg-red-900/40 text-red-400"}`}>
+                        L: {a.liquidoAcc}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 text-xs" style={{color:"var(--text-muted)"}}>
+                  <div>App bruto: <span className="font-mono text-green-400">{YEN(a.appBruto)}</span></div>
+                  <div>Real: <span className="font-mono" style={{color:"var(--text)"}}>{YEN(a.realBruto)}</span></div>
+                  <div>App líquido: <span className="font-mono text-amber-400">{YEN(a.appLiquido)}</span></div>
+                  <div>Real: <span className="font-mono" style={{color:"var(--text)"}}>{YEN(a.realLiquido)}</span></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+
+      <button
+        onClick={() => onSave(s)}
+        className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm transition-colors"
+      >
+        Salvar Configurações
+      </button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// DETECÇÃO DE CONFLITO DE HORÁRIOS
+// ─────────────────────────────────────────────
+
+function getEntryMinutes(entry) {
+  // Returns [startMin, endMin] in absolute minutes, handling midnight crossing
+  const startMin = parseTime(entry.start);
+  let endMin = parseTime(entry.end);
+  if (endMin <= startMin) endMin += 1440; // cruzou meia-noite
+  return [startMin, endMin];
+}
+
+function checkConflict(newEntry, existingEntries, editingId = null) {
+  // Returns conflict object or null
+  if (newEntry.dayType === "yukyu") return null; // 有給 não tem horário
+
+  const [newStart, newEnd] = getEntryMinutes(newEntry);
+  const newDate = newEntry.date;
+
+  for (const existing of existingEntries) {
+    if (existing.id === editingId) continue; // pular o próprio ao editar
+    if (existing.dayType === "yukyu") continue;
+
+    // Verificar sobreposição considerando que o turno pode cruzar a meia-noite
+    // O turno existente pode estar no dia anterior e cruzar para newDate
+    const candidateDates = [existing.date];
+    // Se turno existente cruza meia-noite, também afeta o dia seguinte
+    const [exStart, exEnd] = getEntryMinutes(existing);
+    const existingCrossesM = parseTime(existing.end) <= parseTime(existing.start);
+
+    // Calcular dias relevantes
+    const newDateObj = new Date(newDate + "T12:00:00");
+    const existingDateObj = new Date(existing.date + "T12:00:00");
+    const diffDays = Math.round((newDateObj - existingDateObj) / 86400000);
+
+    let overlap = false;
+
+    if (diffDays === 0) {
+      // Mesmo dia: verificar sobreposição direta
+      // newStart..newEnd vs exStart..exEnd
+      overlap = newStart < exEnd && newEnd > exStart;
+    } else if (diffDays === 1 && existingCrossesM) {
+      // Turno existente começa dia anterior e cruza meia-noite
+      // Ajustar exEnd para base do dia seguinte (newDate)
+      const exEndAdjusted = exEnd - 1440; // horas após meia-noite = horas do dia atual
+      overlap = newStart < exEndAdjusted && newEnd > 0 && newStart < exEndAdjusted;
+      overlap = newStart < exEndAdjusted; // novo turno começa antes do anterior terminar
+    } else if (diffDays === -1) {
+      // Novo turno começa dia anterior e cruza meia-noite para o dia do existente
+      const newEndAdjusted = newEnd - 1440;
+      overlap = newEndAdjusted > exStart;
+    }
+
+    if (overlap) {
+      return {
+        existingEntry: existing,
+        message: `Conflito com turno de ${existing.date === newDate ? "mesmo dia" : existing.date} (${existing.start}–${existing.end})`,
+      };
+    }
+  }
+  return null;
+}
+
+// ─────────────────────────────────────────────
+// TELA: LANÇAMENTOS (lista)
+// ─────────────────────────────────────────────
+
+function EntriesScreen({ entries, settings, onAdd, onEdit, onDelete, onDuplicate }) {
+  const [showForm, setShowForm] = useState(false);
+  const [showYukyu, setShowYukyu] = useState(false);
+  const [editEntry, setEditEntry] = useState(null);
+  const [isDuplicate, setIsDuplicate] = useState(false);
+  const [detailEntry, setDetailEntry] = useState(null);
+  const [filterMonth, setFilterMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  const filtered = entries
+    .filter((e) => e.date.startsWith(filterMonth))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  return (
+    <div className="space-y-3 pb-24 sm:pb-28">
+      <div className="flex items-center gap-3">
+<MonthPicker value={filterMonth} onChange={setFilterMonth} />
+        <button
+          onClick={() => { setEditEntry(null); setShowForm(true); }}
+          className="ml-auto flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm rounded-xl transition-colors whitespace-nowrap"
+        >
+          + Lançar
+        </button>
+      </div>
+
+      {filtered.length === 0 && (
+        <Card className="text-center py-12">
+          <div className="text-4xl mb-3">📋</div>
+          <div className="text-zinc-400 text-sm">Nenhum lançamento neste mês</div>
+          <div className="text-zinc-600 text-xs mt-1">Clique em "+ Lançar" para começar</div>
+        </Card>
+      )}
+
+      {filtered.map((entry) => {
+        const calc = calcDay(entry, settings);
+        const dayLabel = DAY_TYPES.find((d) => d.value === entry.dayType)?.label || entry.dayType;
+        return (
+          <Card key={entry.id} className="space-y-2">
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="text-sm font-semibold text-zinc-100">
+                  {new Date(entry.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" })}
+                </div>
+                <div className="text-xs text-zinc-500 mt-0.5">
+                  {entry.dayType === "yukyu"
+                    ? "有給休暇 · 8h remuneradas"
+                    : `${entry.start} → ${entry.end} · break ${entry.breakMinutes}min`}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-base font-bold font-mono text-green-400">{YEN(calc.grossPay)}</div>
+                <div className="text-xs text-zinc-500">
+                  {calc.breakdown?.jpSaturdayIsAllOT
+                    ? `${formatMinutes(calc.totalMin)} · 100% HE`
+                    : `${formatMinutes(calc.totalMin)} trabalhadas`}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5">
+              {entry.dayType === "yukyu" && <Badge color="green">🌿 有給休暇</Badge>}
+              {entry.dayType === "holiday" && <Badge color="red">📅 Feriado Legal</Badge>}
+              {entry.dayType === "saturday" && <Badge color="yellow">土 Sábado</Badge>}
+              {entry.dayType !== "normal" && entry.dayType !== "yukyu" && entry.dayType !== "holiday" && entry.dayType !== "saturday" && (
+                <Badge color="blue">{dayLabel}</Badge>
+              )}
+              {calc.overtimeHours > 0 && (
+                <Badge color="yellow">
+                  HE {formatMinutes(calc.breakdown?.jpSaturdayIsAllOT ? calc.totalMin : calc.overtimeDailyMin)}
+                  {calc.breakdown?.jpSaturdayIsAllOT && <span className="ml-1 opacity-60 text-xs">100%</span>}
+                </Badge>
+              )}
+              {calc.nightHours > 0 && <Badge color="purple">🌙 {formatMinutes(calc.nightMin)}</Badge>}
+            </div>
+
+            {entry.note && <div className="text-xs text-zinc-600 italic">{entry.note}</div>}
+
+            <div className="flex gap-2 pt-1 border-t border-zinc-800">
+              <button
+                onClick={() => setDetailEntry(entry)}
+                className="text-xs text-zinc-500 hover:text-amber-400 transition-colors"
+              >
+                Ver cálculo
+              </button>
+              <button
+                onClick={() => { setEditEntry(entry); setIsDuplicate(false); setShowForm(true); }}
+                className="text-xs text-zinc-500 hover:text-blue-400 transition-colors ml-2"
+              >
+                Editar
+              </button>
+              <button
+                onClick={() => { setEditEntry({...entry, id: Date.now().toString()}); setIsDuplicate(true); setShowForm(true); }}
+                className="text-xs text-zinc-500 hover:text-green-400 transition-colors"
+              >
+                Duplicar
+              </button>
+              <button
+                onClick={() => setConfirmDelete(entry.id)}
+                className="text-xs text-zinc-500 hover:text-red-400 transition-colors ml-auto"
+              >
+                Excluir
+              </button>
+            </div>
+          </Card>
+        );
+      })}
+
+      {showForm && (
+        <EntryForm
+          initial={editEntry}
+          entries={entries}
+          settings={settings}
+          onSave={(entry) => {
+            const conflict = checkConflict(entry, entries, isDuplicate ? null : editEntry?.id);
+            if (conflict) {
+              alert("Conflito de horário: " + conflict.message);
+              return;
+            }
+            if (isDuplicate || !editEntry) {
+              onAdd(entry);
+            } else {
+              onEdit(entry);
+            }
+            setShowForm(false);
+            setEditEntry(null);
+            setIsDuplicate(false);
+          }}
+          onClose={() => { setShowForm(false); setEditEntry(null); setIsDuplicate(false); }}
+        />
+      )}
+      {detailEntry && (
+        <CalcDetailModal entry={detailEntry} settings={settings} onClose={() => setDetailEntry(null)} />
+      )}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{background:"rgba(0,0,0,0.8)"}}>
+          <div className="w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl p-6 text-center">
+            <div className="text-3xl mb-3">🗑️</div>
+            <div className="text-base font-semibold text-zinc-100 mb-1">Excluir lançamento?</div>
+            <div className="text-sm text-zinc-500 mb-6">Esta ação não pode ser desfeita.</div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDelete(null)}
+                className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => { onDelete(confirmDelete); setConfirmDelete(null); }}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold text-sm transition-colors"
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// TELA: RELATÓRIOS MENSAIS
+// ─────────────────────────────────────────────
+
+function ReportsScreen({ entries, settings }) {
+  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [showDetails, setShowDetails] = useState(false);
+
+  const monthEntries = entries.filter((e) => e.date.startsWith(month)).sort((a, b) => a.date.localeCompare(b.date));
+
+  let accOTHours = 0;
+  const calcs = monthEntries.map((entry) => {
+    const c = calcDay(entry, settings, accOTHours);
+    accOTHours += c.overtimeHours;
+    return c;
+  });
+
+  const totals = calcs.reduce(
+    (acc, c) => ({
+      totalHours: acc.totalHours + c.totalHours,
+      normalHours: acc.normalHours + c.normalHours,
+      overtimeHours: acc.overtimeHours + c.overtimeHours,
+      nightHours: acc.nightHours + c.nightHours,
+      grossPay: acc.grossPay + c.grossPay,
+    }),
+    { totalHours: 0, normalHours: 0, overtimeHours: 0, nightHours: 0, grossPay: 0 }
+  );
+
+  const teate = settings.teate || [];
+  const activeTeate = teate.filter(t => t.active && t.amount > 0);
+  const totalTeate = activeTeate.reduce((a, t) => a + t.amount, 0);
+  const totalNonTax = activeTeate.filter(t => !t.taxable).reduce((a, t) => a + t.amount, 0);
+  const grossWithTeate = totals.grossPay + totalTeate;
+  const deductionInfo = estimateDeductions(grossWithTeate, settings);
+  const netPay = deductionInfo.netPay;
+
+  const yukyuEntries = monthEntries.filter(e => e.dayType === "yukyu");
+
+  function exportCSV() {
+    const header = "Data,Entrada,Saída,Break,Horas Total,Horas Normais,HE,Horas Noturnas,Bruto\n";
+    const rows = monthEntries.map((e, i) => {
+      const c = calcs[i];
+      return `${e.date},${e.start},${e.end},${e.breakMinutes},${c.totalHours},${c.normalHours},${c.overtimeHours},${c.nightHours},${c.grossPay}`;
+    });
+    const csv = header + rows.join("\n");
+    const uri = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+    const a = document.createElement("a"); a.href = uri; a.download = `jornada-${month}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+
+  const monthLabel = new Date(month + "-01").toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+
+  // Weekly summary
+  const weekMap = {};
+  monthEntries.forEach((entry, i) => {
+    const d = new Date(entry.date + "T12:00:00");
+    const weekNum = Math.ceil(d.getDate() / 7);
+    if (!weekMap[weekNum]) weekMap[weekNum] = { entries: [], calcs: [] };
+    weekMap[weekNum].entries.push(entry);
+    weekMap[weekNum].calcs.push(calcs[i]);
+  });
+
+  if (monthEntries.length === 0) {
+    return (
+      <div className="space-y-3 pb-24 sm:pb-28">
+        <div className="flex items-center gap-3 pt-1">
+          <MonthPicker value={month} onChange={setMonth} />
+        </div>
+        <Card className="text-center py-12">
+          <div className="text-4xl mb-2">📊</div>
+          <div className="text-sm" style={{color:"var(--text-muted)"}}>Sem dados para {monthLabel}</div>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 pb-24 sm:pb-28">
+      {/* Month selector + CSV */}
+      <div className="flex items-center gap-3 pt-1">
+        <MonthPicker value={month} onChange={setMonth} />
+        <button onClick={exportCSV}
+          className="text-xs px-3 py-2 border rounded-lg transition-colors"
+          style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>↓ CSV</button>
+      </div>
+
+      {/* ── RESULTADO FINANCEIRO — destaque principal ── */}
+      <Card>
+        <div className="text-xs font-semibold text-amber-400 uppercase tracking-widest mb-3 capitalize">{monthLabel}</div>
+
+        {/* Linha principal: Bruto → Descontos → Líquido */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-center">
+            <div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>Bruto total</div>
+            <div className="text-lg font-bold font-mono text-green-400">{YEN(grossWithTeate)}</div>
+            {totalTeate > 0 && <div className="text-xs" style={{color:"var(--text-muted)"}}>incl. {YEN(totalTeate)} teate</div>}
+          </div>
+          <div className="text-xl" style={{color:"var(--text-muted)"}}>→</div>
+          <div className="text-center">
+            <div className="text-xs mb-1 text-red-400">Descontos</div>
+            <div className="text-lg font-bold font-mono text-red-400">−{YEN(deductionInfo.totalDeductions)}</div>
+            <div className="text-xs text-red-400">{(deductionInfo.totalRate * 100).toFixed(1)}%</div>
+          </div>
+          <div className="text-xl" style={{color:"var(--text-muted)"}}>→</div>
+          <div className="text-center">
+            <div className="text-xs mb-1 text-amber-400">💰 Líquido</div>
+            <div className="text-2xl font-bold font-mono text-amber-400">{YEN(netPay)}</div>
+            <div className="text-xs" style={{color:"var(--text-muted)"}}>{(100 - deductionInfo.totalRate * 100).toFixed(1)}% do bruto</div>
+          </div>
+        </div>
+
+        {/* Barra visual bruto → líquido */}
+        <div className="w-full h-3 bg-zinc-800 rounded-full overflow-hidden">
+          <div className="h-3 bg-amber-500 rounded-full transition-all"
+            style={{width:`${(netPay / grossWithTeate) * 100}%`}} />
+        </div>
+        <div className="flex justify-between text-xs mt-1" style={{color:"var(--text-muted)"}}>
+          <span>¥0</span>
+          <span>{YEN(netPay)} em mãos</span>
+          <span>{YEN(grossWithTeate)}</span>
+        </div>
+      </Card>
+
+      {/* ── HORAS — resumo compacto ── */}
+      <Card>
+        <div className="text-xs font-semibold text-amber-400 uppercase tracking-widest mb-2">Horas Trabalhadas</div>
+        <div className="grid grid-cols-4 gap-2 text-center">
+          <div>
+            <div className="text-xs mb-0.5" style={{color:"var(--text-muted)"}}>Total</div>
+            <div className="text-base font-bold font-mono" style={{color:"var(--text)"}}>{totals.totalHours.toFixed(1)}h</div>
+          </div>
+          <div>
+            <div className="text-xs mb-0.5" style={{color:"var(--text-muted)"}}>Normais</div>
+            <div className="text-base font-bold font-mono" style={{color:"var(--text)"}}>{totals.normalHours.toFixed(1)}h</div>
+          </div>
+          <div>
+            <div className="text-xs mb-0.5" style={{color:"var(--text-muted)"}}>Extras</div>
+            <div className={`text-base font-bold font-mono ${totals.overtimeHours > 60 ? "text-red-400" : "text-amber-400"}`}>{totals.overtimeHours.toFixed(1)}h</div>
+          </div>
+          <div>
+            <div className="text-xs mb-0.5" style={{color:"var(--text-muted)"}}>Noturnas</div>
+            <div className="text-base font-bold font-mono text-purple-400">{totals.nightHours.toFixed(1)}h</div>
+          </div>
+        </div>
+        {totals.overtimeHours > 60 && (
+          <div className="mt-2 text-xs text-red-400 text-center">⚠️ {totals.overtimeHours.toFixed(1)}h extras — acima de 60h, adicional +50% aplicado</div>
+        )}
+        {yukyuEntries.length > 0 && (
+          <div className="mt-2 text-xs text-green-400 text-center">🌿 {yukyuEntries.length} dia(s) de 有給休暇 neste mês</div>
+        )}
+      </Card>
+
+      {/* ── DESCONTOS — expandível ── */}
+      <Card>
+        <button className="w-full flex items-center justify-between"
+          onClick={() => setShowDetails(!showDetails)}>
+          <div className="text-xs font-semibold text-amber-400 uppercase tracking-widest">Detalhamento de Descontos</div>
+          <span className="text-zinc-500 text-sm">{showDetails ? "▲" : "▼"}</span>
+        </button>
+        {showDetails && (
+          <div className="mt-3 space-y-1">
+            <div className="flex justify-between py-1.5 border-b" style={{borderColor:"var(--border)"}}>
+              <span className="text-sm font-semibold" style={{color:"var(--text)"}}>Bruto (salário)</span>
+              <span className="font-mono text-green-400">{YEN(totals.grossPay)}</span>
+            </div>
+            {totalTeate > 0 && (
+              <div className="flex justify-between py-1.5 border-b" style={{borderColor:"var(--border)"}}>
+                <span className="text-xs" style={{color:"var(--text-muted)"}}>+ Benefícios (手当)</span>
+                <span className="font-mono text-xs text-green-400">+{YEN(totalTeate)}</span>
+              </div>
+            )}
+            {deductionInfo.deductions.map((d, i) => (
+              <div key={i} className="flex justify-between items-center py-1.5 border-b last:border-0" style={{borderColor:"var(--border)"}}>
+                <div>
+                  <div className="text-xs" style={{color:"var(--text)"}}>{d.name}</div>
+                  <div className="text-xs" style={{color:"var(--text-muted)"}}>{(d.rate * 100).toFixed(2)}%</div>
+                </div>
+                <span className="font-mono text-xs text-red-400">−{YEN(d.amount)}</span>
+              </div>
+            ))}
+            <div className="flex justify-between items-center py-2 mt-1 border-t-2" style={{borderColor:"var(--border)"}}>
+              <span className="text-sm font-bold" style={{color:"var(--text)"}}>💰 Líquido estimado</span>
+              <span className="font-mono font-bold text-lg text-amber-400">{YEN(netPay)}</span>
+            </div>
+            <div className="p-2 rounded-lg text-xs" style={{background:"var(--bg-card)", color:"var(--text-muted)"}}>
+              📋 Taxas baseadas no holerite real — Aichi-ken, Toyota-shi · Imposto de renda estimado
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* ── DETALHE DIÁRIO ── */}
+      <Card className="overflow-hidden">
+        <div className="text-xs font-semibold text-amber-400 uppercase tracking-widest mb-2">Detalhe Diário</div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b" style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>
+                <th className="text-left py-1.5 pr-2">Data</th>
+                <th className="text-right py-1.5 pr-2">Horas</th>
+                <th className="text-right py-1.5 pr-2">HE</th>
+                <th className="text-right py-1.5 pr-2">🌙</th>
+                <th className="text-right py-1.5">Bruto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {monthEntries.map((e, i) => {
+                const c = calcs[i];
+                return (
+                  <tr key={e.id} className="border-b last:border-0" style={{borderColor:"var(--border)"}}>
+                    <td className="py-1.5 pr-2" style={{color:"var(--text)"}}>
+                      {new Date(e.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                      {e.dayType === "yukyu" && <span className="ml-1 text-green-400">🌿</span>}
+                    </td>
+                    <td className="text-right py-1.5 pr-2 font-mono" style={{color:"var(--text-muted)"}}>{c.totalHours.toFixed(1)}h</td>
+                    <td className="text-right py-1.5 pr-2 font-mono text-amber-400">{c.overtimeHours > 0 ? c.overtimeHours.toFixed(1) + "h" : "—"}</td>
+                    <td className="text-right py-1.5 pr-2 font-mono text-purple-400">{c.nightHours > 0 ? c.nightHours.toFixed(1) + "h" : "—"}</td>
+                    <td className="text-right py-1.5 font-mono font-bold text-green-400">{YEN(c.grossPay)}</td>
+                  </tr>
+                );
+              })}
+              <tr className="border-t-2" style={{borderColor:"var(--border)"}}>
+                <td className="py-1.5 pr-2 font-bold" style={{color:"var(--text)"}}>Total</td>
+                <td className="text-right py-1.5 pr-2 font-mono font-bold" style={{color:"var(--text)"}}>{totals.totalHours.toFixed(1)}h</td>
+                <td className="text-right py-1.5 pr-2 font-mono font-bold text-amber-400">{totals.overtimeHours.toFixed(1)}h</td>
+                <td className="text-right py-1.5 pr-2 font-mono font-bold text-purple-400">{totals.nightHours.toFixed(1)}h</td>
+                <td className="text-right py-1.5 font-mono font-bold text-green-400">{YEN(totals.grossPay)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+
+function YukyuModal({ entries, settings, onAddEntry, onClose }) {
+  const [showForm, setShowForm] = useState(false);
+  const [showYukyu, setShowYukyu] = useState(false);
+  const yukyuEntries = entries.filter(e => e.dayType === "yukyu").sort((a,b) => b.date.localeCompare(a.date));
+  const entitlement = getYukyuEntitlement(settings.hireDate);
+  const usedDays = yukyuEntries.length;
+  const availableDays = entitlement?.daysTotal || 0;
+  const remainingDays = Math.max(0, availableDays - usedDays);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{background:"rgba(0,0,0,0.8)"}}>
+      <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🌿</span>
+            <h2 className="text-sm font-semibold text-zinc-100">有給休暇 — Folgas Remuneradas</h2>
+          </div>
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 text-xl">×</button>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-2 p-4 shrink-0">
+          <div className="bg-green-900/20 border border-green-800/30 rounded-xl p-2.5 text-center">
+            <div className="text-xs text-green-500 mb-1">Disponíveis</div>
+            <div className="text-2xl font-bold text-green-400">{remainingDays}</div>
+            <div className="text-xs text-zinc-500 mt-0.5">dias restantes</div>
+          </div>
+          <div className="bg-amber-900/20 border border-amber-800/30 rounded-xl p-2.5 text-center">
+            <div className="text-xs text-amber-500 mb-1">Utilizados</div>
+            <div className="text-2xl font-bold text-amber-400">{usedDays}</div>
+            <div className="text-xs text-zinc-500 mt-0.5">dias tirados</div>
+          </div>
+          <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-2.5 text-center">
+            <div className="text-xs text-zinc-400 mb-1">Total direito</div>
+            <div className="text-2xl font-bold text-zinc-200">{availableDays}</div>
+            <div className="text-xs text-zinc-500 mt-0.5">dias totais</div>
+          </div>
+        </div>
+
+        {/* Lotes ativos com validade */}
+        {entitlement?.eligible && entitlement.availableGrants.length > 0 && (
+          <div className="mx-4 mb-3 space-y-2 shrink-0">
+            {entitlement.availableGrants.map((g, i) => {
+              const daysLeft = Math.ceil((new Date(g.expiry) - new Date()) / 86400000);
+              const urgency = daysLeft <= 90 ? "red" : daysLeft <= 180 ? "yellow" : "green";
+              const colors = {
+                red: { bar:"bg-red-500", text:"text-red-400", bg:"bg-red-900/20 border-red-800/40" },
+                yellow: { bar:"bg-yellow-500", text:"text-yellow-400", bg:"bg-yellow-900/20 border-yellow-800/40" },
+                green: { bar:"bg-green-500", text:"text-green-400", bg:"bg-green-900/20 border-green-800/40" },
+              }[urgency];
+              return (
+                <div key={i} className={`border rounded-xl p-3 ${colors.bg}`}>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <div>
+                      <span className="text-sm font-bold text-zinc-100">{g.days} dias</span>
+                      <span className="text-xs text-zinc-500 ml-2">desde {new Date(g.date+"T12:00:00").toLocaleDateString("pt-BR",{month:"short",year:"numeric"})}</span>
+                    </div>
+                    <div className={`text-xs font-semibold ${colors.text}`}>
+                      {daysLeft <= 90 ? `⚠️ Vence em ${daysLeft} dias` : `Válido por ${Math.floor(daysLeft/30)} meses`}
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-xs text-zinc-600 mb-1">
+                    <span>Validade</span>
+                    <span>{new Date(g.expiry+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})}</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-zinc-700/60 rounded-full overflow-hidden">
+                    <div className={`h-1.5 rounded-full ${colors.bar}`} style={{width:`${Math.max(5,Math.min(100,(daysLeft/730)*100))}%`}} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Próxima concessão */}
+        {entitlement?.eligible && (
+          <div className="mx-4 mb-3 bg-amber-900/10 border border-amber-800/30 rounded-xl px-3 py-2.5 shrink-0">
+            <div className="text-xs text-zinc-500 uppercase tracking-widest mb-1">Próxima concessão</div>
+            <div className="flex justify-between items-center">
+              <div>
+                <div className="text-sm font-semibold text-zinc-100">Você receberá <span className="text-amber-400">+{entitlement.nextGrantDays} dias</span></div>
+                <div className="text-xs text-zinc-500 mt-0.5">em {new Date(entitlement.nextGrantDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-xl font-bold text-amber-400">{entitlement.daysToNext}</div>
+                <div className="text-xs text-zinc-500">dias</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Lista de utilizados */}
+        <div className="flex-1 overflow-y-auto px-4 pb-2">
+          {yukyuEntries.length === 0 ? (
+            <div className="text-center py-8 text-zinc-600 text-sm">Nenhuma 有給 utilizada ainda</div>
+          ) : (
+            <div className="space-y-2">
+              <div className="text-xs text-zinc-500 uppercase tracking-widest mb-2">Histórico de uso</div>
+              {yukyuEntries.map((e, i) => (
+                <div key={e.id} className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-500 text-sm">🌿</span>
+                    <div>
+                      <div className="text-sm text-zinc-200 font-medium">
+                        {new Date(e.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday:"short", day:"2-digit", month:"short", year:"numeric" })}
+                      </div>
+                      {e.note && <div className="text-xs text-zinc-600 italic">{e.note}</div>}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs font-bold text-green-400">{YEN(8 * settings.hourlyRate)}</div>
+                    <div className="text-xs text-zinc-600">8h base</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Botão lançar */}
+        <div className="p-4 border-t border-zinc-800 shrink-0">
+          {!settings.hireDate && (
+            <div className="text-xs text-zinc-500 text-center mb-2">Configure a data de contratação em ⚙️ Config para ver seu saldo correto</div>
+          )}
+          <button
+            onClick={() => setShowForm(true)}
+            disabled={settings.hireDate && remainingDays <= 0}
+            className="w-full py-2.5 rounded-xl bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm transition-colors"
+          >
+            🌿 Lançar 有給休暇
+          </button>
+        </div>
+      </div>
+
+      {showForm && (
+        <EntryForm
+          initial={{ date: new Date().toISOString().slice(0,10), start:"09:00", end:"18:00", breakMinutes:0, dayType:"yukyu", note:"" }}
+          settings={settings}
+          onSave={(entry) => { onAddEntry(entry); setShowForm(false); }}
+          onClose={() => setShowForm(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// TELA: DASHBOARD
+// ─────────────────────────────────────────────
+
+function DashboardScreen({ entries, settings, onAddEntry }) {
+  const [showForm, setShowForm] = useState(false);
+  const [showYukyu, setShowYukyu] = useState(false);
+  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+
+  const thisMonth = month;
+  const monthEntries = entries.filter((e) => e.date.startsWith(thisMonth));
+
+  let accOT = 0;
+  const calcs = monthEntries.map((e) => {
+    const c = calcDay(e, settings, accOT);
+    accOT += c.overtimeHours;
+    return c;
+  });
+
+  const totals = calcs.reduce(
+    (a, c) => ({
+      totalHours: a.totalHours + c.totalHours,
+      overtimeHours: a.overtimeHours + c.overtimeHours,
+      nightHours: a.nightHours + c.nightHours,
+      grossPay: a.grossPay + c.grossPay,
+    }),
+    { totalHours: 0, overtimeHours: 0, nightHours: 0, grossPay: 0 }
+  );
+
+  const deductionInfo = estimateDeductions(totals.grossPay, settings);
+
+  // Última entrada
+  const lastEntry = [...entries].sort((a, b) => b.date.localeCompare(a.date))[0];
+  const lastCalc = lastEntry ? calcDay(lastEntry, settings) : null;
+
+  // Dias trabalhados este mês
+  const diasMes = monthEntries.length;
+
+  const monthLabel = new Date(thisMonth + "-01").toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+
+  return (
+    <div className="space-y-3 pb-24 sm:pb-28">
+      {/* Header boas-vindas */}
+      <div className="pt-2 flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs text-zinc-500 uppercase tracking-widest">日本給与管理</div>
+          <h2 className="text-2xl font-bold text-zinc-100 mt-1">
+            {settings.name ? `Olá, ${settings.name.split(" ")[0]}` : "Japan Salary Tracker"}
+          </h2>
+        </div>
+        <div className="mt-1 shrink-0">
+          <MonthPicker value={month} onChange={setMonth} />
+        </div>
+      </div>
+
+      {/* Cards de resumo */}
+      <div className="grid grid-cols-2 gap-2">
+        {(() => {
+          const totalTeate = (settings.teate || []).filter(t => t.active).reduce((a, t) => a + (t.amount||0), 0);
+          return (
+            <>
+              <SummaryCard icon="💴" label="Bruto Mês" value={YEN(totals.grossPay + totalTeate)} sub={totalTeate > 0 ? `inclui ${YEN(totalTeate)} teate` : "estimativa"} accent="text-green-400" />
+              <SummaryCard icon="💰" label="Líquido Mês" value={YEN(deductionInfo.netPay + totalTeate)} sub="após descontos" accent="text-amber-400" />
+            </>
+          );
+        })()}
+        <SummaryCard icon="⏱️" label="Horas Totais" value={`${totals.totalHours.toFixed(1)}h`} sub={`${diasMes} dias`} />
+        <SummaryCard icon="⚡" label="Horas Extras" value={`${totals.overtimeHours.toFixed(1)}h`}
+          sub={totals.overtimeHours > 60 ? "⚠️ acima de 60h" : "este mês"}
+          accent={totals.overtimeHours > 60 ? "text-red-400" : "text-amber-400"}
+        />
+      </div>
+
+      {/* Barra de progresso horas extras */}
+      {totals.overtimeHours > 0 && (
+        <Card>
+          <div className="flex justify-between text-xs mb-2">
+            <span className="text-zinc-400">Horas Extras (limite 60h/mês)</span>
+            <span className={`font-mono font-bold ${totals.overtimeHours > 60 ? "text-red-400" : "text-amber-400"}`}>
+              {totals.overtimeHours.toFixed(1)}h / 60h
+            </span>
+          </div>
+          <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+            <div
+              className={`h-2 rounded-full transition-all ${totals.overtimeHours > 60 ? "bg-red-500" : "bg-amber-500"}`}
+              style={{ width: `${Math.min(100, (totals.overtimeHours / 60) * 100)}%` }}
+            />
+          </div>
+        </Card>
+      )}
+
+      {/* 有給 Mini Cards */}
+      {(() => {
+        const entitlement = getYukyuEntitlement(settings.hireDate);
+        const usedDays = entries.filter(e => e.dayType === "yukyu").length;
+        const availableDays = entitlement?.daysTotal || 0;
+        const remainingDays = Math.max(0, availableDays - usedDays);
+        const hasAlert = entitlement?.expiringAlerts?.length > 0;
+        return (
+          <div className="flex gap-2">
+            {/* Card: disponíveis */}
+            <div className="flex-1 bg-zinc-900/80 border border-zinc-800 rounded-xl p-2.5">
+              <div className="flex items-center gap-1.5 text-zinc-500 text-xs mb-1">
+                <span>🌿</span>
+                <span className="uppercase tracking-widest font-medium text-xs">有給 disponível</span>
+              </div>
+              <div className="text-xl font-bold text-green-400">{remainingDays} <span className="text-sm font-normal text-zinc-500">dias</span></div>
+              <div className="text-xs text-zinc-600 mt-0.5">Folga Remunerada (Yuukyuu)</div>
+              {hasAlert && <div className="text-xs text-red-400 mt-0.5">⚠️ vencendo em breve</div>}
+              {!settings.hireDate && <div className="text-xs text-zinc-600 mt-0.5">configure contratação</div>}
+            </div>
+            {/* Card: utilizados — clicável */}
+            <button
+              onClick={() => setShowYukyu(true)}
+              className="flex-1 bg-zinc-900/80 border border-zinc-800 rounded-xl p-2.5 text-left hover:border-green-800/60 transition-all"
+            >
+              <div className="flex items-center gap-1.5 text-zinc-500 text-xs mb-1">
+                <span>📋</span>
+                <span className="uppercase tracking-widest font-medium text-xs">有給 usadas</span>
+              </div>
+              <div className="text-xl font-bold text-amber-400">{usedDays} <span className="text-sm font-normal text-zinc-500">dias</span></div>
+              <div className="text-xs text-zinc-600 mt-0.5">Folga Remunerada (Yuukyuu)</div>
+              <div className="text-xs text-zinc-600">toque para ver histórico</div>
+            </button>
+          </div>
+        );
+      })()}
+
+      {/* Último lançamento */}
+      {lastEntry && lastCalc && (
+        <Card>
+          <div className="flex justify-between items-start mb-2">
+            <div className="text-xs text-zinc-500 uppercase tracking-widest">Último Lançamento</div>
+            <Badge color="gray">{new Date(lastEntry.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</Badge>
+          </div>
+          <div className="flex justify-between items-center">
+            <div>
+              <div className="text-sm text-zinc-300">{lastEntry.start} → {lastEntry.end}</div>
+              <div className="text-xs text-zinc-600">break {lastEntry.breakMinutes}min · {formatMinutes(lastCalc.totalMin)} trabalhadas</div>
+            </div>
+            <div className="text-right">
+              <div className="font-mono font-bold text-green-400">{YEN(lastCalc.grossPay)}</div>
+              {lastCalc.overtimeHours > 0 && <div className="text-xs text-amber-400">HE: {formatMinutes(lastCalc.overtimeDailyMin)}</div>}
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Cenário de teste obrigatório */}
+      <Card className="border-amber-800/30">
+        <div className="text-xs text-amber-500 uppercase tracking-widest mb-2">🧪 Exemplo de Cálculo (22/02/2026)</div>
+        <ExampleCalc settings={settings} />
+      </Card>
+
+      {/* Botão rápido */}
+      <button
+        onClick={() => setShowForm(true)}
+        className="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm transition-colors"
+      >
+        + Lançar Dia de Trabalho
+      </button>
+
+      {showForm && (
+        <EntryForm
+          settings={settings}
+          entries={entries}
+          onSave={(entry) => { onAddEntry(entry); setShowForm(false); }}
+          onClose={() => setShowForm(false)}
+        />
+      )}
+      {showYukyu && (
+        <YukyuModal
+          entries={entries}
+          settings={settings}
+          onAddEntry={(entry) => { onAddEntry(entry); setShowYukyu(false); }}
+          onClose={() => setShowYukyu(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Componente: Exemplo de cálculo obrigatório
+// ─────────────────────────────────────────────
+
+function ExampleCalc({ settings }) {
+  const exampleEntry = { date: "2026-02-22", start: "17:00", end: "03:45", breakMinutes: 60, dayType: "normal", note: "Exemplo" };
+  const calc = calcDay(exampleEntry, settings);
+
+  return (
+    <div className="space-y-2 text-xs">
+      <div className="text-zinc-400">Entrada: 17:00 · Saída: 03:45 · Break: 1h</div>
+      <div className="grid grid-cols-2 gap-2 mt-2">
+        <div className="bg-zinc-800/50 rounded-lg p-2">
+          <div className="text-zinc-500">Total líquido</div>
+          <div className="font-mono font-bold text-zinc-200">{formatMinutes(calc.totalMin)}</div>
+        </div>
+        <div className="bg-zinc-800/50 rounded-lg p-2">
+          <div className="text-zinc-500">Horas extras</div>
+          <div className="font-mono font-bold text-amber-400">{formatMinutes(calc.overtimeDailyMin)}</div>
+        </div>
+        <div className="bg-zinc-800/50 rounded-lg p-2">
+          <div className="text-zinc-500">Horas noturnas</div>
+          <div className="font-mono font-bold text-purple-400">{formatMinutes(calc.nightMin)}</div>
+        </div>
+        <div className="bg-zinc-800/50 rounded-lg p-2">
+          <div className="text-zinc-500">Bruto (¥{settings.hourlyRate}/h)</div>
+          <div className="font-mono font-bold text-green-400">{YEN(calc.grossPay)}</div>
+        </div>
+      </div>
+      <div className="text-zinc-600 mt-1">
+        • 17:00–22:00: 5h normais · 22:00–03:45: {formatMinutes(calc.nightMin)} noturno
+        · HE = {formatMinutes(calc.overtimeDailyMin)} (acima de 8h)
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// BACKUP / RESTORE
+// ─────────────────────────────────────────────
+
+function exportBackup(entries, settings, gastos, carro, auditHistory) {
+  const data = {
+    version: 3,
+    exportedAt: new Date().toISOString(),
+    entries,
+    settings,
+    gastos: gastos || null,
+    carro: carro || null,
+    auditHistory: auditHistory || [],
+  };
+  const json = JSON.stringify(data, null, 2);
+  const date = new Date().toISOString().slice(0, 10);
+  // data: URI works inside iframes/artifacts unlike createObjectURL
+  const uri = "data:application/json;charset=utf-8," + encodeURIComponent(json);
+  const a = document.createElement("a");
+  a.href = uri;
+  a.download = `jst-backup-${date}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  return json; // return so we can show copy fallback if download fails
+}
+
+function parseBackup(jsonText) {
+  const data = JSON.parse(jsonText);
+  if (!data.entries || !Array.isArray(data.entries)) throw new Error("Arquivo inválido");
+  return data;
+}
+
+// ─── Modal de Backup ───
+function BackupModal({ entries, settings, gastos, carro, auditHistory, onRestore, onClose }) {
+  const [tab, setTab] = useState("export");
+  const [dragOver, setDragOver] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [error, setError] = useState(null);
+  const [driveStatus, setDriveStatus] = useState(null); // null | "saving" | "saved" | "loading" | "error"
+  const [driveMsg, setDriveMsg] = useState("");
+
+  function handleFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = parseBackup(e.target.result);
+        setPreview(data);
+        setError(null);
+      } catch {
+        setError("Arquivo inválido. Use um backup gerado por este app.");
+        setPreview(null);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    setDragOver(false);
+    handleFile(e.dataTransfer.files[0]);
+  }
+
+  const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
+
+  function confirmRestore() {
+    if (!preview) return;
+    setShowRestoreConfirm(true);
+  }
+
+  function doRestore() {
+    onRestore(preview);
+    onClose();
+  }
+
+  const lastBackupKey = "jst_last_backup";
+  const lastBackup = localStorage.getItem(lastBackupKey);
+  const daysSinceBackup = lastBackup
+    ? Math.floor((Date.now() - new Date(lastBackup)) / 86400000)
+    : null;
+
+  const [backupJson, setBackupJson] = useState(null);
+
+  function doExport() {
+    const json = exportBackup(entries, settings, gastos, carro, auditHistory);
+    localStorage.setItem(lastBackupKey, new Date().toISOString());
+    setBackupJson(json);
+  }
+
+  async function saveToGoogleDrive() {
+    setDriveStatus("saving");
+    setDriveMsg("Conectando ao Google Drive...");
+    try {
+      const backupData = exportBackup(entries, settings, gastos, carro, auditHistory);
+      const filename = "japan-salary-backup-" + new Date().toISOString().slice(0,10) + ".json";
+
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          mcp_servers: [{ type: "url", url: "https://drive.mcp.claude.com/mcp", name: "gdrive" }],
+          messages: [{
+            role: "user",
+            content: `Save this JSON backup to Google Drive as a file named "${filename}" in the root folder. The file content is:
+
+${backupData}
+
+After saving, confirm with: SAVED_OK:[filename]`
+          }]
+        })
+      });
+
+      const data = await response.json();
+      const text = data.content?.map(b => b.text || "").join("") || "";
+
+      if (text.includes("SAVED_OK") || text.toLowerCase().includes("salvo") || text.toLowerCase().includes("saved") || text.toLowerCase().includes("criado") || text.toLowerCase().includes("created")) {
+        setDriveStatus("saved");
+        setDriveMsg("✅ Salvo no Google Drive: " + filename);
+        localStorage.setItem(lastBackupKey, new Date().toISOString());
+      } else {
+        setDriveStatus("error");
+        setDriveMsg("⚠️ Resposta inesperada. Verifique o Drive manualmente.");
+        console.log("Drive response:", text);
+      }
+    } catch (e) {
+      setDriveStatus("error");
+      setDriveMsg("❌ Erro: " + e.message);
+    }
+  }
+
+  async function loadFromGoogleDrive() {
+    setDriveStatus("loading");
+    setDriveMsg("Buscando backup no Google Drive...");
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 8000,
+          mcp_servers: [{ type: "url", url: "https://drive.mcp.claude.com/mcp", name: "gdrive" }],
+          messages: [{
+            role: "user",
+            content: "Find the most recent file named japan-salary-backup-*.json in Google Drive. Return ONLY the raw JSON content of that file, nothing else, no explanation."
+          }]
+        })
+      });
+
+      const data = await response.json();
+      const text = data.content?.map(b => b.text || "").join("") || "";
+
+      // Try to parse what was returned
+      const jsonStart = text.indexOf("{");
+      const jsonEnd = text.lastIndexOf("}");
+      if (jsonStart >= 0 && jsonEnd > jsonStart) {
+        const jsonStr = text.slice(jsonStart, jsonEnd + 1);
+        const parsed = parseBackup(jsonStr);
+        setPreview(parsed);
+        setDriveStatus("loaded");
+        setDriveMsg("✅ Backup encontrado! Vá na aba Importar para restaurar.");
+        setTab("import");
+      } else {
+        setDriveStatus("error");
+        setDriveMsg("❌ Nenhum backup encontrado no Drive.");
+      }
+    } catch (e) {
+      setDriveStatus("error");
+      setDriveMsg("❌ Erro ao carregar: " + e.message);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.8)" }}>
+      <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
+          <h2 className="text-base font-semibold text-zinc-100">💾 Backup & Restauração</h2>
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 text-xl">×</button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-zinc-800">
+          {[{ id: "export", label: "⬇ Exportar" }, { id: "import", label: "⬆ Importar" }].map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex-1 py-2.5 text-sm font-medium transition-colors ${tab === t.id ? "text-amber-400 border-b-2 border-amber-500" : "text-zinc-500"}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="p-5">
+          {tab === "export" && (
+            <div className="space-y-2">
+              <div className="bg-zinc-900 rounded-xl p-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-400">Lançamentos</span>
+                  <span className="font-mono font-bold text-zinc-200">{entries.length}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-400">Último backup</span>
+                  <span className={`font-mono text-sm ${daysSinceBackup === null ? "text-red-400" : daysSinceBackup > 7 ? "text-yellow-400" : "text-green-400"}`}>
+                    {daysSinceBackup === null ? "nunca feito ⚠️" : daysSinceBackup === 0 ? "hoje ✓" : `há ${daysSinceBackup} dias`}
+                  </span>
+                </div>
+              </div>
+
+              {daysSinceBackup === null && (
+                <div className="bg-red-900/20 border border-red-800/40 rounded-xl p-3 text-xs text-red-300">
+                  ⚠️ Você ainda não fez backup! Se o browser limpar os dados, você perde tudo. Faça agora.
+                </div>
+              )}
+              {daysSinceBackup !== null && daysSinceBackup > 7 && (
+                <div className="bg-yellow-900/20 border border-yellow-800/40 rounded-xl p-3 text-xs text-yellow-300">
+                  ⚠️ Seu último backup foi há {daysSinceBackup} dias. Recomendamos backup semanal.
+                </div>
+              )}
+
+              <div className="bg-zinc-900/50 rounded-xl p-3 text-xs text-zinc-500 space-y-1">
+                <div>• Gera um arquivo <code className="text-zinc-400">.json</code> com todos os lançamentos e configurações</div>
+                <div>• Salve no Google Drive, WhatsApp pra você mesmo, ou onde preferir</div>
+                <div>• Para restaurar depois: use a aba "Importar"</div>
+              </div>
+
+              <button
+                onClick={doExport}
+                className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm transition-colors"
+              >
+                ⬇ Baixar Backup Agora
+              </button>
+
+              {/* Google Drive Save/Load */}
+              <div className="border border-zinc-800 rounded-xl overflow-hidden">
+                <div className="flex items-center gap-2 px-3 py-2 bg-zinc-900/50">
+                  <span className="text-base">📁</span>
+                  <span className="text-xs font-semibold text-zinc-300">Google Drive</span>
+                  <span className="text-xs text-zinc-600 ml-auto">via Claude MCP</span>
+                </div>
+                <div className="flex gap-2 p-3">
+                  <button
+                    onClick={saveToGoogleDrive}
+                    disabled={driveStatus === "saving"}
+                    className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-colors bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white"
+                  >
+                    {driveStatus === "saving" ? "💾 Salvando..." : "💾 Salvar no Drive"}
+                  </button>
+                  <button
+                    onClick={loadFromGoogleDrive}
+                    disabled={driveStatus === "loading"}
+                    className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-colors bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-white"
+                  >
+                    {driveStatus === "loading" ? "📂 Carregando..." : "📂 Carregar Drive"}
+                  </button>
+                </div>
+                {driveMsg && (
+                  <div className={`px-3 pb-3 text-xs text-center font-medium ${driveStatus === "error" ? "text-red-400" : driveStatus === "saved" ? "text-green-400" : "text-blue-400"}`}>
+                    {driveMsg}
+                  </div>
+                )}
+              </div>
+
+              {backupJson && (
+                <div className="space-y-2">
+                  <div className="text-xs text-green-400 font-semibold">✓ Backup gerado! Se o download não abriu automaticamente, copie o texto abaixo e salve como .json:</div>
+                  <div className="relative">
+                    <textarea
+                      readOnly
+                      value={backupJson}
+                      rows={5}
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-300 font-mono resize-none focus:outline-none"
+                      onClick={(e) => e.target.select()}
+                    />
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(backupJson); }}
+                      className="absolute top-2 right-2 px-2 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs text-zinc-300 transition-colors"
+                    >
+                      Copiar
+                    </button>
+                  </div>
+                  <div className="text-xs text-zinc-500">Cole no bloco de notas, salve como <code className="text-zinc-400">backup.json</code> e guarde no Google Drive.</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === "import" && (
+            <div className="space-y-2">
+              {/* Drop zone */}
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${
+                  dragOver ? "border-amber-500 bg-amber-500/10" : "border-zinc-700 hover:border-zinc-600"
+                }`}
+                onClick={() => document.getElementById("backup-file-input").click()}
+              >
+                <div className="text-3xl mb-2">📂</div>
+                <div className="text-sm text-zinc-400">Arraste o arquivo aqui ou clique para escolher</div>
+                <div className="text-xs text-zinc-600 mt-1">Aceita: jst-backup-XXXX-XX-XX.json</div>
+                <input
+                  id="backup-file-input"
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={(e) => handleFile(e.target.files[0])}
+                />
+              </div>
+
+              {error && (
+                <div className="bg-red-900/20 border border-red-800/40 rounded-xl p-3 text-xs text-red-300">{error}</div>
+              )}
+
+              {preview && (
+                <div className="bg-zinc-900 rounded-xl p-4 space-y-2">
+                  <div className="text-xs text-green-400 font-semibold mb-2">✓ Arquivo válido — Preview do backup:</div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-zinc-400">Lançamentos</span>
+                    <span className="font-mono font-bold text-zinc-200">{preview.entries.length}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-zinc-400">Data do backup</span>
+                    <span className="font-mono text-zinc-300 text-xs">{new Date(preview.exportedAt).toLocaleString("pt-BR")}</span>
+                  </div>
+                  {preview.settings?.name && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-zinc-400">Trabalhador</span>
+                      <span className="text-zinc-300">{preview.settings.name}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-zinc-400">Dados atuais serão substituídos</span>
+                    <span className="text-red-400 font-mono">{entries.length} → {preview.entries.length}</span>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={confirmRestore}
+                disabled={!preview}
+                className="w-full py-3 rounded-xl font-bold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-blue-600 hover:bg-blue-500 text-white"
+              >
+                ⬆ Restaurar este Backup
+              </button>
+
+              {showRestoreConfirm && (
+                <div className="bg-red-900/20 border border-red-700/50 rounded-xl p-4 text-center space-y-3">
+                  <div className="text-sm font-semibold text-red-300">Tem certeza? Isso substitui todos os dados atuais ({entries.length} lançamentos).</div>
+                  <div className="flex gap-3">
+                    <button onClick={() => setShowRestoreConfirm(false)} className="flex-1 py-2 rounded-lg border border-zinc-700 text-xs text-zinc-400 hover:text-zinc-200">Cancelar</button>
+                    <button onClick={doRestore} className="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-xs">Sim, restaurar</button>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-zinc-900/50 rounded-xl p-3 text-xs text-zinc-500">
+                ⚠️ A restauração substitui todos os dados atuais. Faça um export antes se quiser preservar o que tem.
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// COMPONENTE: Seletor de mês com setas
+// ─────────────────────────────────────────────
+
+function MonthPicker({ value, onChange }) {
+  function shift(delta) {
+    const [y, m] = value.split("-").map(Number);
+    const d = new Date(y, m - 1 + delta, 1);
+    const ny = d.getFullYear();
+    const nm = String(d.getMonth() + 1).padStart(2, "0");
+    onChange(ny + "-" + nm);
+  }
+  const label = new Date(value + "-01").toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const labelFmt = label.charAt(0).toUpperCase() + label.slice(1);
+
+  return (
+    <div className="flex items-center gap-1">
+      <button onClick={() => shift(-1)}
+        className="w-8 h-8 flex items-center justify-center rounded-lg border transition-colors hover:border-amber-500 hover:text-amber-400"
+        style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>
+        ‹
+      </button>
+      <div className="flex-1 text-center px-2 py-1.5 rounded-lg border text-sm font-medium"
+        style={{borderColor:"var(--border)", color:"var(--text)", background:"var(--bg-card)", minWidth:"140px"}}>
+        {labelFmt}
+      </div>
+      <button onClick={() => shift(1)}
+        className="w-8 h-8 flex items-center justify-center rounded-lg border transition-colors hover:border-amber-500 hover:text-amber-400"
+        style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>
+        ›
+      </button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// TELA: CONTROLE DE GASTOS (💸)
+// ─────────────────────────────────────────────
+
+function GastosScreen({ gastos, onSave }) {
+  const today = new Date().toISOString().slice(0, 7);
+  const [month, setMonth] = useState(today);
+  const [editMode, setEditMode] = useState(false);
+  const [localGastos, setLocalGastos] = useState(gastos);
+  const [copied, setCopied] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [reportText, setReportText] = useState("");
+
+  // Sync when gastos prop changes
+  useEffect(() => setLocalGastos(gastos), [gastos]);
+
+  const overrides = localGastos.overrides?.[month] || {};
+
+  // Get effective value: override for this month or default
+  function getVal(item) {
+    return overrides[item.id] !== undefined ? overrides[item.id] : item.amount;
+  }
+
+  function setOverride(id, val) {
+    const newOverrides = {
+      ...localGastos.overrides,
+      [month]: { ...(localGastos.overrides?.[month] || {}), [id]: val },
+    };
+    const updated = { ...localGastos, overrides: newOverrides };
+    setLocalGastos(updated);
+    onSave(updated);
+  }
+
+  function toggleActive(type, id) {
+    const updated = {
+      ...localGastos,
+      [type]: localGastos[type].map(i => i.id === id ? { ...i, active: !i.active } : i),
+    };
+    setLocalGastos(updated);
+    onSave(updated);
+  }
+
+  function updateDefault(type, id, field, val) {
+    const updated = {
+      ...localGastos,
+      [type]: localGastos[type].map(i => i.id === id ? { ...i, [field]: val } : i),
+    };
+    setLocalGastos(updated);
+    onSave(updated);
+  }
+
+  function addItem(tipo) {
+    // Permanent: adds to all months
+    const newItem = { id: "d" + Date.now(), name: "Nova despesa", amount: 0, tipo, active: true };
+    const updated = { ...localGastos, despesas: [...localGastos.despesas, newItem] };
+    setLocalGastos(updated);
+    onSave(updated);
+    setTimeout(() => setEditingItem({ item: newItem, type: "despesas", tempVal: "0", tempName: "Nova despesa" }), 50);
+  }
+
+  function addItemThisMonth(tipo) {
+    // Temporary: only exists for current month
+    const newItem = { id: "m" + Date.now(), name: "Nova despesa", amount: 0, tipo };
+    const mi = { ...(localGastos.monthItems || {}) };
+    mi[month] = [...(mi[month] || []), newItem];
+    const updated = { ...localGastos, monthItems: mi };
+    setLocalGastos(updated);
+    onSave(updated);
+    setTimeout(() => setEditingItem({ item: newItem, type: "monthItems", tempVal: "0", tempName: "Nova despesa" }), 50);
+  }
+
+  function removeMonthItem(id) {
+    // Deletes item only from current month (for month-only items)
+    const mi = { ...(localGastos.monthItems || {}) };
+    mi[month] = (mi[month] || []).filter(i => i.id !== id);
+    const updated = { ...localGastos, monthItems: mi };
+    setLocalGastos(updated);
+    onSave(updated);
+  }
+
+  function addRendaThisMonth() {
+    const newItem = { id: "m" + Date.now(), name: "Nova renda", amount: 0 };
+    const mi = { ...(localGastos.monthItems || {}) };
+    mi[month] = [...(mi[month] || []), { ...newItem, tipo: "renda" }];
+    const updated = { ...localGastos, monthItems: mi };
+    setLocalGastos(updated);
+    onSave(updated);
+    setTimeout(() => setEditingItem({ item: newItem, type: "monthItems", tempVal: "0", tempName: "Nova renda" }), 50);
+  }
+
+
+  function addRenda() {
+    const newItem = { id: "r" + Date.now(), name: "Nova renda", amount: 0, active: true };
+    const updated = { ...localGastos, rendas: [...localGastos.rendas, newItem] };
+    setLocalGastos(updated);
+    onSave(updated);
+    setTimeout(() => setEditingItem({ item: newItem, type: "rendas", tempVal: "0", tempName: "Nova renda" }), 50);
+  }
+
+  function removeItem(type, id) {
+    // Permanently removes item from all months — use with caution
+    const updated = { ...localGastos, [type]: localGastos[type].filter(i => i.id !== id) };
+    setLocalGastos(updated);
+    onSave(updated);
+  }
+
+  function hideForMonth(id) {
+    // Hides item only for current month — does NOT affect other months
+    const monthHidden = { ...(localGastos.monthHidden || {}) };
+    const current = monthHidden[month] ? [...monthHidden[month]] : [];
+    if (!current.includes(id)) current.push(id);
+    monthHidden[month] = current;
+    const updated = { ...localGastos, monthHidden };
+    setLocalGastos(updated);
+    onSave(updated);
+  }
+
+  function showForMonth(id) {
+    // Restores item visibility for current month
+    const monthHidden = { ...(localGastos.monthHidden || {}) };
+    const current = (monthHidden[month] || []).filter(x => x !== id);
+    monthHidden[month] = current;
+    const updated = { ...localGastos, monthHidden };
+    setLocalGastos(updated);
+    onSave(updated);
+  }
+
+  const hiddenThisMonth = (localGastos.monthHidden || {})[month] || [];
+  const monthItemsList = ((localGastos.monthItems || {})[month] || []);
+  const miDebito = monthItemsList.filter(i => i.tipo === "debito").reduce((a, i) => a + i.amount, 0);
+  const miHagaki = monthItemsList.filter(i => i.tipo === "hagaki").reduce((a, i) => a + i.amount, 0);
+  const miRenda  = monthItemsList.filter(i => i.tipo === "renda").reduce((a, i) => a + i.amount, 0);
+
+  function clearOverride(id) {
+    const monthOvr = { ...(localGastos.overrides?.[month] || {}) };
+    delete monthOvr[id];
+    const updated = { ...localGastos, overrides: { ...localGastos.overrides, [month]: monthOvr } };
+    setLocalGastos(updated);
+    onSave(updated);
+  }
+
+  // Calculations
+  const activeRendas = localGastos.rendas.filter(r => r.active && !hiddenThisMonth.includes(r.id));
+  const totalRenda = activeRendas.reduce((a, r) => a + getVal(r), 0) + miRenda;
+
+  const activeDebito = localGastos.despesas.filter(d => d.active && d.tipo === "debito");
+  const activeHagaki = localGastos.despesas.filter(d => d.active && d.tipo === "hagaki");
+  const totalDebito = activeDebito.filter(d => !hiddenThisMonth.includes(d.id)).reduce((a, d) => a + getVal(d), 0) + miDebito;
+  const totalHagaki = activeHagaki.filter(d => !hiddenThisMonth.includes(d.id)).reduce((a, d) => a + getVal(d), 0) + miHagaki;
+  const totalDespesas = totalDebito + totalHagaki;
+  const saldo = totalRenda - totalDespesas;
+
+  // Modal de edição de valor
+  const [editingItem, setEditingItem] = useState(null); // { item, type, tempVal, tempName }
+
+  function openEdit(item, type) {
+    setEditingItem({ item, type, tempVal: String(getVal(item)), tempName: item.name });
+  }
+
+  function confirmEdit() {
+    if (!editingItem) return;
+    const { item, type, tempVal, tempName } = editingItem;
+    const v = parseInt(tempVal) || 0;
+
+    if (type === "monthItems") {
+      // Month-only item: update name and value in monthItems[month]
+      const mi = { ...(localGastos.monthItems || {}) };
+      mi[month] = (mi[month] || []).map(i => i.id === item.id ? { ...i, name: tempName, amount: v } : i);
+      const updated = { ...localGastos, monthItems: mi };
+      setLocalGastos(updated);
+      onSave(updated);
+      setEditingItem(null);
+      return;
+    }
+
+    // Permanent item: update name + default amount
+    const listKey = (type === "renda" || type === "rendas") ? "rendas" : "despesas";
+    const updatedList = localGastos[listKey].map(i =>
+      i.id === item.id ? { ...i, name: tempName, amount: v } : i
+    );
+    const monthOvr = { ...(localGastos.overrides?.[month] || {}) };
+    delete monthOvr[item.id];
+    const updated = {
+      ...localGastos,
+      [listKey]: updatedList,
+      overrides: { ...localGastos.overrides, [month]: monthOvr },
+    };
+    setLocalGastos(updated);
+    onSave(updated);
+    setEditingItem(null);
+  }
+
+  function DespesaRow({ item, type, tipoDesp }) {
+    const val = getVal(item);
+    const hasOverride = overrides[item.id] !== undefined;
+    // Toggle color per section type
+    const toggleActive_color = tipoDesp === "renda"
+      ? (item.active ? "bg-green-500" : "bg-zinc-700")
+      : tipoDesp === "hagaki"
+        ? (item.active ? "bg-blue-500" : "bg-zinc-700")
+        : (item.active ? "bg-amber-500" : "bg-zinc-700"); // debito = amber
+    return (
+      <div className={`flex items-center gap-2 py-2 border-b last:border-0 transition-opacity ${!item.active ? "opacity-40" : ""}`}
+        style={{ borderColor: "var(--border)" }}>
+        {/* Toggle */}
+        <div onClick={() => toggleActive(type, item.id)}
+          className={`w-7 h-3.5 rounded-full shrink-0 cursor-pointer transition-colors ${toggleActive_color}`}>
+          <div className={`w-2.5 h-2.5 bg-white rounded-full m-0.5 transition-transform ${item.active ? "translate-x-3.5" : ""}`} />
+        </div>
+        {/* Name */}
+        <span className="flex-1 text-xs" style={{ color: "var(--text)" }}>{item.name}</span>
+        {/* Override indicator */}
+        {hasOverride && (
+          <button onClick={() => clearOverride(item.id)} className="text-xs text-amber-500 shrink-0" title="Resetar">↺</button>
+        )}
+        {/* Value — tap to edit */}
+        <button
+          onClick={() => openEdit(item, type)}
+          className="flex items-center gap-1 px-2 py-1 rounded-lg shrink-0 transition-colors hover:bg-zinc-800/60 active:bg-zinc-700/60"
+        >
+          <span className="text-xs font-mono font-semibold" style={{ color: hasOverride ? "#f59e0b" : "var(--text)" }}>
+            {YEN(val)}
+          </span>
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>✏️</span>
+        </button>
+        {editMode && (
+          <button
+            onClick={() => hideForMonth(item.id)}
+            title="Ocultar neste mês (não apaga histórico)"
+            className="text-zinc-500 hover:text-orange-400 text-xs shrink-0 ml-1 transition-colors">
+            ✕
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  const [confirmReset, setConfirmReset] = useState(null); // { title, tipoDesp }
+  const [confirmDelete, setConfirmDelete] = useState(null); // { type, id, name }
+
+  function doReset(tipoDesp) {
+    // Zero overrides only for items of this specific tipo (debito or hagaki) in current month
+    const sectionItems = tipoDesp === "renda"
+      ? localGastos.rendas
+      : localGastos.despesas.filter(d => d.tipo === tipoDesp);
+    const monthOvr = { ...(localGastos.overrides?.[month] || {}) };
+    sectionItems.forEach(item => { monthOvr[item.id] = 0; });
+    const upd = { ...localGastos, overrides: { ...localGastos.overrides, [month]: monthOvr } };
+    setLocalGastos(upd);
+    onSave(upd);
+    setConfirmReset(null);
+  }
+
+  function Section({ title, icon, color, items, tipoDesp, total, onAdd, onAddMonth, badge }) {
+    const allSectionItems = tipoDesp === "renda"
+      ? localGastos.rendas
+      : localGastos.despesas.filter(d => d.tipo === tipoDesp);
+    const visibleItems = allSectionItems.filter(item => !hiddenThisMonth.includes(item.id));
+    const hiddenItems  = allSectionItems.filter(item =>  hiddenThisMonth.includes(item.id));
+    const hasValues = visibleItems.some(item => getVal(item) > 0);
+
+    return (
+      <Card>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5">
+            <span>{icon}</span>
+            <span className="text-xs font-semibold uppercase tracking-widest" style={{color}}>{title}</span>
+            {badge && <span className="text-xs px-1.5 py-0.5 rounded-full bg-zinc-800 text-zinc-400">{badge}</span>}
+          </div>
+          <div className="flex items-center gap-2">
+            {tipoDesp !== "renda" && hasValues && (
+              <button
+                onClick={() => setConfirmReset({ title, tipoDesp })}
+                title={"Zerar " + title + " em " + month}
+                className="w-6 h-6 flex items-center justify-center rounded-lg border border-zinc-700 hover:border-red-600 text-zinc-500 hover:text-red-400 transition-colors text-xs"
+              >
+                ↺
+              </button>
+            )}
+            <span className="text-sm font-bold font-mono" style={{color}}>{YEN(total)}</span>
+          </div>
+        </div>
+        {visibleItems.map(item => <DespesaRow key={item.id} item={item} type={tipoDesp === "renda" ? "rendas" : "despesas"} tipoDesp={tipoDesp} />)}
+        {/* Month-only items */}
+        {((localGastos.monthItems || {})[month] || []).filter(i => i.tipo === tipoDesp || (tipoDesp === "renda" && i.tipo === "renda")).map(item => (
+          <div key={item.id} className="flex items-center gap-2 py-2 border-b last:border-0" style={{borderColor:"var(--border)"}}>
+            <span className="text-xs px-1 py-0.5 rounded text-blue-400 border border-blue-800/50 shrink-0" style={{fontSize:"9px"}}>MÊS</span>
+            <span className="flex-1 text-xs" style={{color:"var(--text)"}}>{item.name}</span>
+            <button onClick={() => setEditingItem({ item, type: "monthItems", tempVal: String(item.amount), tempName: item.name })}
+              className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-mono font-semibold shrink-0"
+              style={{color:"var(--text)"}}>
+              {YEN(item.amount)} <span style={{color:"var(--text-muted)"}}>✏️</span>
+            </button>
+            {editMode && (
+              <button onClick={() => removeMonthItem(item.id)} className="text-red-400 text-xs shrink-0 ml-1" title="Remover deste mês">✕</button>
+            )}
+          </div>
+        ))}
+        {hiddenItems.length > 0 && (
+          <div className="mt-1 pt-1 border-t" style={{borderColor:"var(--border)"}}>
+            <div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>Ocultos neste mês:</div>
+            {hiddenItems.map(item => (
+              <div key={item.id} className="flex items-center gap-2 py-1.5 opacity-40">
+                <span className="flex-1 text-xs line-through" style={{color:"var(--text-muted)"}}>{item.name}</span>
+                <button onClick={() => showForMonth(item.id)}
+                  title="Mostrar neste mês"
+                  className="text-xs text-blue-400 hover:text-blue-300 shrink-0">👁</button>
+                {editMode && (
+                  <button
+                    onClick={() => setConfirmDelete({ type: tipoDesp === "renda" ? "rendas" : "despesas", id: item.id, name: item.name })}
+                    title="Apagar permanentemente"
+                    className="text-xs text-red-600 hover:text-red-400 shrink-0">🗑</button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        {editMode && (
+          <div className="flex gap-2 mt-2">
+            <button onClick={onAdd}
+              className="flex-1 py-1.5 rounded-lg border border-dashed text-xs transition-colors hover:border-amber-600 hover:text-amber-400"
+              style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>
+              + Fixo (todos os meses)
+            </button>
+            <button onClick={onAddMonth}
+              className="flex-1 py-1.5 rounded-lg border border-dashed text-xs transition-colors hover:border-blue-600 hover:text-blue-400"
+              style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>
+              + Só este mês
+            </button>
+          </div>
+        )}
+      </Card>
+    );
+  }
+
+    // Edit modal — rendered as function call to avoid IIFE JSX parse issues
+  function renderEditModal() {
+    if (!editingItem) return null;
+    const { item, type, tempVal, tempName } = editingItem;
+    const hasOvr = overrides[item.id] !== undefined;
+    return (
+      <div className={`fixed inset-0 z-50 flex flex-col justify-start pt-8 px-4`} style={{background:"rgba(0,0,0,0.82)"}}>
+        <div className="w-full max-w-lg mx-auto rounded-2xl overflow-hidden shadow-2xl border"
+          style={{background:"var(--bg-card)", borderColor:"var(--border)"}}>
+          <div className="flex items-center justify-between px-4 py-3 border-b" style={{borderColor:"var(--border)"}}>
+            <h3 className="text-sm font-semibold" style={{color:"var(--text)"}}>✏️ {tempName || "Editar"}</h3>
+            <button onClick={() => setEditingItem(null)} className="text-2xl leading-none" style={{color:"var(--text-muted)"}}>×</button>
+          </div>
+          <div className="p-4 space-y-3">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs uppercase tracking-wide font-medium" style={{color:"var(--text-muted)"}}>Nome</label>
+              <input
+                value={tempName}
+                onChange={e => setEditingItem(prev => ({...prev, tempName: e.target.value}))}
+                className="rounded-xl px-4 py-2.5 text-sm border focus:outline-none focus:border-amber-500 transition-all"
+                style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}}
+                placeholder="Nome da despesa"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs uppercase tracking-wide font-medium" style={{color:"var(--text-muted)"}}>Valor</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold" style={{color:"var(--text-muted)"}}>¥</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={tempVal}
+                  onChange={e => setEditingItem(prev => ({...prev, tempVal: e.target.value}))}
+                  className="w-full rounded-xl pl-10 pr-4 py-3 text-2xl font-bold font-mono text-right border focus:outline-none focus:border-amber-500 transition-all"
+                  style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {[0, 5000, 10000, 50000].map(v => (
+                <button key={v}
+                  onClick={() => setEditingItem(prev => ({...prev, tempVal: String(v)}))}
+                  className={`py-2 rounded-xl text-xs font-semibold border transition-all ${String(v) === tempVal ? "bg-amber-500 border-amber-500 text-black" : ""}`}
+                  style={String(v) !== tempVal ? {borderColor:"var(--border)", color:"var(--text-sub)", background:"var(--bg-card)"} : {}}>
+                  {v === 0 ? "Zero" : YEN(v)}
+                </button>
+              ))}
+            </div>
+            {hasOvr && (
+              <button onClick={() => { clearOverride(item.id); setEditingItem(null); }}
+                className="w-full py-2 rounded-xl border text-xs"
+                style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>
+                ↺ Restaurar padrão ({YEN(item.amount)})
+              </button>
+            )}
+          </div>
+          <div className="flex gap-3 px-4 pb-4">
+            <button onClick={() => setEditingItem(null)}
+              className="flex-1 py-3 rounded-xl border text-sm font-medium"
+              style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>
+              Cancelar
+            </button>
+            <button onClick={confirmEdit}
+              className="flex-1 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm">
+              Confirmar ✓
+            </button>
+          </div>
+        </div>
+        <div className="flex-1" onClick={() => setEditingItem(null)} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 pb-24 sm:pb-28">
+      {/* Header */}
+      <div className="flex items-center justify-between pt-1">
+        <div>
+          <div className="text-xs uppercase tracking-widest" style={{color:"var(--text-muted)"}}>Controle de Gastos</div>
+          <h2 className="text-lg font-bold" style={{color:"var(--text)"}}>Ganhos & Despesas</h2>
+        </div>
+        <div className="flex items-center gap-2">
+
+          <button onClick={() => setEditMode(!editMode)}
+            className={`text-xs px-2.5 py-1.5 rounded-lg border transition-all ${editMode ? "bg-amber-500 border-amber-500 text-black font-semibold" : "border-zinc-700 text-zinc-400"}`}>
+            {editMode ? "✓ Pronto" : "✏️ Editar"}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <MonthPicker value={month} onChange={setMonth} />
+        </div>
+
+        {/* Botão copiar relatório WhatsApp */}
+        <button
+          onClick={() => {
+            const monthLabel = new Date(month + "-01").toLocaleDateString("pt-BR", {month:"long", year:"numeric"});
+            const fmt = (v) => new Intl.NumberFormat("ja-JP", {style:"currency", currency:"JPY"}).format(v);
+
+            let ls = [];
+            ls.push("📊 *Resumo Financeiro*");
+            ls.push("🗓 " + monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1));
+            ls.push("");
+            ls.push("💴 *RENDA*");
+            localGastos.rendas.filter(r => r.active).forEach(r => {
+              ls.push(r.name + ": " + fmt(getVal(r)));
+            });
+            ls.push("*Total Renda: " + fmt(totalRenda) + "*");
+            ls.push("");
+            const debAtivos = localGastos.despesas.filter(d => d.active && d.tipo === "debito");
+            if (debAtivos.length > 0) {
+              ls.push("🏦 *DÉBITO AUTOMÁTICO*");
+              debAtivos.forEach(d => ls.push(d.name + ": " + fmt(getVal(d))));
+              ls.push("*Subtotal: " + fmt(totalDebito) + "*");
+              ls.push("");
+            }
+            const hagAtivos = localGastos.despesas.filter(d => d.active && d.tipo === "hagaki");
+            if (hagAtivos.length > 0) {
+              ls.push("📮 *HAGAKI (Boleto)*");
+              hagAtivos.forEach(d => ls.push(d.name + ": " + fmt(getVal(d))));
+              ls.push("*Subtotal: " + fmt(totalHagaki) + "*");
+              ls.push("");
+            }
+            ls.push("─────────────────");
+            ls.push("💴 Renda: " + fmt(totalRenda));
+            ls.push("🏦 Débito Auto: " + fmt(totalDebito));
+            ls.push("📮 Hagaki (sacar): " + fmt(totalHagaki));
+            ls.push("💸 Total Despesas: " + fmt(totalDespesas));
+            ls.push("✅ *Saldo Final: " + fmt(saldo) + "*");
+            if (totalHagaki > 0) {
+              ls.push("");
+              ls.push("💵 *Precisa sacar em mãos: " + fmt(totalHagaki) + "*");
+            }
+            setReportText(ls.join("\n"));
+            setShowReport(true);
+          }}
+          className={`w-9 h-9 flex items-center justify-center rounded-lg border transition-all shrink-0 ${copied ? "bg-green-600 border-green-600" : "border-zinc-700 hover:border-amber-600"}`}
+          title="Copiar resumo para WhatsApp"
+        >
+          {copied ? "✓" : "📋"}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <Card>
+          <div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>💴 Renda</div>
+          <div className="text-xl font-bold text-green-400 font-mono">{YEN(totalRenda)}</div>
+        </Card>
+        <Card>
+          <div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>💸 Despesas</div>
+          <div className="text-xl font-bold text-red-400 font-mono">{YEN(totalDespesas)}</div>
+        </Card>
+      </div>
+
+      <Card className={`border-2 ${saldo >= 0 ? "border-green-700/50" : "border-red-700/50"}`}>
+        <div className="flex justify-between items-center">
+          <div>
+            <div className="text-xs uppercase tracking-widest font-semibold" style={{color:"var(--text-muted)"}}>Saldo Final</div>
+            <div className="text-xs mt-0.5" style={{color:"var(--text-muted)"}}>
+              Débito: <span className="font-mono text-blue-400">{YEN(totalDebito)}</span> · Hagaki: <span className="font-mono text-orange-400">{YEN(totalHagaki)}</span>
+            </div>
+          </div>
+          <div className={`text-2xl font-bold font-mono ${saldo >= 0 ? "text-green-400" : "text-red-400"}`}>
+            {saldo < 0 ? "-" : ""}{YEN(Math.abs(saldo))}
+          </div>
+        </div>
+        <div className="mt-3 w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+          <div className="h-2 rounded-full transition-all"
+            style={{width: totalRenda > 0 ? `${Math.min(100,(totalDespesas/totalRenda)*100)}%` : "0%",
+                    background: saldo >= 0 ? "#22c55e" : "#ef4444"}} />
+        </div>
+        <div className="flex justify-between text-xs mt-1" style={{color:"var(--text-muted)"}}>
+          <span>0%</span>
+          <span>{totalRenda > 0 ? Math.round((totalDespesas/totalRenda)*100) : 0}% comprometida</span>
+        </div>
+      </Card>
+
+      {totalHagaki > 0 && (
+        <div className="bg-orange-900/20 border border-orange-800/40 rounded-xl p-3 flex justify-between items-center">
+          <div>
+            <div className="text-xs font-semibold text-orange-400">💴 Precisa sacar em mãos</div>
+            <div className="text-xs mt-0.5" style={{color:"var(--text-muted)"}}>Para {activeHagaki.length} boleto(s) Hagaki</div>
+          </div>
+          <div className="text-lg font-bold font-mono text-orange-400">{YEN(totalHagaki)}</div>
+        </div>
+      )}
+
+      <Section title="Renda" icon="💴" color="#22c55e" items={localGastos.rendas}
+        tipoDesp="renda" total={totalRenda} onAdd={addRenda} onAddMonth={addRendaThisMonth} />
+      <Section title="Débito Automático" icon="🏦" color="#60a5fa"
+        items={localGastos.despesas.filter(d => d.tipo === "debito")}
+        tipoDesp="debito" total={totalDebito} onAdd={() => addItem("debito")} onAddMonth={() => addItemThisMonth("debito")}
+        badge={`${activeDebito.length} ativos`} />
+      <Section title="Hagaki (Boleto)" icon="📮" color="#fb923c"
+        items={localGastos.despesas.filter(d => d.tipo === "hagaki")}
+        tipoDesp="hagaki" total={totalHagaki} onAdd={() => addItem("hagaki")} onAddMonth={() => addItemThisMonth("hagaki")}
+        badge={`${activeHagaki.length} ativos`} />
+
+      {renderEditModal()}
+
+      {/* Modal confirmação DELETE permanente */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6" style={{background:"rgba(0,0,0,0.85)"}}>
+          <div className="w-full max-w-sm rounded-2xl overflow-hidden border shadow-2xl" style={{background:"var(--bg-card)", borderColor:"var(--border)"}}>
+            <div className="p-5 text-center">
+              <div className="text-3xl mb-3">🗑</div>
+              <div className="text-sm font-semibold mb-1" style={{color:"var(--text)"}}>Apagar permanentemente?</div>
+              <div className="text-xs" style={{color:"var(--text-muted)"}}>
+                <span className="font-semibold text-red-400">{confirmDelete.name}</span> será removido de <span className="font-semibold text-red-400">todos os meses</span> e o histórico será perdido.
+              </div>
+              <div className="mt-2 text-xs text-zinc-600">Para ocultar só este mês, use ✕ em vez de 🗑</div>
+            </div>
+            <div className="flex border-t" style={{borderColor:"var(--border)"}}>
+              <button onClick={() => setConfirmDelete(null)}
+                className="flex-1 py-3 text-sm font-medium border-r" style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>
+                Cancelar
+              </button>
+              <button onClick={() => { removeItem(confirmDelete.type, confirmDelete.id); setConfirmDelete(null); }}
+                className="flex-1 py-3 text-sm font-bold text-red-400">
+                Apagar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal confirmação reset */}
+      {confirmReset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6" style={{background:"rgba(0,0,0,0.8)"}}>
+          <div className="w-full max-w-sm rounded-2xl overflow-hidden border shadow-2xl" style={{background:"var(--bg-card)", borderColor:"var(--border)"}}>
+            <div className="p-5 text-center">
+              <div className="text-3xl mb-3">↺</div>
+              <div className="text-sm font-semibold mb-1" style={{color:"var(--text)"}}>Resetar {confirmReset.title}?</div>
+              <div className="text-xs" style={{color:"var(--text-muted)"}}>
+                Os valores de <span className="font-semibold text-amber-400">{month}</span> serão zerados.<br/>
+                Meses anteriores não serão afetados.
+              </div>
+            </div>
+            <div className="flex border-t" style={{borderColor:"var(--border)"}}>
+              <button onClick={() => setConfirmReset(null)}
+                className="flex-1 py-3 text-sm font-medium border-r" style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>
+                Cancelar
+              </button>
+              <button onClick={() => doReset(confirmReset.tipoDesp)}
+                className="flex-1 py-3 text-sm font-bold text-red-400">
+                Sim, zerar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de relatório WhatsApp */}
+      {showReport && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-start pt-6 px-4" style={{background:"rgba(0,0,0,0.85)"}}>
+          <div className="w-full max-w-lg mx-auto rounded-2xl overflow-hidden shadow-2xl border" style={{background:"var(--bg-card)", borderColor:"var(--border)"}}>
+            <div className="flex items-center justify-between px-4 py-3 border-b" style={{borderColor:"var(--border)"}}>
+              <div>
+                <h3 className="text-sm font-semibold" style={{color:"var(--text)"}}>📋 Relatório para WhatsApp</h3>
+                <p className="text-xs mt-0.5" style={{color:"var(--text-muted)"}}>Selecione tudo e copie</p>
+              </div>
+              <button onClick={() => setShowReport(false)} className="text-2xl leading-none" style={{color:"var(--text-muted)"}}>×</button>
+            </div>
+            <div className="p-4">
+              <textarea
+                readOnly
+                value={reportText}
+                rows={14}
+                onClick={e => e.target.select()}
+                className="w-full rounded-xl p-3 text-xs font-mono border focus:outline-none resize-none"
+                style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)", lineHeight:"1.6"}}
+              />
+              <p className="text-xs text-center mt-2" style={{color:"var(--text-muted)"}}>
+                Toque na caixa para selecionar → segure e escolha <strong>Copiar tudo</strong>
+              </p>
+            </div>
+            <div className="px-4 pb-4 flex gap-3">
+              <button
+                onClick={() => {
+                  try {
+                    navigator.clipboard.writeText(reportText).then(() => {
+                      setCopied(true);
+                      setTimeout(() => { setCopied(false); setShowReport(false); }, 1500);
+                    });
+                  } catch(e) {}
+                }}
+                className="flex-1 py-2.5 rounded-xl border text-sm font-medium transition-colors"
+                style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>
+                {copied ? "✓ Copiado!" : "📋 Copiar"}
+              </button>
+              <button
+                onClick={() => setShowReport(false)}
+                className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm">
+                Fechar
+              </button>
+            </div>
+          </div>
+          <div className="flex-1" onClick={() => setShowReport(false)} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// TELA: CONTROLE DE FINANCIAMENTO 🚗
+// ─────────────────────────────────────────────
+
+function CarroScreen({ carro, onSave }) {
+  const [selId, setSelId] = useState(carro.financiamentos[0]?.id || null);
+  const [editMode, setEditMode] = useState(false);
+  const [showAddFinanc, setShowAddFinanc] = useState(false);
+  const [showAddParcela, setShowAddParcela] = useState(false);
+  const [newFinanc, setNewFinanc] = useState({ nome: "", valorTotal: 0 });
+  const [newParcela, setNewParcela] = useState({ valor: 50000, mesRef: "" });
+
+  const financ = carro.financiamentos.find(f => f.id === selId);
+
+  function save(updated) {
+    onSave({ ...carro, financiamentos: carro.financiamentos.map(f => f.id === updated.id ? updated : f) });
+  }
+
+  function toggleParcela(pid) {
+    if (!financ) return;
+    save({ ...financ, parcelas: financ.parcelas.map(p => p.id === pid ? { ...p, pago: !p.pago } : p) });
+  }
+
+  function toggleEntrada(eid) {
+    if (!financ) return;
+    save({ ...financ, entradas: financ.entradas.map(e => e.id === eid ? { ...e, pago: !e.pago } : e) });
+  }
+
+  function addParcela() {
+    if (!financ) return;
+    const np = { id: "p" + Date.now(), numero: financ.parcelas.length + 1, valor: newParcela.valor, mesRef: newParcela.mesRef, pago: false };
+    save({ ...financ, parcelas: [...financ.parcelas, np] });
+    setShowAddParcela(false);
+    setNewParcela({ valor: 50000, mesRef: "" });
+  }
+
+  function removeParcela(pid) {
+    if (!financ) return;
+    save({ ...financ, parcelas: financ.parcelas.filter(p => p.id !== pid) });
+  }
+
+  function addFinanciamento() {
+    if (!newFinanc.nome) return;
+    const nf = { id: "f" + Date.now(), nome: newFinanc.nome, valorTotal: newFinanc.valorTotal, entradas: [], parcelas: [] };
+    onSave({ ...carro, financiamentos: [...carro.financiamentos, nf] });
+    setSelId(nf.id);
+    setShowAddFinanc(false);
+    setNewFinanc({ nome: "", valorTotal: 0 });
+  }
+
+  if (!financ) {
+    return (
+      <div className="space-y-3 pb-24 sm:pb-28 pt-2">
+        <Card className="text-center py-12">
+          <div className="text-5xl mb-3">🚗</div>
+          <div className="text-sm font-semibold" style={{color:"var(--text)"}}>Nenhum financiamento</div>
+          <button onClick={() => setShowAddFinanc(true)} className="mt-4 px-4 py-2 rounded-xl bg-amber-500 text-black text-sm font-bold">+ Adicionar</button>
+        </Card>
+        {showAddFinanc && (
+          <div className="fixed inset-0 z-50 flex flex-col justify-start pt-8 px-4" style={{background:"rgba(0,0,0,0.82)"}}>
+            <div className="w-full max-w-lg mx-auto rounded-2xl overflow-hidden border shadow-2xl" style={{background:"var(--bg-card)", borderColor:"var(--border)"}}>
+              <div className="flex items-center justify-between px-4 py-3 border-b" style={{borderColor:"var(--border)"}}>
+                <h3 className="text-sm font-semibold" style={{color:"var(--text)"}}>Novo Veículo</h3>
+                <button onClick={() => setShowAddFinanc(false)} className="text-xl" style={{color:"var(--text-muted)"}}>x</button>
+              </div>
+              <div className="p-4 space-y-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Nome</label>
+                  <input value={newFinanc.nome} onChange={e => setNewFinanc(f => ({...f, nome: e.target.value}))}
+                    className="rounded-xl px-4 py-2.5 text-sm border focus:outline-none focus:border-amber-500"
+                    style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} placeholder="Ex: Outlander 2025" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Valor total</label>
+                  <input type="number" inputMode="numeric" value={newFinanc.valorTotal}
+                    onChange={e => setNewFinanc(f => ({...f, valorTotal: parseInt(e.target.value)||0}))}
+                    className="rounded-xl px-4 py-3 text-xl font-bold font-mono text-right border focus:outline-none focus:border-amber-500"
+                    style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
+                </div>
+              </div>
+              <div className="flex gap-3 px-4 pb-4">
+                <button onClick={() => setShowAddFinanc(false)} className="flex-1 py-2.5 rounded-xl border text-sm" style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>Cancelar</button>
+                <button onClick={addFinanciamento} className="flex-1 py-2.5 rounded-xl bg-amber-500 text-black font-bold text-sm">Criar</button>
+              </div>
+            </div>
+            <div className="flex-1" onClick={() => setShowAddFinanc(false)} />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const totalPago = financ.entradas.filter(e => e.pago).reduce((a, e) => a + e.valor, 0)
+    + financ.parcelas.filter(p => p.pago).reduce((a, p) => a + p.valor, 0);
+  const totalRestante = Math.max(0, financ.valorTotal - totalPago);
+  const parcelasPagas = financ.parcelas.filter(p => p.pago).length;
+  const proximaParcela = financ.parcelas.find(p => !p.pago);
+  const progressoPct = financ.valorTotal > 0 ? Math.min(100, Math.round((totalPago / financ.valorTotal) * 100)) : 0;
+
+  return (
+    <div className="space-y-3 pb-24 sm:pb-28">
+      <div className="flex items-center justify-between pt-1">
+        <div>
+          <div className="text-xs uppercase tracking-widest" style={{color:"var(--text-muted)"}}>Financiamento</div>
+          {editMode ? (
+            <input value={financ.nome} onChange={e => save({...financ, nome: e.target.value})}
+              className="text-lg font-bold bg-transparent border-b focus:outline-none"
+              style={{color:"var(--text)", borderColor:"var(--border)"}} />
+          ) : (
+            <h2 className="text-lg font-bold" style={{color:"var(--text)"}}>{financ.nome}</h2>
+          )}
+        </div>
+        <button onClick={() => setEditMode(!editMode)}
+          className={"text-xs px-2.5 py-1.5 rounded-lg border transition-all " + (editMode ? "bg-amber-500 border-amber-500 text-black font-semibold" : "border-zinc-700 text-zinc-400")}>
+          {editMode ? "Pronto" : "Editar"}
+        </button>
+      </div>
+
+      {carro.financiamentos.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {carro.financiamentos.map(f => (
+            <button key={f.id} onClick={() => setSelId(f.id)}
+              className={"px-3 py-1.5 rounded-xl text-xs font-medium border whitespace-nowrap " + (selId === f.id ? "bg-amber-500 border-amber-500 text-black" : "border-zinc-700 text-zinc-400")}>
+              {f.nome}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <Card>
+        <div className="text-xs font-semibold text-amber-400 uppercase tracking-widest mb-3">Progresso</div>
+        <div className="flex justify-between items-center mb-2">
+          <div>
+            <div className="text-xs" style={{color:"var(--text-muted)"}}>Valor Total</div>
+            {editMode ? (
+              <input type="number" inputMode="numeric" value={financ.valorTotal}
+                onChange={e => save({...financ, valorTotal: parseInt(e.target.value)||0})}
+                className="text-xl font-bold font-mono bg-transparent border-b focus:outline-none w-36"
+                style={{color:"var(--text)", borderColor:"var(--border)"}} />
+            ) : (
+              <div className="text-xl font-bold font-mono" style={{color:"var(--text)"}}>{YEN(financ.valorTotal)}</div>
+            )}
+          </div>
+          <div className={"text-3xl font-bold " + (progressoPct >= 100 ? "text-green-400" : progressoPct >= 50 ? "text-amber-400" : "text-zinc-400")}>
+            {progressoPct}%
+          </div>
+        </div>
+        <div className="w-full h-3 bg-zinc-800 rounded-full overflow-hidden mb-3">
+          <div className="h-3 rounded-full transition-all" style={{width: progressoPct + "%", background: progressoPct >= 100 ? "#22c55e" : "#f59e0b"}} />
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="bg-green-900/20 border border-green-800/30 rounded-xl p-2">
+            <div className="text-xs text-green-500 mb-0.5">Pago</div>
+            <div className="text-sm font-bold font-mono text-green-400">{YEN(totalPago)}</div>
+          </div>
+          <div className="bg-red-900/20 border border-red-800/30 rounded-xl p-2">
+            <div className="text-xs text-red-400 mb-0.5">Restante</div>
+            <div className="text-sm font-bold font-mono text-red-400">{YEN(totalRestante)}</div>
+          </div>
+          <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-2">
+            <div className="text-xs mb-0.5" style={{color:"var(--text-muted)"}}>Parcelas</div>
+            <div className="text-sm font-bold font-mono" style={{color:"var(--text)"}}>{parcelasPagas}/{financ.parcelas.length}</div>
+          </div>
+        </div>
+        {proximaParcela && (
+          <div className="mt-3 flex justify-between items-center bg-amber-900/10 border border-amber-800/30 rounded-xl px-3 py-2">
+            <div>
+              <div className="text-xs text-amber-400 font-semibold">Proxima parcela</div>
+              <div className="text-xs" style={{color:"var(--text-muted)"}}>#{proximaParcela.numero}</div>
+            </div>
+            <div className="text-lg font-bold font-mono text-amber-400">{YEN(proximaParcela.valor)}</div>
+          </div>
+        )}
+        {progressoPct >= 100 && <div className="mt-3 text-center text-sm font-bold text-green-400">Financiamento quitado!</div>}
+      </Card>
+
+      {financ.entradas.length > 0 && (
+        <Card>
+          <div className="text-xs font-semibold text-amber-400 uppercase tracking-widest mb-2">Entrada Inicial</div>
+          {financ.entradas.map(e => (
+            <div key={e.id} className="flex items-center gap-2 py-2 border-b last:border-0" style={{borderColor:"var(--border)"}}>
+              <button onClick={() => toggleEntrada(e.id)}
+                className={"w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 " + (e.pago ? "bg-green-500 border-green-500" : "border-zinc-600")}>
+                {e.pago && <span className="text-white text-xs font-bold">v</span>}
+              </button>
+              <span className={"flex-1 text-sm " + (e.pago ? "line-through" : "")} style={{color: e.pago ? "var(--text-muted)" : "var(--text)"}}>{e.descricao}</span>
+              <span className={"font-mono text-sm font-semibold " + (e.pago ? "text-green-400" : "text-amber-400")}>{YEN(e.valor)}</span>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      <Card>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs font-semibold text-amber-400 uppercase tracking-widest">Parcelas</div>
+          <span className="text-xs" style={{color:"var(--text-muted)"}}>{parcelasPagas}/{financ.parcelas.length} pagas</span>
+        </div>
+        {financ.parcelas.map((p) => (
+          <div key={p.id} className="flex items-center gap-2 py-2 border-b last:border-0" style={{borderColor:"var(--border)"}}>
+            <button onClick={() => toggleParcela(p.id)}
+              className={"w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 " + (p.pago ? "bg-green-500 border-green-500" : "border-zinc-600 hover:border-amber-500")}>
+              {p.pago && <span className="text-white text-xs font-bold">v</span>}
+            </button>
+            <span className="text-xs w-5 text-center shrink-0" style={{color:"var(--text-muted)"}}>{p.numero}</span>
+            <span className="flex-1 text-xs" style={{color: p.pago ? "var(--text-muted)" : "var(--text-sub)"}}>
+              {p.mesRef ? new Date(p.mesRef + "-01").toLocaleDateString("pt-BR", {month:"short", year:"2-digit"}) : ""}
+            </span>
+            <span className={"font-mono text-sm font-semibold " + (p.pago ? "text-green-400 line-through" : p.id === proximaParcela?.id ? "text-amber-400" : "")}
+              style={!p.pago && p.id !== proximaParcela?.id ? {color:"var(--text)"} : {}}>
+              {YEN(p.valor)}
+            </span>
+            {editMode && <button onClick={() => removeParcela(p.id)} className="text-red-400 text-xs ml-1">x</button>}
+          </div>
+        ))}
+        {editMode && (
+          <button onClick={() => setShowAddParcela(true)}
+            className="w-full mt-2 py-1.5 rounded-lg border border-dashed text-xs"
+            style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>
+            + Adicionar Parcela
+          </button>
+        )}
+      </Card>
+
+      {showAddParcela && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-start pt-8 px-4" style={{background:"rgba(0,0,0,0.82)"}}>
+          <div className="w-full max-w-lg mx-auto rounded-2xl overflow-hidden border shadow-2xl" style={{background:"var(--bg-card)", borderColor:"var(--border)"}}>
+            <div className="flex items-center justify-between px-4 py-3 border-b" style={{borderColor:"var(--border)"}}>
+              <h3 className="text-sm font-semibold" style={{color:"var(--text)"}}>Nova Parcela</h3>
+              <button onClick={() => setShowAddParcela(false)} className="text-xl" style={{color:"var(--text-muted)"}}>x</button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Valor</label>
+                <input type="number" inputMode="numeric" value={newParcela.valor}
+                  onChange={e => setNewParcela(p => ({...p, valor: parseInt(e.target.value)||0}))}
+                  className="rounded-xl px-4 py-3 text-xl font-bold font-mono text-right border focus:outline-none focus:border-amber-500"
+                  style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Mes de referencia</label>
+                <input type="month" value={newParcela.mesRef}
+                  onChange={e => setNewParcela(p => ({...p, mesRef: e.target.value}))}
+                  className="rounded-xl px-4 py-3 text-sm border focus:outline-none focus:border-amber-500"
+                  style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
+              </div>
+            </div>
+            <div className="flex gap-3 px-4 pb-4">
+              <button onClick={() => setShowAddParcela(false)} className="flex-1 py-2.5 rounded-xl border text-sm" style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>Cancelar</button>
+              <button onClick={addParcela} className="flex-1 py-2.5 rounded-xl bg-amber-500 text-black font-bold text-sm">Adicionar</button>
+            </div>
+          </div>
+          <div className="flex-1" onClick={() => setShowAddParcela(false)} />
+        </div>
+      )}
+
+      <button onClick={() => setShowAddFinanc(true)}
+        className="w-full py-2.5 rounded-xl border border-dashed text-sm" style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>
+        + Adicionar outro veículo
+      </button>
+
+      {showAddFinanc && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-start pt-8 px-4" style={{background:"rgba(0,0,0,0.82)"}}>
+          <div className="w-full max-w-lg mx-auto rounded-2xl overflow-hidden border shadow-2xl" style={{background:"var(--bg-card)", borderColor:"var(--border)"}}>
+            <div className="flex items-center justify-between px-4 py-3 border-b" style={{borderColor:"var(--border)"}}>
+              <h3 className="text-sm font-semibold" style={{color:"var(--text)"}}>Novo Veiculo</h3>
+              <button onClick={() => setShowAddFinanc(false)} className="text-xl" style={{color:"var(--text-muted)"}}>x</button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Nome</label>
+                <input value={newFinanc.nome} onChange={e => setNewFinanc(f => ({...f, nome: e.target.value}))}
+                  className="rounded-xl px-4 py-2.5 text-sm border focus:outline-none focus:border-amber-500"
+                  style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} placeholder="Ex: Outlander 2025" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Valor total</label>
+                <input type="number" inputMode="numeric" value={newFinanc.valorTotal}
+                  onChange={e => setNewFinanc(f => ({...f, valorTotal: parseInt(e.target.value)||0}))}
+                  className="rounded-xl px-4 py-3 text-xl font-bold font-mono text-right border focus:outline-none focus:border-amber-500"
+                  style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
+              </div>
+            </div>
+            <div className="flex gap-3 px-4 pb-4">
+              <button onClick={() => setShowAddFinanc(false)} className="flex-1 py-2.5 rounded-xl border text-sm" style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>Cancelar</button>
+              <button onClick={addFinanciamento} className="flex-1 py-2.5 rounded-xl bg-amber-500 text-black font-bold text-sm">Criar</button>
+            </div>
+          </div>
+          <div className="flex-1" onClick={() => setShowAddFinanc(false)} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+function CompareScreen({ entries, settings }) {
+  const monthMap = {};
+  entries.forEach(e => {
+    const m = e.date.slice(0, 7);
+    if (!monthMap[m]) monthMap[m] = [];
+    monthMap[m].push(e);
+  });
+  const months = Object.keys(monthMap).sort();
+
+  if (months.length === 0) {
+    return (
+      <div className="pb-24 space-y-3">
+        <Card className="text-center py-12">
+          <div className="text-4xl mb-3">📈</div>
+          <div className="text-sm" style={{color:"var(--text-muted)"}}>Nenhum dado para comparar</div>
+        </Card>
+      </div>
+    );
+  }
+
+  const monthlyData = months.map(month => {
+    const mEntries = monthMap[month].sort((a,b) => a.date.localeCompare(b.date));
+    let accOT = 0;
+    const calcs = mEntries.map(e => { const c = calcDay(e, settings, accOT); accOT += c.overtimeHours; return c; });
+    const totalHours = calcs.reduce((a,c) => a + c.totalHours, 0);
+    const overtimeHours = calcs.reduce((a,c) => a + c.overtimeHours, 0);
+    const grossPay = calcs.reduce((a,c) => a + c.grossPay, 0);
+    const totalTeate = (settings.teate||[]).filter(t=>t.active).reduce((a,t)=>a+(t.amount||0),0);
+    const grossWithTeate = grossPay + totalTeate;
+    const { totalDeductions, netPay, deductions } = estimateDeductions(grossWithTeate, settings);
+    const yukyuDays = mEntries.filter(e => e.dayType === "yukyu").length;
+    const workedDays = mEntries.filter(e => e.dayType !== "yukyu").length;
+    const label = new Date(month + "-01").toLocaleDateString("pt-BR", { month:"short", year:"2-digit" });
+    return { month, label, totalHours, overtimeHours, grossPay, grossWithTeate, totalDeductions, netPay, deductions, yukyuDays, workedDays };
+  });
+
+  const maxGross = Math.max(...monthlyData.map(d => d.grossWithTeate));
+  const avgGross = Math.round(monthlyData.reduce((a,d) => a + d.grossWithTeate, 0) / monthlyData.length);
+  const avgNet = Math.round(monthlyData.reduce((a,d) => a + d.netPay, 0) / monthlyData.length);
+  const avgOT = (monthlyData.reduce((a,d) => a + d.overtimeHours, 0) / monthlyData.length).toFixed(1);
+  const bestMonth = monthlyData.reduce((a,b) => a.grossWithTeate > b.grossWithTeate ? a : b);
+
+  return (
+    <div className="space-y-3 pb-24 sm:pb-28">
+      <div className="pt-1">
+        <div className="text-xs uppercase tracking-widest" style={{color:"var(--text-muted)"}}>Comparativo</div>
+        <h2 className="text-lg font-bold" style={{color:"var(--text)"}}>Evolução Mensal</h2>
+        <div className="text-xs" style={{color:"var(--text-muted)"}}>{months.length} meses de histórico</div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Card><div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>Média bruto/mês</div><div className="text-lg font-bold text-green-400 font-mono">{YEN(avgGross)}</div></Card>
+        <Card><div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>Média líquido/mês</div><div className="text-lg font-bold text-amber-400 font-mono">{YEN(avgNet)}</div></Card>
+        <Card><div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>Média HE/mês</div><div className="text-lg font-bold" style={{color:"var(--text)"}}>{avgOT}h</div></Card>
+        <Card><div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>Melhor mês</div><div className="text-sm font-bold text-amber-400">{bestMonth.label}</div><div className="text-xs font-mono" style={{color:"var(--text-muted)"}}>{YEN(bestMonth.grossWithTeate)}</div></Card>
+      </div>
+      <Card>
+        <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-widest mb-3">Bruto vs Líquido</h3>
+        <div className="space-y-3">
+          {monthlyData.map((d, i) => (
+            <div key={d.month}>
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs font-medium w-12" style={{color:"var(--text)"}}>{d.label}</span>
+                <div className="flex gap-3 text-xs font-mono">
+                  <span className="text-green-400">{YEN(d.grossWithTeate)}</span>
+                  <span style={{color:"var(--text-muted)"}}>→</span>
+                  <span className="text-amber-400">{YEN(d.netPay)}</span>
+                </div>
+              </div>
+              <div className="relative h-5 bg-zinc-800 rounded-lg overflow-hidden">
+                <div className="absolute top-0 left-0 h-full bg-green-500/30 rounded-lg" style={{width:`${maxGross>0?(d.grossWithTeate/maxGross)*100:0}%`}} />
+                <div className="absolute top-0 left-0 h-full bg-amber-500/60 rounded-lg" style={{width:`${maxGross>0?(d.netPay/maxGross)*100:0}%`}} />
+                <div className="absolute right-2 top-0 h-full flex items-center">
+                  <span className="text-xs text-red-400 font-mono">-{YEN(d.totalDeductions)}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-4 mt-3 text-xs" style={{color:"var(--text-muted)"}}>
+          <span><span className="inline-block w-3 h-2 bg-green-500/30 rounded mr-1"></span>Bruto</span>
+          <span><span className="inline-block w-3 h-2 bg-amber-500/60 rounded mr-1"></span>Líquido</span>
+          <span><span className="inline-block w-3 h-2 bg-red-500/60 rounded mr-1"></span>Descontos</span>
+        </div>
+      </Card>
+      <Card className="overflow-hidden">
+        <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-widest mb-3">Tabela Detalhada</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b" style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>
+                <th className="text-left py-2 pr-2">Mês</th>
+                <th className="text-right py-2 pr-2">Horas</th>
+                <th className="text-right py-2 pr-2">Bruto</th>
+                <th className="text-right py-2 pr-2">Desc.</th>
+                <th className="text-right py-2">Líquido</th>
+              </tr>
+            </thead>
+            <tbody>
+              {monthlyData.map((d, i) => {
+                const prevNet = i > 0 ? monthlyData[i-1].netPay : null;
+                const diff = prevNet ? d.netPay - prevNet : null;
+                return (
+                  <tr key={d.month} className="border-b last:border-0" style={{borderColor:"var(--border)"}}>
+                    <td className="py-2 pr-2"><div className="font-medium" style={{color:"var(--text)"}}>{d.label}</div><div style={{color:"var(--text-muted)"}}>{d.workedDays}d{d.yukyuDays>0?` +${d.yukyuDays}有給`:""}</div></td>
+                    <td className="text-right py-2 pr-2 font-mono" style={{color:"var(--text-muted)"}}>{d.totalHours.toFixed(0)}h</td>
+                    <td className="text-right py-2 pr-2 font-mono text-green-400">{YEN(d.grossWithTeate)}</td>
+                    <td className="text-right py-2 pr-2 font-mono text-red-400">-{YEN(d.totalDeductions)}</td>
+                    <td className="text-right py-2"><div className="font-mono font-bold text-amber-400">{YEN(d.netPay)}</div>{diff!==null&&<div className={`text-xs font-mono ${diff>=0?"text-green-500":"text-red-500"}`}>{diff>=0?"▲":"▼"}{YEN(Math.abs(diff))}</div>}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+
+
+function App() {
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [showInstall, setShowInstall] = useState(false);
+
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+      setShowInstall(true);
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  function handleInstall() {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    installPrompt.userChoice.then(() => {
+      setInstallPrompt(null);
+      setShowInstall(false);
+    });
+  }
+
+  const [tab, setTab] = useState("dashboard");
+  const [theme, setTheme] = useState(() => localStorage.getItem("jst_theme") || "dark");
+  const [entries, setEntries] = useState(() => loadData(STORAGE_KEYS.entries, []));
+  const [gastos, setGastos] = useState(() => loadData(STORAGE_KEYS.gastos, defaultGastos));
+  const [auditHistory, setAuditHistory] = useState(() => loadData(STORAGE_KEYS.payslipAudit, []));
+  const [carro, setCarro] = useState(() => {
+    const saved = loadData(STORAGE_KEYS.carro, defaultCarro);
+    if (saved?.financiamentos?.[0]?.id === "f1" && saved.financiamentos[0].valorTotal !== 570000) return defaultCarro;
+    if (saved?.financiamentos?.[0]?.id === "f1" && saved.financiamentos[0].parcelas.length > 8) return defaultCarro;
+    return saved;
+  });
+  const [settings, setSettings] = useState(() => {
+    const saved = loadData(STORAGE_KEYS.settings, defaultSettings);
+    if (!saved.teate || saved.teate.length === 0) saved.teate = defaultSettings.teate;
+    return saved;
+  });
+  const [toast, setToast] = useState(null);
+  const [showBackup, setShowBackup] = useState(false);
+  const [backupReminder, setBackupReminder] = useState(false);
+
+  const showToast = (msg, color = "green") => {
+    setToast({ msg, color });
+    setTimeout(() => setToast(null), 2500);
+  };
+
+  useEffect(() => { saveData(STORAGE_KEYS.entries, entries); }, [entries]);
+  useEffect(() => { saveData(STORAGE_KEYS.settings, settings); }, [settings]);
+  useEffect(() => { saveData(STORAGE_KEYS.gastos, gastos); }, [gastos]);
+  useEffect(() => { saveData(STORAGE_KEYS.payslipAudit, auditHistory); }, [auditHistory]);
+  useEffect(() => { saveData(STORAGE_KEYS.carro, carro); }, [carro]);
+  useEffect(() => { localStorage.setItem("jst_theme", theme); }, [theme]);
+
+  useEffect(() => {
+    const last = localStorage.getItem("jst_last_backup");
+    if (!last) { setBackupReminder(true); return; }
+    const days = (Date.now() - new Date(last).getTime()) / 86400000;
+    if (days > 7) setBackupReminder(true);
+  }, []);
+
+  function saveSettings(s) {
+    setSettings(s);
+    showToast("Configurações salvas!", "green");
+  }
+
+  const handleRestore = (data) => {
+    setEntries(data.entries);
+    if (data.settings) setSettings(data.settings);
+    if (data.gastos) setGastos(data.gastos);
+    if (data.carro) setCarro(data.carro);
+    if (data.auditHistory) setAuditHistory(data.auditHistory);
+    showToast("Backup restaurado com sucesso!", "blue");
+  };
+
+  const bodyBg = theme === "dark" ? "#09090b" : "#f4f4f5";
+  const rootCls = `min-h-screen font-sans theme-${theme} ` + (theme === "dark" ? "bg-zinc-950 text-zinc-100" : "bg-zinc-100 text-zinc-900");
+
+  const staticCss = `
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html { height: 100%; height: -webkit-fill-available; }
+        body {
+          margin: 0;
+          background: ${bodyBg};
+          transition: background 0.3s;
+          font-family: 'DM Sans', 'Noto Sans JP', sans-serif;
+          -webkit-font-smoothing: antialiased;
+          overscroll-behavior: none;
+          min-height: 100vh;
+          min-height: -webkit-fill-available;
+        }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 2px; }
+        .font-mono { font-family: 'DM Mono', 'Noto Sans JP', monospace; }
+        .safe-top    { padding-top:    max(12px, env(safe-area-inset-top)); }
+        .safe-bottom { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+        button:active { opacity: 0.75; transform: scale(0.97); }
+        input[type="time"], input[type="date"], input[type="month"] {
+          -webkit-appearance: none;
+          color-scheme: dark;
+        }
+        input, select, textarea { font-size: 16px; }
+        .theme-light { --bg: #f4f4f5; --bg-card: #ffffff; --border: #e4e4e7; --text: #18181b; --text-sub: #71717a; --text-muted: #a1a1aa; }
+        .theme-dark  { --bg: #09090b; --bg-card: rgba(24,24,27,0.8); --border: #27272a; --text: #f4f4f5; --text-sub: #a1a1aa; --text-muted: #52525b; }
+        @media (min-width: 640px) { body { font-size: 15px; } }
+        @media (min-width: 1024px) {
+          .main-scroll { padding-bottom: 80px; }
+          .bottom-nav-inner { padding: 0 2rem; }
+        }
+      `;
+
+  return (
+    <div className={rootCls} style={{ fontFamily: "'DM Sans', 'Noto Sans JP', sans-serif" }}>
+      <style>{staticCss}</style>
+
+      {/* Top bar */}
+      <div className={`sticky top-0 z-40 backdrop-blur border-b px-4 py-2 ${theme === "dark" ? "bg-zinc-950/90 border-zinc-800/50" : "bg-white/90 border-zinc-200"}`}>
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">⛩️</span>
+            <span className="text-sm font-semibold text-zinc-200 tracking-wide">給与管理</span>
+            <span className="text-xs text-zinc-600">· {settings.mode === "japan" ? "JP Padrão" : "Personalizado"}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-zinc-700 hover:border-amber-600 transition-colors"
+              title={theme === "dark" ? "Modo claro" : "Modo escuro"}
+            >
+              {theme === "dark" ? "☀️" : "🌙"}
+            </button>
+            {showInstall && (
+              <button onClick={handleInstall}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold transition-colors"
+                title="Instalar app">
+                ⬇ App
+              </button>
+            )}
+            <button
+              onClick={() => setShowBackup(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-zinc-700 hover:border-amber-600 transition-colors group"
+              title="Backup"
+            >
+              <span className="text-sm">💾</span>
+              <span className="text-xs text-zinc-400 group-hover:text-amber-400 transition-colors">Backup</span>
+              {backupReminder && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-14 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm font-semibold shadow-lg transition-all ${
+          toast.color === "blue" ? "bg-blue-600 text-white" :
+          toast.color === "red" ? "bg-red-600 text-white" : "bg-green-600 text-white"
+        }`}>
+          {toast.msg}
+        </div>
+      )}
+
+      {/* Content */}
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-3">
+        {tab === "dashboard" && (
+          <DashboardScreen entries={entries} settings={settings} onAddEntry={(e) => setEntries((prev) => [...prev, e])} />
+        )}
+        {tab === "entries" && (
+          <EntriesScreen
+            entries={entries}
+            settings={settings}
+            onAdd={(e) => setEntries((prev) => [...prev, e])}
+            onEdit={(updated) => setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))}
+            onDelete={(id) => setEntries((prev) => prev.filter((e) => e.id !== id))}
+          />
+        )}
+        {tab === "reports" && <ReportsScreen entries={entries} settings={settings} />}
+        {tab === "compare" && <CompareScreen entries={entries} settings={settings} />}
+        {tab === "gastos" && (
+          <GastosScreen gastos={gastos} onSave={setGastos} />
+        )}
+        {tab === "carro" && (
+          <CarroScreen carro={carro} onSave={setCarro} />
+        )}
+        {tab === "settings" && (
+          <SettingsScreen settings={settings} onSave={saveSettings} entries={entries}
+            auditHistory={auditHistory} onSaveAudit={setAuditHistory} />
+        )}
+      </div>
+
+      {/* Bottom nav */}
+      <div className={`fixed bottom-0 inset-x-0 z-40 backdrop-blur border-t ${theme === "dark" ? "bg-zinc-950/95 border-zinc-800/50" : "bg-white/95 border-zinc-200"}`}
+        style={{paddingBottom: "env(safe-area-inset-bottom, 0px)"}}>
+        <div className="max-w-2xl mx-auto flex">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex-1 flex flex-col items-center py-2 transition-colors ${
+                tab === t.id
+                  ? "text-amber-400"
+                  : theme === "dark" ? "text-zinc-600 hover:text-zinc-400" : "text-zinc-400 hover:text-zinc-600"
+              }`}
+            >
+              <span className="text-xl">{t.icon}</span>
+              <span className="text-xs mt-0.5 font-medium">{t.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {showBackup && (
+        <BackupModal
+          entries={entries}
+          settings={settings}
+          gastos={gastos}
+          carro={carro}
+          auditHistory={auditHistory}
+          onRestore={handleRestore}
+          onClose={() => setShowBackup(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
