@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "exportedAt": "2026-04-20T00:00:00.000Z",
+  "entries": [],
+  "settings": null,
+  "gastos": {
+    "rendas": [
+      { "id": "r1", "name": "Salário", "amount": 376459, "active": true },
+      { "id": "r2", "name": "Outro", "amount": 0, "active": false }
+    ],
+    "despesas": [
+      { "id": "d1",  "name": "KDDI Telefonia",        "amount": 46287,  "tipo": "debito", "active": true },
+      { "id": "d2",  "name": "Seguro Outlander/Aqua", "amount": 17110,  "tipo": "debito", "active": true },
+      { "id": "d3",  "name": "Seguro Acqua",           "amount": 0,      "tipo": "debito", "active": false },
+      { "id": "d4",  "name": "Seguro Casa",            "amount": 4490,   "tipo": "debito", "active": true },
+      { "id": "d5",  "name": "Internet",               "amount": 7450,   "tipo": "debito", "active": true },
+      { "id": "d6",  "name": "Netflix",                "amount": 2290,   "tipo": "debito", "active": true },
+      { "id": "d7",  "name": "YouTube Premium",        "amount": 1280,   "tipo": "debito", "active": true },
+      { "id": "d8",  "name": "Hotmart 99Vidas",        "amount": 295,    "tipo": "debito", "active": true },
+      { "id": "d9",  "name": "Cartão de Crédito",      "amount": 180089, "tipo": "hagaki", "active": true },
+      { "id": "d10", "name": "Eletricidade",           "amount": 27954,  "tipo": "hagaki", "active": true },
+      { "id": "d11", "name": "Gás",                    "amount": 18376,  "tipo": "hagaki", "active": true },
+      { "id": "d12", "name": "Água",                   "amount": 6754,   "tipo": "hagaki", "active": true },
+      { "id": "d13", "name": "Imposto da Casa",        "amount": 0,      "tipo": "hagaki", "active": true },
+      { "id": "d14", "name": "Imposto Igor",           "amount": 0,      "tipo": "hagaki", "active": false },
+      { "id": "d15", "name": "Imposto Patrícia",       "amount": 0,      "tipo": "hagaki", "active": false },
+      { "id": "d16", "name": "Imposto Outlander",      "amount": 0,      "tipo": "hagaki", "active": false },
+      { "id": "d17", "name": "Imposto Acqua",          "amount": 0,      "tipo": "hagaki", "active": false },
+      { "id": "d18", "name": "Empréstimo",             "amount": 0,      "tipo": "hagaki", "active": false },
+      { "id": "d19", "name": "Parcela Outlander",      "amount": 50000,  "tipo": "hagaki", "active": true },
+      { "id": "d20", "name": "Compra de Dollar",       "amount": 30000,  "tipo": "hagaki", "active": true },
+      { "id": "d21", "name": "Futebol David",          "amount": 0,      "tipo": "hagaki", "active": true }
+    ],
+    "overrides": {
+      "2026-03": {
+        "r1": 410899,
+        "d21": 5000
+      },
+      "2026-04": {
+        "d9": 0,
+        "d11": 0,
+        "d13": 8400,
+        "d20": 0
+      }
+    }
+  },
+  "carro": null,
+  "auditHistory": []
+}

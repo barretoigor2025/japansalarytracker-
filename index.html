@@ -3760,7 +3760,7 @@ function App() {
   }
 
   const handleRestore = (data) => {
-    setEntries(data.entries);
+    if (data.entries && data.entries.length > 0) setEntries(data.entries);
     if (data.settings) setSettings(data.settings);
     if (data.gastos) setGastos(data.gastos);
     if (data.carro) setCarro(data.carro);
