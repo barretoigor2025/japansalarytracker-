@@ -2809,13 +2809,12 @@ function GastosScreen({ gastos, onSave }) {
       return;
     }
 
-    // Permanent item: update name + default amount
+    // Permanent item: update name globally, value only as monthly override
     const listKey = (type === "renda" || type === "rendas") ? "rendas" : "despesas";
     const updatedList = localGastos[listKey].map(i =>
-      i.id === item.id ? { ...i, name: tempName, amount: v } : i
+      i.id === item.id ? { ...i, name: tempName } : i
     );
-    const monthOvr = { ...(localGastos.overrides?.[month] || {}) };
-    delete monthOvr[item.id];
+    const monthOvr = { ...(localGastos.overrides?.[month] || {}), [item.id]: v };
     const updated = {
       ...localGastos,
       [listKey]: updatedList,
