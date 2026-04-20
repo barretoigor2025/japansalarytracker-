@@ -3790,10 +3790,8 @@ function App() {
         .safe-top    { padding-top:    max(12px, env(safe-area-inset-top)); }
         .safe-bottom { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
         button:active { opacity: 0.75; transform: scale(0.97); }
-        input[type="time"], input[type="date"], input[type="month"] {
-          -webkit-appearance: none;
-          color-scheme: dark;
-        }
+        input[type="time"] { -webkit-appearance: none; color-scheme: ${theme === "dark" ? "dark" : "light"}; }
+        input[type="date"], input[type="month"] { color-scheme: ${theme === "dark" ? "dark" : "light"}; }
         input, select, textarea { font-size: 16px; }
         .theme-light { --bg: #f9f9f9; --bg-card: #ffffff; --border: #e0e0e0; --text: #111111; --text-sub: #444444; --text-muted: #909090; --accent: #b91c1c; }
         .theme-dark  { --bg: #09090b; --bg-card: rgba(24,24,27,0.8); --border: #27272a; --text: #f4f4f5; --text-sub: #a1a1aa; --text-muted: #52525b; --accent: #f59e0b; }
