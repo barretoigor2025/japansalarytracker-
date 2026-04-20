@@ -3053,8 +3053,8 @@ function GastosScreen({ gastos, onSave }) {
         <div className="flex items-center gap-2">
 
           <button onClick={() => setEditMode(!editMode)}
-            className={`text-xs px-2.5 py-1.5 rounded-lg border transition-all ${editMode ? "bg-amber-500 border-amber-500 text-black font-semibold" : "border-zinc-700 text-zinc-400"}`}>
-            {editMode ? "✓ Pronto" : "✏️ Editar"}
+            className={`text-xs px-3 py-1.5 rounded-lg border-2 font-semibold transition-all ${editMode ? "bg-red-500 border-red-400 text-white edit-mode-active" : "border-zinc-700 text-zinc-400"}`}>
+            {editMode ? "🔴 Editando — toque para sair" : "✏️ Editar"}
           </button>
         </div>
       </div>
@@ -3767,18 +3767,17 @@ function App() {
     showToast("Backup restaurado com sucesso!", "blue");
   };
 
-  const bodyBg = theme === "dark" ? "#09090b" : "#f4f4f5";
-  const rootCls = `min-h-screen font-sans theme-${theme} ` + (theme === "dark" ? "bg-zinc-950 text-zinc-100" : "bg-zinc-100 text-zinc-900");
+  const bodyBg = theme === "dark" ? "#09090b" : "#eef9f9";
+  const rootCls = `min-h-screen font-sans theme-${theme} ` + (theme === "dark" ? "bg-zinc-950 text-zinc-100" : "text-teal-950");
 
   const staticCss = `
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&display=swap');
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         html { height: 100%; height: -webkit-fill-available; }
         body {
           margin: 0;
           background: ${bodyBg};
           transition: background 0.3s;
-          font-family: 'DM Sans', 'Noto Sans JP', sans-serif;
+          font-family: 'Inter', 'Noto Sans JP', sans-serif;
           -webkit-font-smoothing: antialiased;
           overscroll-behavior: none;
           min-height: 100vh;
@@ -3787,7 +3786,7 @@ function App() {
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 2px; }
-        .font-mono { font-family: 'DM Mono', 'Noto Sans JP', monospace; }
+        .font-mono { font-family: 'Inter', 'Noto Sans JP', sans-serif; font-variant-numeric: tabular-nums; }
         .safe-top    { padding-top:    max(12px, env(safe-area-inset-top)); }
         .safe-bottom { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
         button:active { opacity: 0.75; transform: scale(0.97); }
@@ -3796,8 +3795,10 @@ function App() {
           color-scheme: dark;
         }
         input, select, textarea { font-size: 16px; }
-        .theme-light { --bg: #f4f4f5; --bg-card: #ffffff; --border: #e4e4e7; --text: #18181b; --text-sub: #71717a; --text-muted: #a1a1aa; }
-        .theme-dark  { --bg: #09090b; --bg-card: rgba(24,24,27,0.8); --border: #27272a; --text: #f4f4f5; --text-sub: #a1a1aa; --text-muted: #52525b; }
+        .theme-light { --bg: #eef9f9; --bg-card: #ffffff; --border: #99d6d6; --text: #0d3333; --text-sub: #2a7a7a; --text-muted: #5aadad; --accent: #0d9488; }
+        .theme-dark  { --bg: #09090b; --bg-card: rgba(24,24,27,0.8); --border: #27272a; --text: #f4f4f5; --text-sub: #a1a1aa; --text-muted: #52525b; --accent: #f59e0b; }
+        @keyframes pulse-border { 0%,100% { border-color: #f59e0b; } 50% { border-color: #ef4444; } }
+        .edit-mode-active { animation: pulse-border 1.5s ease-in-out infinite; }
         @media (min-width: 640px) { body { font-size: 15px; } }
         @media (min-width: 1024px) {
           .main-scroll { padding-bottom: 80px; }
@@ -3810,17 +3811,17 @@ function App() {
       <style>{staticCss}</style>
 
       {/* Top bar */}
-      <div className={`sticky top-0 z-40 backdrop-blur border-b px-4 py-2 ${theme === "dark" ? "bg-zinc-950/90 border-zinc-800/50" : "bg-white/90 border-zinc-200"}`}>
+      <div className={`sticky top-0 z-40 backdrop-blur border-b px-4 py-2 ${theme === "dark" ? "bg-zinc-950/90 border-zinc-800/50" : "bg-teal-50/90 border-teal-200"}`}>
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-lg">⛩️</span>
-            <span className="text-sm font-semibold text-zinc-200 tracking-wide">給与管理</span>
-            <span className="text-xs text-zinc-600">· {settings.mode === "japan" ? "JP Padrão" : "Personalizado"}</span>
+            <span className={`text-sm font-semibold tracking-wide ${theme === "dark" ? "text-zinc-200" : "text-teal-900"}`}>給与管理</span>
+            <span className={`text-xs ${theme === "dark" ? "text-zinc-600" : "text-teal-500"}`}>· {settings.mode === "japan" ? "JP Padrão" : "Personalizado"}</span>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="w-8 h-8 flex items-center justify-center rounded-lg border border-zinc-700 hover:border-amber-600 transition-colors"
+              className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${theme === "dark" ? "border-zinc-700 hover:border-amber-600" : "border-teal-300 hover:border-teal-500"}`}
               title={theme === "dark" ? "Modo claro" : "Modo escuro"}
             >
               {theme === "dark" ? "☀️" : "🌙"}
@@ -3884,7 +3885,7 @@ function App() {
       </div>
 
       {/* Bottom nav */}
-      <div className={`fixed bottom-0 inset-x-0 z-40 backdrop-blur border-t ${theme === "dark" ? "bg-zinc-950/95 border-zinc-800/50" : "bg-white/95 border-zinc-200"}`}
+      <div className={`fixed bottom-0 inset-x-0 z-40 backdrop-blur border-t ${theme === "dark" ? "bg-zinc-950/95 border-zinc-800/50" : "bg-teal-50/95 border-teal-200"}`}
         style={{paddingBottom: "env(safe-area-inset-bottom, 0px)"}}>
         <div className="max-w-2xl mx-auto flex">
           {TABS.map((t) => (
@@ -3893,8 +3894,8 @@ function App() {
               onClick={() => setTab(t.id)}
               className={`flex-1 flex flex-col items-center py-2 transition-colors ${
                 tab === t.id
-                  ? "text-amber-400"
-                  : theme === "dark" ? "text-zinc-600 hover:text-zinc-400" : "text-zinc-400 hover:text-zinc-600"
+                  ? theme === "dark" ? "text-amber-400" : "text-teal-600"
+                  : theme === "dark" ? "text-zinc-600 hover:text-zinc-400" : "text-teal-300 hover:text-teal-500"
               }`}
             >
               <span className="text-xl">{t.icon}</span>
