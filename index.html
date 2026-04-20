@@ -2655,7 +2655,7 @@ function GastosScreen({ gastos, onSave }) {
 
   function setOverride(id, val) {
     const newOverrides = {
-      ...localGastos.overrides,
+      ...(localGastos.overrides || {}),
       [month]: { ...(localGastos.overrides?.[month] || {}), [id]: val },
     };
     const updated = { ...localGastos, overrides: newOverrides };
@@ -2766,7 +2766,7 @@ function GastosScreen({ gastos, onSave }) {
   function clearOverride(id) {
     const monthOvr = { ...(localGastos.overrides?.[month] || {}) };
     delete monthOvr[id];
-    const updated = { ...localGastos, overrides: { ...localGastos.overrides, [month]: monthOvr } };
+    const updated = { ...localGastos, overrides: { ...(localGastos.overrides || {}), [month]: monthOvr } };
     setLocalGastos(updated);
     onSave(updated);
   }
@@ -2815,7 +2815,7 @@ function GastosScreen({ gastos, onSave }) {
     const updated = {
       ...localGastos,
       [listKey]: updatedList,
-      overrides: { ...localGastos.overrides, [month]: monthOvr },
+      overrides: { ...(localGastos.overrides || {}), [month]: monthOvr },
     };
     setLocalGastos(updated);
     onSave(updated);
@@ -2877,7 +2877,7 @@ function GastosScreen({ gastos, onSave }) {
       : localGastos.despesas.filter(d => d.tipo === tipoDesp);
     const monthOvr = { ...(localGastos.overrides?.[month] || {}) };
     sectionItems.forEach(item => { monthOvr[item.id] = 0; });
-    const upd = { ...localGastos, overrides: { ...localGastos.overrides, [month]: monthOvr } };
+    const upd = { ...localGastos, overrides: { ...(localGastos.overrides || {}), [month]: monthOvr } };
     setLocalGastos(upd);
     onSave(upd);
     setConfirmReset(null);
