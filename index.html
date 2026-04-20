@@ -972,25 +972,27 @@ function TeateSection({ teate = [], onChange }) {
             <input
               value={t.name}
               onChange={e => update(t.id, "name", e.target.value)}
-              className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-xs text-zinc-400 focus:outline-none focus:border-amber-500 transition-all"
+              className="flex-1 min-w-0 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-xs text-zinc-400 focus:outline-none focus:border-amber-500 transition-all"
               placeholder="Nome em japonês (opcional)"
             />
-            <div className="relative flex items-center">
-              <span className="absolute left-2 text-xs text-zinc-500">¥</span>
-              <input
-                type="number"
-                min="0"
-                value={t.amount}
-                onChange={e => update(t.id, "amount", parseInt(e.target.value)||0)}
-                className="w-28 bg-zinc-800 border border-zinc-700 rounded-lg pl-5 pr-2 py-1.5 text-xs text-zinc-200 font-mono focus:outline-none focus:border-amber-500 transition-all"
-              />
+            <div className="flex gap-2 items-center shrink-0">
+              <div className="relative flex items-center">
+                <span className="absolute left-2 text-xs text-zinc-500">¥</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={t.amount}
+                  onChange={e => update(t.id, "amount", parseInt(e.target.value)||0)}
+                  className="w-24 bg-zinc-800 border border-zinc-700 rounded-lg pl-5 pr-2 py-1.5 text-xs text-zinc-200 font-mono focus:outline-none focus:border-amber-500 transition-all"
+                />
+              </div>
+              <button
+                onClick={() => update(t.id, "taxable", !t.taxable)}
+                className={`text-xs px-2 py-1.5 rounded-lg border transition-all whitespace-nowrap ${t.taxable ? "border-orange-700/50 text-orange-400 bg-orange-900/20" : "border-blue-700/50 text-blue-400 bg-blue-900/20"}`}
+              >
+                {t.taxable ? "trib." : "n/trib."}
+              </button>
             </div>
-            <button
-              onClick={() => update(t.id, "taxable", !t.taxable)}
-              className={`text-xs px-2 py-1.5 rounded-lg border transition-all whitespace-nowrap ${t.taxable ? "border-orange-700/50 text-orange-400 bg-orange-900/20" : "border-blue-700/50 text-blue-400 bg-blue-900/20"}`}
-            >
-              {t.taxable ? "tributável" : "não trib."}
-            </button>
           </div>
         </div>
       ))}
