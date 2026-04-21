@@ -2013,122 +2013,202 @@ function YukyuModal({ entries, settings, onAddEntry, onClose }) {
 // COMPONENTE: Art. 26 LSA — 休業手当
 // ─────────────────────────────────────────────
 
-function Art26Card({ month, entries, settings }) {
-  const ART26_KEY = "jst_art26";
-  const [salarios, setSalarios] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem(ART26_KEY)) || {}; }
-    catch { return {}; }
-  });
-  const [diasTrab, setDiasTrab] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem(ART26_KEY + "_dt")) || {}; }
-    catch { return {}; }
-  });
+function Art26Card({ month }) {
+  const TIPO_KEY = "jst_art26_tipo";
+  const REG_KEY  = "jst_art26_reg";
+  const PCT_KEY  = "jst_art26_pct";
 
-  const [y, m] = month.split("-").map(Number);
-  const meses = [];
-  for (let i = 1; i <= 3; i++) {
-    let mm = m - i, yy = y;
-    if (mm <= 0) { mm += 12; yy -= 1; }
-    const key = `${yy}-${String(mm).padStart(2, "0")}`;
-    const calDays = new Date(yy, mm, 0).getDate();
-    const label = new Date(yy, mm - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "2-digit" });
-    meses.push({ key, label, calDays });
+  const [tipo, setTipoState] = React.useState(() => localStorage.getItem(TIPO_KEY) || "mensalista");
+  const [registros, setRegistros] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(REG_KEY)) || []; }
+    catch { return []; }
+  });
+  const [pct, setPctState] = React.useState(() => parseInt(localStorage.getItem(PCT_KEY)) || 60);
+
+  const [formKey, setFormKey] = React.useState(() => {
+    const [y, m] = month.split("-").map(Number);
+    let pm = m - 1, py = y;
+    if (pm <= 0) { pm += 12; py -= 1; }
+    return `${py}-${String(pm).padStart(2, "0")}`;
+  });
+  const [formBruto, setFormBruto] = React.useState("");
+  const [formDias, setFormDias] = React.useState("");
+
+  function setTipo(v) { setTipoState(v); localStorage.setItem(TIPO_KEY, v); }
+  function setPct(v) { setPctState(v); localStorage.setItem(PCT_KEY, String(v)); }
+
+  function lancar() {
+    if (!formKey || !formBruto) return;
+    const bruto = parseInt(formBruto);
+    if (!bruto) return;
+    const [fy, fm] = formKey.split("-").map(Number);
+    const calDays = new Date(fy, fm, 0).getDate();
+    const label = new Date(fy, fm - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "2-digit" });
+    const diasTrabVal = tipo === "horista" ? (parseInt(formDias) || 0) : 0;
+    const rec = { key: formKey, label, bruto, diasTrab: diasTrabVal, diasCal: calDays };
+    const exists = registros.findIndex(r => r.key === formKey);
+    let newRegs = exists >= 0 ? registros.map((r, i) => i === exists ? rec : r) : [...registros, rec];
+    newRegs.sort((a, b) => b.key.localeCompare(a.key));
+    setRegistros(newRegs);
+    localStorage.setItem(REG_KEY, JSON.stringify(newRegs));
+    setFormBruto("");
+    setFormDias("");
   }
 
-  function setSalario(key, val) {
-    const upd = { ...salarios, [key]: val };
-    setSalarios(upd);
-    localStorage.setItem(ART26_KEY, JSON.stringify(upd));
-  }
-  function setDias(key, val) {
-    const upd = { ...diasTrab, [key]: val };
-    setDiasTrab(upd);
-    localStorage.setItem(ART26_KEY + "_dt", JSON.stringify(upd));
+  function remover(key) {
+    const newRegs = registros.filter(r => r.key !== key);
+    setRegistros(newRegs);
+    localStorage.setItem(REG_KEY, JSON.stringify(newRegs));
   }
 
-  let totalBruto = 0, totalCal = 0, totalTrab = 0, mesesComDado = 0;
-  meses.forEach(({ key, calDays }) => {
-    const bruto = parseInt(salarios[key]) || 0;
-    const dt = parseInt(diasTrab[key]) || 0;
-    totalCal += calDays;
-    totalTrab += dt;
-    if (bruto > 0) { totalBruto += bruto; mesesComDado++; }
+  // 3 registros mais recentes antes do mês atual são usados no cálculo
+  const regsEmUso = registros.filter(r => r.key < month).slice(0, 3);
+  const emUsoKeys = new Set(regsEmUso.map(r => r.key));
+
+  // Cálculo Art. 12 — 平均賃金
+  let totalBruto = 0, totalCal = 0, totalTrab = 0;
+  regsEmUso.forEach(r => {
+    totalBruto += r.bruto;
+    totalCal   += r.diasCal;
+    totalTrab  += r.diasTrab;
   });
 
-  const avgCal  = mesesComDado > 0 ? totalBruto / totalCal : null;
-  const avgTrab = mesesComDado > 0 && totalTrab > 0 ? (totalBruto / totalTrab) * 0.6 : null;
+  const avgCal  = totalCal > 0 && totalBruto > 0 ? totalBruto / totalCal : null;
+  const avgTrab = tipo === "horista" && totalTrab > 0 && totalBruto > 0 ? (totalBruto / totalTrab) * 0.6 : null;
   const avgDay  = avgCal !== null ? (avgTrab !== null ? Math.max(avgCal, avgTrab) : avgCal) : null;
 
+  const PCTS = [60, 65, 70, 80, 100];
+
   return (
-    <div className="rounded-xl border p-4 space-y-3" style={{borderColor:"var(--border)"}}>
+    <div className="rounded-xl border p-4 space-y-4" style={{borderColor:"var(--border)"}}>
+      {/* Header */}
       <div>
         <div className="text-xs uppercase tracking-widest font-medium" style={{color:"var(--text-muted)"}}>Art. 26 LSA · 休業手当</div>
         <div className="text-xs mt-0.5" style={{color:"var(--text-muted)"}}>Suspensão por decisão do empregador · 平均賃金</div>
       </div>
 
-      {/* Linhas de input por mês */}
-      <div className="space-y-2.5">
-        {meses.map(({ key, label, calDays }) => (
-          <div key={key} className="space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-xs capitalize font-medium" style={{color:"var(--text-sub)"}}>{label}</span>
-              <span style={{color:"var(--text-muted)", fontSize:"10px"}}>{calDays} dias corridos</span>
-            </div>
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs" style={{color:"var(--text-muted)"}}>¥ bruto</span>
-                <input
-                  type="number" min="0"
-                  value={salarios[key] || ""}
-                  onChange={e => setSalario(key, e.target.value)}
-                  placeholder="0"
-                  className="w-full rounded-lg pl-14 pr-2 py-2 text-xs font-mono text-right"
-                  style={{background:"var(--bg-card)", border:"1px solid var(--border)", color:"var(--text)"}}
-                />
-              </div>
-              <div className="w-24 relative">
-                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs" style={{color:"var(--text-muted)"}}>dias</span>
-                <input
-                  type="number" min="0" max={calDays}
-                  value={diasTrab[key] || ""}
-                  onChange={e => setDias(key, e.target.value)}
-                  placeholder="trab."
-                  className="w-full rounded-lg pl-8 pr-2 py-2 text-xs font-mono text-right"
-                  style={{background:"var(--bg-card)", border:"1px solid var(--border)", color:"var(--text)"}}
-                />
-              </div>
-            </div>
-          </div>
+      {/* Seletor mensalista / horista */}
+      <div className="flex rounded-lg overflow-hidden border" style={{borderColor:"var(--border)"}}>
+        {["mensalista","horista"].map(t => (
+          <button key={t} onClick={() => setTipo(t)}
+            className="flex-1 py-2 text-xs font-semibold transition-colors"
+            style={{
+              background: tipo === t ? "var(--text)" : "var(--bg-card)",
+              color:      tipo === t ? "var(--bg)"   : "var(--text-sub)"
+            }}>
+            {t.charAt(0).toUpperCase() + t.slice(1)}
+          </button>
         ))}
       </div>
 
+      {/* Formulário de lançamento */}
+      <div className="space-y-2">
+        <div className="text-xs font-medium" style={{color:"var(--text-sub)"}}>Novo lançamento</div>
+        <div className="flex gap-2">
+          <input type="month" value={formKey} onChange={e => setFormKey(e.target.value)}
+            className="rounded-lg px-2.5 py-2 text-xs"
+            style={{background:"var(--bg-card)", border:"1px solid var(--border)", color:"var(--text)", width:"9rem", flexShrink:0}}
+          />
+          <div className="relative flex-1">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs pointer-events-none" style={{color:"var(--text-muted)"}}>¥</span>
+            <input type="number" min="0" value={formBruto} onChange={e => setFormBruto(e.target.value)}
+              placeholder="Salário bruto"
+              className="w-full rounded-lg pl-6 pr-2 py-2 text-xs font-mono text-right"
+              style={{background:"var(--bg-card)", border:"1px solid var(--border)", color:"var(--text)"}}
+            />
+          </div>
+        </div>
+        {tipo === "horista" && (
+          <div className="relative">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs pointer-events-none" style={{color:"var(--text-muted)"}}>dias trabalhados</span>
+            <input type="number" min="0" value={formDias} onChange={e => setFormDias(e.target.value)}
+              placeholder="0"
+              className="w-full rounded-lg pl-32 pr-2 py-2 text-xs font-mono text-right"
+              style={{background:"var(--bg-card)", border:"1px solid var(--border)", color:"var(--text)"}}
+            />
+          </div>
+        )}
+        <button onClick={lancar} disabled={!formBruto}
+          className="w-full py-2 rounded-lg text-xs font-semibold transition-opacity"
+          style={{background:"#16a34a", color:"#fff", opacity: formBruto ? 1 : 0.35}}>
+          Lançar
+        </button>
+      </div>
+
+      {/* Lista de registros */}
+      {registros.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="text-xs font-medium" style={{color:"var(--text-sub)"}}>Registros</div>
+          {registros.map(r => (
+            <div key={r.key} className="flex items-center gap-2 rounded-lg px-3 py-2"
+              style={{background:"var(--bg-card)", border:`1px solid ${emUsoKeys.has(r.key) ? "#16a34a55" : "var(--border)"}`}}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-medium capitalize" style={{color:"var(--text)"}}>{r.label}</span>
+                  {emUsoKeys.has(r.key) && (
+                    <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold"
+                      style={{background:"#16a34a22", color:"#16a34a", fontSize:"10px"}}>Em uso</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 mt-0.5">
+                  <span className="font-mono text-xs" style={{color:"var(--text-sub)"}}>{YEN(r.bruto)}</span>
+                  <span className="text-xs" style={{color:"var(--text-muted)"}}>
+                    {r.diasCal} dias corridos{tipo === "horista" && r.diasTrab ? ` · ${r.diasTrab} trab.` : ""}
+                  </span>
+                </div>
+              </div>
+              <button onClick={() => remover(r.key)}
+                className="text-sm px-2 py-1 rounded opacity-50 hover:opacity-100"
+                style={{color:"var(--text-muted)"}}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Painel de resultado */}
       {avgDay !== null && (
         <>
-          {/* Média calculada */}
-          <div className="rounded-lg p-2.5 space-y-1" style={{background:"var(--bg-card)", border:"1px solid var(--border)"}}>
-            <div className="flex justify-between text-xs">
-              <span style={{color:"var(--text-muted)"}}>÷ dias corridos</span>
-              <span className="font-mono" style={{color:"var(--text-sub)"}}>{YEN(Math.round(avgCal))}</span>
+          <div className="rounded-xl p-4 text-center space-y-1" style={{background:"var(--bg-card)", border:"1px solid #16a34a55"}}>
+            <div className="text-xs uppercase tracking-widest" style={{color:"var(--text-muted)"}}>Hoje, seu dia parado vale</div>
+            <div className="font-mono font-bold" style={{color:"#16a34a", fontSize:"2rem", lineHeight:1.1}}>
+              {YEN(Math.round(avgDay * pct / 100))}
             </div>
-            {avgTrab !== null && (
-              <div className="flex justify-between text-xs">
-                <span style={{color:"var(--text-muted)"}}>÷ dias trabalhados × 0,6</span>
-                <span className="font-mono" style={{color:"var(--text-sub)"}}>{YEN(Math.round(avgTrab))}</span>
-              </div>
-            )}
-            <div className="flex justify-between items-center pt-1 border-t" style={{borderColor:"var(--border)"}}>
-              <span className="text-xs font-medium" style={{color:"var(--text-muted)"}}>平均賃金 (maior valor)</span>
-              <span className="font-mono text-xs font-semibold" style={{color:"var(--text)"}}>{YEN(Math.round(avgDay))}</span>
+            <div className="text-xs" style={{color:"var(--text-muted)"}}>
+              平均賃金 {YEN(Math.round(avgDay))} · {pct}%
+              {avgTrab !== null && avgTrab > avgCal && (
+                <span style={{color:"var(--text-muted)"}}> · fórmula dias trab.</span>
+              )}
             </div>
           </div>
 
-          {/* 60/70/80% */}
-          <div className="grid grid-cols-3 gap-2">
-            {[[60,"#d97706","mínimo legal"],[70,"#16a34a","comum"],[80,"#2563eb","generoso"]].map(([pct, color, lbl]) => (
-              <div key={pct} className="rounded-xl p-2.5 text-center" style={{background:"var(--bg-card)", border:"1px solid var(--border)"}}>
-                <div className="text-xs font-semibold" style={{color}}>{pct}%</div>
-                <div className="font-mono text-xs font-semibold" style={{color}}>{YEN(Math.round(avgDay * pct / 100))}</div>
-                <div style={{color:"var(--text-muted)", fontSize:"10px"}}>{lbl}</div>
+          {/* Seletor de percentual */}
+          <div className="flex gap-1.5 justify-center flex-wrap">
+            {PCTS.map(p => (
+              <button key={p} onClick={() => setPct(p)}
+                className="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors"
+                style={{
+                  background: pct === p ? "#16a34a"       : "var(--bg-card)",
+                  color:      pct === p ? "#fff"           : "var(--text-sub)",
+                  border:     pct === p ? "1px solid #16a34a" : "1px solid var(--border)"
+                }}>
+                {p}%
+              </button>
+            ))}
+          </div>
+
+          {/* Grade comparativa */}
+          <div className="grid grid-cols-2 gap-2">
+            {PCTS.map(p => (
+              <div key={p} onClick={() => setPct(p)}
+                className="rounded-xl p-3 text-center cursor-pointer"
+                style={{
+                  background: pct === p ? "#16a34a18" : "var(--bg-card)",
+                  border:     pct === p ? "1px solid #16a34a" : "1px solid var(--border)"
+                }}>
+                <div className="text-xs font-semibold mb-0.5"
+                  style={{color: pct === p ? "#16a34a" : "var(--text-muted)"}}>{p}%</div>
+                <div className="font-mono text-sm font-bold"
+                  style={{color: pct === p ? "#16a34a" : "var(--text)"}}>{YEN(Math.round(avgDay * p / 100))}</div>
               </div>
             ))}
           </div>
@@ -2266,7 +2346,7 @@ function DashboardScreen({ entries, settings, onAddEntry, auditHistory = [] }) {
         );
       })()}
 
-      <Art26Card month={month} entries={entries} settings={settings} />
+      <Art26Card month={month} />
 
       {showForm && (
         <EntryForm
