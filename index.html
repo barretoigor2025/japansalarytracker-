@@ -2013,7 +2013,7 @@ function YukyuModal({ entries, settings, onAddEntry, onClose }) {
 // TELA: DASHBOARD
 // ─────────────────────────────────────────────
 
-function DashboardScreen({ entries, settings, onAddEntry }) {
+function DashboardScreen({ entries, settings, onAddEntry, auditHistory = [] }) {
   const [showForm, setShowForm] = useState(false);
   const [showYukyu, setShowYukyu] = useState(false);
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
@@ -2137,27 +2137,7 @@ function DashboardScreen({ entries, settings, onAddEntry }) {
         );
       })()}
 
-      {/* Último lançamento */}
-      {lastEntry && lastCalc && (
-        <Card>
-          <div className="flex justify-between items-start mb-2">
-            <div className="text-xs text-zinc-500 uppercase tracking-widest">Último Lançamento</div>
-            <Badge color="gray">{new Date(lastEntry.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</Badge>
-          </div>
-          <div className="flex justify-between items-center">
-            <div>
-              <div className="text-sm text-zinc-300">{lastEntry.start} → {lastEntry.end}</div>
-              <div className="text-xs text-zinc-600">break {lastEntry.breakMinutes}min · {formatMinutes(lastCalc.totalMin)} trabalhadas</div>
-            </div>
-            <div className="text-right">
-              <div className="font-mono font-bold text-green-400">{YEN(lastCalc.grossPay)}</div>
-              {lastCalc.overtimeHours > 0 && <div className="text-xs text-amber-400">HE: {formatMinutes(lastCalc.overtimeDailyMin)}</div>}
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Art. 26 LSA — card detalhado no lugar do exemplo */}
+      {/* Art. 26 LSA — 休業手当 com dados reais do holerite */}
       {(() => {
         const [y, m] = month.split("-").map(Number);
         const totalTeate = (settings.teate || []).filter(t => t.active).reduce((a, t) => a + (t.amount || 0), 0);
@@ -2169,65 +2149,64 @@ function DashboardScreen({ entries, settings, onAddEntry }) {
           const mo = `${yy}-${String(mm).padStart(2, "0")}`;
           const label = new Date(yy, mm - 1, 1).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
           const calDays = new Date(yy, mm, 0).getDate();
-          const mEntries = entries.filter(e => e.date.startsWith(mo));
+          // Preferir dado real do holerite; fallback para calculado
+          const audit = auditHistory.find(a => a.month === mo);
           let gross = null;
-          if (mEntries.length > 0) {
-            let accOT = 0;
-            const g = mEntries.reduce((a, e) => { const c = calcDay(e, settings, accOT); accOT += c.overtimeHours; return a + c.grossPay; }, 0);
-            gross = g + totalTeate;
-            totalWages += gross;
+          let fonte = null;
+          if (audit?.realBruto > 0) {
+            gross = audit.realBruto;
+            fonte = "holerite";
+          } else {
+            const mEntries = entries.filter(e => e.date.startsWith(mo));
+            if (mEntries.length > 0) {
+              let accOT = 0;
+              const g = mEntries.reduce((a, e) => { const c = calcDay(e, settings, accOT); accOT += c.overtimeHours; return a + c.grossPay; }, 0);
+              gross = g + totalTeate;
+              fonte = "calculado";
+            }
           }
+          if (gross) totalWages += gross;
           totalCalDays += calDays;
-          monthRows.push({ label, calDays, gross });
+          monthRows.push({ label, calDays, gross, fonte });
         }
         const monthsWithData = monthRows.filter(r => r.gross !== null).length;
         if (monthsWithData === 0) return null;
         const avgDay = totalWages / totalCalDays;
         return (
           <div className="rounded-xl border p-4 space-y-3" style={{borderColor:"var(--border)"}}>
-            {/* Cabeçalho */}
             <div>
               <div className="text-xs uppercase tracking-widest font-medium" style={{color:"var(--text-muted)"}}>Art. 26 LSA · 休業手当</div>
-              <div className="text-xs mt-0.5" style={{color:"var(--text-muted)"}}>Suspensão por decisão do empregador</div>
+              <div className="text-xs mt-0.5" style={{color:"var(--text-muted)"}}>Suspensão por decisão do empregador · média dos últimos 3 meses</div>
             </div>
-
-            {/* Últimos 3 salários brutos */}
             <div className="space-y-1.5">
               {[...monthRows].reverse().map((r, i) => (
                 <div key={i} className="flex justify-between items-center">
-                  <span className="text-xs capitalize" style={{color:"var(--text-muted)"}}>{r.label} · {r.calDays} dias</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs capitalize" style={{color:"var(--text-muted)"}}>{r.label} · {r.calDays}d</span>
+                    {r.fonte && <span className="text-xs px-1 rounded" style={{fontSize:"9px", background: r.fonte === "holerite" ? "rgba(34,197,94,0.1)" : "rgba(161,161,170,0.15)", color: r.fonte === "holerite" ? "#16a34a" : "var(--text-muted)"}}>{r.fonte === "holerite" ? "real" : "est."}</span>}
+                  </div>
                   <span className="font-mono text-xs" style={{color: r.gross ? "var(--text-sub)" : "var(--text-muted)"}}>
                     {r.gross ? YEN(r.gross) : "—"}
                   </span>
                 </div>
               ))}
               <div className="flex justify-between items-center pt-1.5 border-t" style={{borderColor:"var(--border)"}}>
-                <span className="text-xs" style={{color:"var(--text-muted)"}}>Média por dia corrido</span>
+                <span className="text-xs" style={{color:"var(--text-muted)"}}>平均賃金 · Média/dia corrido</span>
                 <span className="font-mono text-xs font-semibold" style={{color:"var(--text-sub)"}}>{YEN(Math.round(avgDay))}</span>
               </div>
             </div>
-
-            {/* Cards 60/70/80% */}
             <div className="grid grid-cols-3 gap-2">
-              {[[60,"#d97706","mínimo legal"],[70,"#16a34a","comum"],[80,"#2563eb","generoso"]].map(([pct, color, label]) => (
+              {[[60,"#d97706","mínimo legal"],[70,"#16a34a","comum"],[80,"#2563eb","generoso"]].map(([pct, color, lbl]) => (
                 <div key={pct} className="rounded-xl p-2.5 text-center space-y-0.5" style={{background:"var(--bg-card)", border:"1px solid var(--border)"}}>
                   <div className="text-xs font-semibold" style={{color}}>{pct}%</div>
                   <div className="font-mono text-xs font-semibold" style={{color}}>{YEN(Math.round(avgDay * pct / 100))}</div>
-                  <div className="text-xs" style={{color:"var(--text-muted)", fontSize:"10px"}}>{label}</div>
+                  <div style={{color:"var(--text-muted)", fontSize:"10px"}}>{lbl}</div>
                 </div>
               ))}
             </div>
           </div>
         );
       })()}
-
-      {/* Botão rápido */}
-      <button
-        onClick={() => setShowForm(true)}
-        className="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm transition-colors"
-      >
-        + Lançar Dia de Trabalho
-      </button>
 
       {showForm && (
         <EntryForm
@@ -3935,7 +3914,7 @@ function App() {
       {/* Content */}
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-3">
         {tab === "dashboard" && (
-          <DashboardScreen entries={entries} settings={settings} onAddEntry={(e) => setEntries((prev) => [...prev, e])} />
+          <DashboardScreen entries={entries} settings={settings} onAddEntry={(e) => setEntries((prev) => [...prev, e])} auditHistory={auditHistory} />
         )}
         {tab === "entries" && (
           <EntriesScreen
