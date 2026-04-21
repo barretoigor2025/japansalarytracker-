@@ -2024,6 +2024,7 @@ function Art26Card({ month }) {
     catch { return []; }
   });
   const [pct, setPctState] = React.useState(() => parseInt(localStorage.getItem(PCT_KEY)) || 60);
+  const [showModal, setShowModal] = React.useState(false);
 
   const [formKey, setFormKey] = React.useState(() => {
     const [y, m] = month.split("-").map(Number);
@@ -2053,6 +2054,7 @@ function Art26Card({ month }) {
     localStorage.setItem(REG_KEY, JSON.stringify(newRegs));
     setFormBruto("");
     setFormDias("");
+    setShowModal(false);
   }
 
   function remover(key) {
@@ -2061,158 +2063,180 @@ function Art26Card({ month }) {
     localStorage.setItem(REG_KEY, JSON.stringify(newRegs));
   }
 
-  // 3 registros mais recentes antes do mês atual são usados no cálculo
+  // 3 registros mais recentes antes do mês atual
   const regsEmUso = registros.filter(r => r.key < month).slice(0, 3);
-  const emUsoKeys = new Set(regsEmUso.map(r => r.key));
 
   // Cálculo Art. 12 — 平均賃金
   let totalBruto = 0, totalCal = 0, totalTrab = 0;
-  regsEmUso.forEach(r => {
-    totalBruto += r.bruto;
-    totalCal   += r.diasCal;
-    totalTrab  += r.diasTrab;
-  });
+  regsEmUso.forEach(r => { totalBruto += r.bruto; totalCal += r.diasCal; totalTrab += r.diasTrab; });
 
   const avgCal  = totalCal > 0 && totalBruto > 0 ? totalBruto / totalCal : null;
   const avgTrab = tipo === "horista" && totalTrab > 0 && totalBruto > 0 ? (totalBruto / totalTrab) * 0.6 : null;
   const avgDay  = avgCal !== null ? (avgTrab !== null ? Math.max(avgCal, avgTrab) : avgCal) : null;
 
-  const PCTS = [60, 65, 70, 80, 100];
+  const PCTS = [60, 70, 80];
+
+  // Preencher até 3 linhas para layout consistente
+  const linhas = [...regsEmUso];
+  while (linhas.length < 3) linhas.push(null);
 
   return (
-    <div className="rounded-xl border p-4 space-y-4" style={{borderColor:"var(--border)"}}>
+    <div className="rounded-xl border p-4 space-y-3" style={{borderColor:"var(--border)"}}>
       {/* Header */}
-      <div>
-        <div className="text-xs uppercase tracking-widest font-medium" style={{color:"var(--text-muted)"}}>Art. 26 LSA · 休業手当</div>
-        <div className="text-xs mt-0.5" style={{color:"var(--text-muted)"}}>Suspensão por decisão do empregador · 平均賃金</div>
+      <div className="text-xs uppercase tracking-widest font-medium" style={{color:"var(--text-muted)"}}>
+        Art. 26 LSA · 休業手当
       </div>
 
-      {/* Seletor mensalista / horista */}
-      <div className="flex rounded-lg overflow-hidden border" style={{borderColor:"var(--border)"}}>
-        {["mensalista","horista"].map(t => (
-          <button key={t} onClick={() => setTipo(t)}
-            className="flex-1 py-2 text-xs font-semibold transition-colors"
+      {/* Bloco central: meses (esq) + resultado (dir) */}
+      <div className="flex gap-2 items-stretch">
+        {/* Coluna esquerda: 3 linhas de meses */}
+        <div className="flex-1 flex flex-col gap-1.5">
+          {linhas.map((r, i) => r ? (
+            <div key={r.key} className="flex-1 flex flex-col justify-center rounded-lg px-2.5 py-2 min-h-[3rem]"
+              style={{background:"var(--bg-card)", border:"1px solid var(--border)"}}>
+              <div className="text-xs font-medium capitalize leading-tight" style={{color:"var(--text)"}}>{r.label}</div>
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                <span className="font-mono text-xs" style={{color:"var(--text-sub)"}}>{YEN(r.bruto)}</span>
+                <span style={{color:"var(--text-muted)", fontSize:"10px"}}>{r.diasCal}d{tipo === "horista" && r.diasTrab ? ` · ${r.diasTrab}t` : ""}</span>
+              </div>
+            </div>
+          ) : (
+            <div key={i} className="flex-1 flex items-center justify-center rounded-lg min-h-[3rem]"
+              style={{background:"var(--bg-card)", border:"1px dashed var(--border)"}}>
+              <span style={{color:"var(--text-muted)", fontSize:"10px"}}>não informado</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Coluna direita: resultado */}
+        <div className="w-28 flex flex-col items-center justify-center rounded-lg px-2 py-3 text-center"
+          style={{background: avgDay ? "#16a34a18" : "var(--bg-card)", border: avgDay ? "1px solid #16a34a55" : "1px solid var(--border)"}}>
+          {avgDay ? (
+            <>
+              <div style={{color:"var(--text-muted)", fontSize:"9px", textTransform:"uppercase", letterSpacing:"0.05em", lineHeight:1.2}}>dia parado</div>
+              <div className="font-mono font-bold mt-1" style={{color:"#16a34a", fontSize:"1.05rem", lineHeight:1.1}}>
+                {YEN(Math.round(avgDay * pct / 100))}
+              </div>
+              <div style={{color:"#16a34a", fontSize:"10px", marginTop:"2px"}}>{pct}%</div>
+              <div style={{color:"var(--text-muted)", fontSize:"9px", marginTop:"4px", lineHeight:1.3}}>
+                平均賃金<br/>{YEN(Math.round(avgDay))}
+              </div>
+            </>
+          ) : (
+            <span style={{color:"var(--text-muted)", fontSize:"10px", lineHeight:1.4}}>lance os 3 meses anteriores</span>
+          )}
+        </div>
+      </div>
+
+      {/* Chips de percentual */}
+      <div className="flex gap-1.5">
+        {PCTS.map(p => (
+          <button key={p} onClick={() => setPct(p)}
+            className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors"
             style={{
-              background: tipo === t ? "var(--text)" : "var(--bg-card)",
-              color:      tipo === t ? "var(--bg)"   : "var(--text-sub)"
+              background: pct === p ? "#16a34a"          : "var(--bg-card)",
+              color:      pct === p ? "#fff"              : "var(--text-sub)",
+              border:     pct === p ? "1px solid #16a34a" : "1px solid var(--border)"
             }}>
-            {t.charAt(0).toUpperCase() + t.slice(1)}
+            {p}%
           </button>
         ))}
       </div>
 
-      {/* Formulário de lançamento */}
-      <div className="space-y-2">
-        <div className="text-xs font-medium" style={{color:"var(--text-sub)"}}>Novo lançamento</div>
-        <div className="flex gap-2">
-          <input type="month" value={formKey} onChange={e => setFormKey(e.target.value)}
-            className="rounded-lg px-2.5 py-2 text-xs"
-            style={{background:"var(--bg-card)", border:"1px solid var(--border)", color:"var(--text)", width:"9rem", flexShrink:0}}
-          />
-          <div className="relative flex-1">
-            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs pointer-events-none" style={{color:"var(--text-muted)"}}>¥</span>
-            <input type="number" min="0" value={formBruto} onChange={e => setFormBruto(e.target.value)}
-              placeholder="Salário bruto"
-              className="w-full rounded-lg pl-6 pr-2 py-2 text-xs font-mono text-right"
-              style={{background:"var(--bg-card)", border:"1px solid var(--border)", color:"var(--text)"}}
-            />
-          </div>
-        </div>
-        {tipo === "horista" && (
-          <div className="relative">
-            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs pointer-events-none" style={{color:"var(--text-muted)"}}>dias trabalhados</span>
-            <input type="number" min="0" value={formDias} onChange={e => setFormDias(e.target.value)}
-              placeholder="0"
-              className="w-full rounded-lg pl-32 pr-2 py-2 text-xs font-mono text-right"
-              style={{background:"var(--bg-card)", border:"1px solid var(--border)", color:"var(--text)"}}
-            />
-          </div>
-        )}
-        <button onClick={lancar} disabled={!formBruto}
-          className="w-full py-2 rounded-lg text-xs font-semibold transition-opacity"
-          style={{background:"#16a34a", color:"#fff", opacity: formBruto ? 1 : 0.35}}>
-          Lançar
-        </button>
-      </div>
+      {/* Botão de lançamento */}
+      <button onClick={() => setShowModal(true)}
+        className="w-full py-2.5 rounded-xl text-xs font-semibold"
+        style={{background:"var(--bg-card)", border:"1px solid var(--border)", color:"var(--text)"}}>
+        + Lançar salário
+      </button>
 
-      {/* Lista de registros */}
-      {registros.length > 0 && (
-        <div className="space-y-1.5">
-          <div className="text-xs font-medium" style={{color:"var(--text-sub)"}}>Registros</div>
-          {registros.map(r => (
-            <div key={r.key} className="flex items-center gap-2 rounded-lg px-3 py-2"
-              style={{background:"var(--bg-card)", border:`1px solid ${emUsoKeys.has(r.key) ? "#16a34a55" : "var(--border)"}`}}>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-medium capitalize" style={{color:"var(--text)"}}>{r.label}</span>
-                  {emUsoKeys.has(r.key) && (
-                    <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold"
-                      style={{background:"#16a34a22", color:"#16a34a", fontSize:"10px"}}>Em uso</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 mt-0.5">
-                  <span className="font-mono text-xs" style={{color:"var(--text-sub)"}}>{YEN(r.bruto)}</span>
-                  <span className="text-xs" style={{color:"var(--text-muted)"}}>
-                    {r.diasCal} dias corridos{tipo === "horista" && r.diasTrab ? ` · ${r.diasTrab} trab.` : ""}
-                  </span>
-                </div>
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+          style={{background:"rgba(0,0,0,0.75)"}} onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}>
+          <div className="w-full max-w-md rounded-2xl overflow-hidden shadow-2xl border"
+            style={{background:"var(--bg-card)", borderColor:"var(--border)"}}>
+            {/* Header modal */}
+            <div className="flex items-center justify-between px-4 py-3 border-b" style={{borderColor:"var(--border)"}}>
+              <div>
+                <div className="text-sm font-semibold" style={{color:"var(--text)"}}>Lançar · Art. 26</div>
+                <div className="text-xs" style={{color:"var(--text-muted)"}}>Informe o salário bruto do mês</div>
               </div>
-              <button onClick={() => remover(r.key)}
-                className="text-sm px-2 py-1 rounded opacity-50 hover:opacity-100"
-                style={{color:"var(--text-muted)"}}>×</button>
+              <button onClick={() => setShowModal(false)} className="text-xl px-1" style={{color:"var(--text-muted)"}}>×</button>
             </div>
-          ))}
-        </div>
-      )}
 
-      {/* Painel de resultado */}
-      {avgDay !== null && (
-        <>
-          <div className="rounded-xl p-4 text-center space-y-1" style={{background:"var(--bg-card)", border:"1px solid #16a34a55"}}>
-            <div className="text-xs uppercase tracking-widest" style={{color:"var(--text-muted)"}}>Hoje, seu dia parado vale</div>
-            <div className="font-mono font-bold" style={{color:"#16a34a", fontSize:"2rem", lineHeight:1.1}}>
-              {YEN(Math.round(avgDay * pct / 100))}
-            </div>
-            <div className="text-xs" style={{color:"var(--text-muted)"}}>
-              平均賃金 {YEN(Math.round(avgDay))} · {pct}%
-              {avgTrab !== null && avgTrab > avgCal && (
-                <span style={{color:"var(--text-muted)"}}> · fórmula dias trab.</span>
+            <div className="p-4 space-y-3">
+              {/* Tipo */}
+              <div className="flex rounded-lg overflow-hidden border" style={{borderColor:"var(--border)"}}>
+                {["mensalista","horista"].map(t => (
+                  <button key={t} onClick={() => setTipo(t)}
+                    className="flex-1 py-2 text-xs font-semibold"
+                    style={{
+                      background: tipo === t ? "var(--text)" : "var(--bg-card)",
+                      color:      tipo === t ? "var(--bg)"   : "var(--text-sub)"
+                    }}>
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </button>
+                ))}
+              </div>
+
+              {/* Mês */}
+              <div>
+                <div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>Mês de referência</div>
+                <input type="month" value={formKey} onChange={e => setFormKey(e.target.value)}
+                  className="w-full rounded-lg px-3 py-2 text-sm"
+                  style={{background:"var(--bg-card)", border:"1px solid var(--border)", color:"var(--text)"}}
+                />
+              </div>
+
+              {/* Bruto */}
+              <div>
+                <div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>Salário bruto (¥)</div>
+                <input type="number" min="0" value={formBruto} onChange={e => setFormBruto(e.target.value)}
+                  placeholder="0"
+                  className="w-full rounded-lg px-3 py-2 text-sm font-mono text-right"
+                  style={{background:"var(--bg-card)", border:"1px solid var(--border)", color:"var(--text)"}}
+                />
+              </div>
+
+              {/* Dias trabalhados (horista) */}
+              {tipo === "horista" && (
+                <div>
+                  <div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>Dias trabalhados no mês</div>
+                  <input type="number" min="0" value={formDias} onChange={e => setFormDias(e.target.value)}
+                    placeholder="0"
+                    className="w-full rounded-lg px-3 py-2 text-sm font-mono text-right"
+                    style={{background:"var(--bg-card)", border:"1px solid var(--border)", color:"var(--text)"}}
+                  />
+                </div>
+              )}
+
+              {/* Botão confirmar */}
+              <button onClick={lancar} disabled={!formBruto}
+                className="w-full py-3 rounded-xl text-sm font-semibold"
+                style={{background:"#16a34a", color:"#fff", opacity: formBruto ? 1 : 0.35}}>
+                Lançar
+              </button>
+
+              {/* Registros existentes */}
+              {registros.length > 0 && (
+                <div className="border-t pt-3 space-y-1.5" style={{borderColor:"var(--border)"}}>
+                  <div className="text-xs" style={{color:"var(--text-muted)"}}>Registros salvos</div>
+                  {registros.map(r => (
+                    <div key={r.key} className="flex items-center gap-2 rounded-lg px-3 py-2"
+                      style={{background:"rgba(0,0,0,0.15)", border:"1px solid var(--border)"}}>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-medium capitalize" style={{color:"var(--text)"}}>{r.label}</span>
+                        <span className="font-mono text-xs ml-2" style={{color:"var(--text-sub)"}}>{YEN(r.bruto)}</span>
+                      </div>
+                      <button onClick={() => remover(r.key)} className="text-lg px-1" style={{color:"var(--text-muted)"}}>×</button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>
-
-          {/* Seletor de percentual */}
-          <div className="flex gap-1.5 justify-center flex-wrap">
-            {PCTS.map(p => (
-              <button key={p} onClick={() => setPct(p)}
-                className="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors"
-                style={{
-                  background: pct === p ? "#16a34a"       : "var(--bg-card)",
-                  color:      pct === p ? "#fff"           : "var(--text-sub)",
-                  border:     pct === p ? "1px solid #16a34a" : "1px solid var(--border)"
-                }}>
-                {p}%
-              </button>
-            ))}
-          </div>
-
-          {/* Grade comparativa */}
-          <div className="grid grid-cols-2 gap-2">
-            {PCTS.map(p => (
-              <div key={p} onClick={() => setPct(p)}
-                className="rounded-xl p-3 text-center cursor-pointer"
-                style={{
-                  background: pct === p ? "#16a34a18" : "var(--bg-card)",
-                  border:     pct === p ? "1px solid #16a34a" : "1px solid var(--border)"
-                }}>
-                <div className="text-xs font-semibold mb-0.5"
-                  style={{color: pct === p ? "#16a34a" : "var(--text-muted)"}}>{p}%</div>
-                <div className="font-mono text-sm font-bold"
-                  style={{color: pct === p ? "#16a34a" : "var(--text)"}}>{YEN(Math.round(avgDay * p / 100))}</div>
-              </div>
-            ))}
-          </div>
-        </>
+        </div>
       )}
     </div>
   );
