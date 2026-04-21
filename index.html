@@ -2157,11 +2157,69 @@ function DashboardScreen({ entries, settings, onAddEntry }) {
         </Card>
       )}
 
-      {/* Cenário de teste obrigatório */}
-      <Card className="border-amber-800/30">
-        <div className="text-xs text-amber-500 uppercase tracking-widest mb-2">🧪 Exemplo de Cálculo (22/02/2026)</div>
-        <ExampleCalc settings={settings} />
-      </Card>
+      {/* Art. 26 LSA — card detalhado no lugar do exemplo */}
+      {(() => {
+        const [y, m] = month.split("-").map(Number);
+        const totalTeate = (settings.teate || []).filter(t => t.active).reduce((a, t) => a + (t.amount || 0), 0);
+        let totalWages = 0, totalCalDays = 0;
+        const monthRows = [];
+        for (let i = 1; i <= 3; i++) {
+          let mm = m - i, yy = y;
+          if (mm <= 0) { mm += 12; yy -= 1; }
+          const mo = `${yy}-${String(mm).padStart(2, "0")}`;
+          const label = new Date(yy, mm - 1, 1).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
+          const calDays = new Date(yy, mm, 0).getDate();
+          const mEntries = entries.filter(e => e.date.startsWith(mo));
+          let gross = null;
+          if (mEntries.length > 0) {
+            let accOT = 0;
+            const g = mEntries.reduce((a, e) => { const c = calcDay(e, settings, accOT); accOT += c.overtimeHours; return a + c.grossPay; }, 0);
+            gross = g + totalTeate;
+            totalWages += gross;
+          }
+          totalCalDays += calDays;
+          monthRows.push({ label, calDays, gross });
+        }
+        const monthsWithData = monthRows.filter(r => r.gross !== null).length;
+        if (monthsWithData === 0) return null;
+        const avgDay = totalWages / totalCalDays;
+        return (
+          <div className="rounded-xl border p-4 space-y-3" style={{borderColor:"var(--border)"}}>
+            {/* Cabeçalho */}
+            <div>
+              <div className="text-xs uppercase tracking-widest font-medium" style={{color:"var(--text-muted)"}}>Art. 26 LSA · 休業手当</div>
+              <div className="text-xs mt-0.5" style={{color:"var(--text-muted)"}}>Suspensão por decisão do empregador</div>
+            </div>
+
+            {/* Últimos 3 salários brutos */}
+            <div className="space-y-1.5">
+              {[...monthRows].reverse().map((r, i) => (
+                <div key={i} className="flex justify-between items-center">
+                  <span className="text-xs capitalize" style={{color:"var(--text-muted)"}}>{r.label} · {r.calDays} dias</span>
+                  <span className="font-mono text-xs" style={{color: r.gross ? "var(--text-sub)" : "var(--text-muted)"}}>
+                    {r.gross ? YEN(r.gross) : "—"}
+                  </span>
+                </div>
+              ))}
+              <div className="flex justify-between items-center pt-1.5 border-t" style={{borderColor:"var(--border)"}}>
+                <span className="text-xs" style={{color:"var(--text-muted)"}}>Média por dia corrido</span>
+                <span className="font-mono text-xs font-semibold" style={{color:"var(--text-sub)"}}>{YEN(Math.round(avgDay))}</span>
+              </div>
+            </div>
+
+            {/* Cards 60/70/80% */}
+            <div className="grid grid-cols-3 gap-2">
+              {[[60,"#d97706","mínimo legal"],[70,"#16a34a","comum"],[80,"#2563eb","generoso"]].map(([pct, color, label]) => (
+                <div key={pct} className="rounded-xl p-2.5 text-center space-y-0.5" style={{background:"var(--bg-card)", border:"1px solid var(--border)"}}>
+                  <div className="text-xs font-semibold" style={{color}}>{pct}%</div>
+                  <div className="font-mono text-xs font-semibold" style={{color}}>{YEN(Math.round(avgDay * pct / 100))}</div>
+                  <div className="text-xs" style={{color:"var(--text-muted)", fontSize:"10px"}}>{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Botão rápido */}
       <button
@@ -2170,46 +2228,6 @@ function DashboardScreen({ entries, settings, onAddEntry }) {
       >
         + Lançar Dia de Trabalho
       </button>
-
-      {/* Art. 26 LSA — Suspensão */}
-      {(() => {
-        const [y, m] = month.split("-").map(Number);
-        const totalTeate = (settings.teate || []).filter(t => t.active).reduce((a, t) => a + (t.amount || 0), 0);
-        let totalWages = 0, totalCalDays = 0, monthsWithData = 0;
-        for (let i = 1; i <= 3; i++) {
-          let mm = m - i, yy = y;
-          if (mm <= 0) { mm += 12; yy -= 1; }
-          const mo = `${yy}-${String(mm).padStart(2, "0")}`;
-          const mEntries = entries.filter(e => e.date.startsWith(mo));
-          totalCalDays += new Date(yy, mm, 0).getDate();
-          if (mEntries.length > 0) {
-            let accOT = 0;
-            const gross = mEntries.reduce((a, e) => { const c = calcDay(e, settings, accOT); accOT += c.overtimeHours; return a + c.grossPay; }, 0);
-            totalWages += gross + totalTeate;
-            monthsWithData++;
-          }
-        }
-        if (monthsWithData === 0) return null;
-        const avgDay = totalWages / totalCalDays;
-        return (
-          <div className="rounded-xl p-3 border" style={{borderColor:"var(--border)", opacity: 0.75}}>
-            <div className="flex items-center gap-1.5 mb-2">
-              <span className="text-xs uppercase tracking-widest" style={{color:"var(--text-muted)"}}>Art. 26 LSA —休業手当</span>
-            </div>
-            <div className="text-xs mb-2.5" style={{color:"var(--text-muted)"}}>
-              Média/dia ({monthsWithData} meses): <span className="font-mono" style={{color:"var(--text-sub)"}}>{YEN(Math.round(avgDay))}</span>
-            </div>
-            <div className="grid grid-cols-3 gap-1.5">
-              {[[60,"#d97706"],[70,"#16a34a"],[80,"#2563eb"]].map(([pct, color]) => (
-                <div key={pct} className="rounded-lg p-2 text-center" style={{background:"var(--bg-card)", border:"1px solid var(--border)"}}>
-                  <div className="text-xs mb-0.5" style={{color:"var(--text-muted)"}}>{pct}%</div>
-                  <div className="font-mono text-xs font-semibold" style={{color}}>{YEN(Math.round(avgDay * pct / 100))}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
 
       {showForm && (
         <EntryForm
