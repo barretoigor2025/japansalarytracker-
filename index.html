@@ -2010,6 +2010,135 @@ function YukyuModal({ entries, settings, onAddEntry, onClose }) {
 }
 
 // ─────────────────────────────────────────────
+// COMPONENTE: Art. 26 LSA — 休業手当
+// ─────────────────────────────────────────────
+
+function Art26Card({ month, entries, settings }) {
+  const ART26_KEY = "jst_art26";
+  const [salarios, setSalarios] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(ART26_KEY)) || {}; }
+    catch { return {}; }
+  });
+  const [diasTrab, setDiasTrab] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(ART26_KEY + "_dt")) || {}; }
+    catch { return {}; }
+  });
+
+  const [y, m] = month.split("-").map(Number);
+  const meses = [];
+  for (let i = 1; i <= 3; i++) {
+    let mm = m - i, yy = y;
+    if (mm <= 0) { mm += 12; yy -= 1; }
+    const key = `${yy}-${String(mm).padStart(2, "0")}`;
+    const calDays = new Date(yy, mm, 0).getDate();
+    const label = new Date(yy, mm - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "2-digit" });
+    meses.push({ key, label, calDays });
+  }
+
+  function setSalario(key, val) {
+    const upd = { ...salarios, [key]: val };
+    setSalarios(upd);
+    localStorage.setItem(ART26_KEY, JSON.stringify(upd));
+  }
+  function setDias(key, val) {
+    const upd = { ...diasTrab, [key]: val };
+    setDiasTrab(upd);
+    localStorage.setItem(ART26_KEY + "_dt", JSON.stringify(upd));
+  }
+
+  let totalBruto = 0, totalCal = 0, totalTrab = 0, mesesComDado = 0;
+  meses.forEach(({ key, calDays }) => {
+    const bruto = parseInt(salarios[key]) || 0;
+    const dt = parseInt(diasTrab[key]) || 0;
+    totalCal += calDays;
+    totalTrab += dt;
+    if (bruto > 0) { totalBruto += bruto; mesesComDado++; }
+  });
+
+  const avgCal  = mesesComDado > 0 ? totalBruto / totalCal : null;
+  const avgTrab = mesesComDado > 0 && totalTrab > 0 ? (totalBruto / totalTrab) * 0.6 : null;
+  const avgDay  = avgCal !== null ? (avgTrab !== null ? Math.max(avgCal, avgTrab) : avgCal) : null;
+
+  return (
+    <div className="rounded-xl border p-4 space-y-3" style={{borderColor:"var(--border)"}}>
+      <div>
+        <div className="text-xs uppercase tracking-widest font-medium" style={{color:"var(--text-muted)"}}>Art. 26 LSA · 休業手当</div>
+        <div className="text-xs mt-0.5" style={{color:"var(--text-muted)"}}>Suspensão por decisão do empregador · 平均賃金</div>
+      </div>
+
+      {/* Linhas de input por mês */}
+      <div className="space-y-2.5">
+        {meses.map(({ key, label, calDays }) => (
+          <div key={key} className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs capitalize font-medium" style={{color:"var(--text-sub)"}}>{label}</span>
+              <span style={{color:"var(--text-muted)", fontSize:"10px"}}>{calDays} dias corridos</span>
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs" style={{color:"var(--text-muted)"}}>¥ bruto</span>
+                <input
+                  type="number" min="0"
+                  value={salarios[key] || ""}
+                  onChange={e => setSalario(key, e.target.value)}
+                  placeholder="0"
+                  className="w-full rounded-lg pl-14 pr-2 py-2 text-xs font-mono text-right"
+                  style={{background:"var(--bg-card)", border:"1px solid var(--border)", color:"var(--text)"}}
+                />
+              </div>
+              <div className="w-24 relative">
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs" style={{color:"var(--text-muted)"}}>dias</span>
+                <input
+                  type="number" min="0" max={calDays}
+                  value={diasTrab[key] || ""}
+                  onChange={e => setDias(key, e.target.value)}
+                  placeholder="trab."
+                  className="w-full rounded-lg pl-8 pr-2 py-2 text-xs font-mono text-right"
+                  style={{background:"var(--bg-card)", border:"1px solid var(--border)", color:"var(--text)"}}
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {avgDay !== null && (
+        <>
+          {/* Média calculada */}
+          <div className="rounded-lg p-2.5 space-y-1" style={{background:"var(--bg-card)", border:"1px solid var(--border)"}}>
+            <div className="flex justify-between text-xs">
+              <span style={{color:"var(--text-muted)"}}>÷ dias corridos</span>
+              <span className="font-mono" style={{color:"var(--text-sub)"}}>{YEN(Math.round(avgCal))}</span>
+            </div>
+            {avgTrab !== null && (
+              <div className="flex justify-between text-xs">
+                <span style={{color:"var(--text-muted)"}}>÷ dias trabalhados × 0,6</span>
+                <span className="font-mono" style={{color:"var(--text-sub)"}}>{YEN(Math.round(avgTrab))}</span>
+              </div>
+            )}
+            <div className="flex justify-between items-center pt-1 border-t" style={{borderColor:"var(--border)"}}>
+              <span className="text-xs font-medium" style={{color:"var(--text-muted)"}}>平均賃金 (maior valor)</span>
+              <span className="font-mono text-xs font-semibold" style={{color:"var(--text)"}}>{YEN(Math.round(avgDay))}</span>
+            </div>
+          </div>
+
+          {/* 60/70/80% */}
+          <div className="grid grid-cols-3 gap-2">
+            {[[60,"#d97706","mínimo legal"],[70,"#16a34a","comum"],[80,"#2563eb","generoso"]].map(([pct, color, lbl]) => (
+              <div key={pct} className="rounded-xl p-2.5 text-center" style={{background:"var(--bg-card)", border:"1px solid var(--border)"}}>
+                <div className="text-xs font-semibold" style={{color}}>{pct}%</div>
+                <div className="font-mono text-xs font-semibold" style={{color}}>{YEN(Math.round(avgDay * pct / 100))}</div>
+                <div style={{color:"var(--text-muted)", fontSize:"10px"}}>{lbl}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
 // TELA: DASHBOARD
 // ─────────────────────────────────────────────
 
@@ -2137,76 +2266,7 @@ function DashboardScreen({ entries, settings, onAddEntry, auditHistory = [] }) {
         );
       })()}
 
-      {/* Art. 26 LSA — 休業手当 com dados reais do holerite */}
-      {(() => {
-        const [y, m] = month.split("-").map(Number);
-        const totalTeate = (settings.teate || []).filter(t => t.active).reduce((a, t) => a + (t.amount || 0), 0);
-        let totalWages = 0, totalCalDays = 0;
-        const monthRows = [];
-        for (let i = 1; i <= 3; i++) {
-          let mm = m - i, yy = y;
-          if (mm <= 0) { mm += 12; yy -= 1; }
-          const mo = `${yy}-${String(mm).padStart(2, "0")}`;
-          const label = new Date(yy, mm - 1, 1).toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
-          const calDays = new Date(yy, mm, 0).getDate();
-          // Preferir dado real do holerite; fallback para calculado
-          const audit = auditHistory.find(a => a.month === mo);
-          let gross = null;
-          let fonte = null;
-          if (audit?.realBruto > 0) {
-            gross = audit.realBruto;
-            fonte = "holerite";
-          } else {
-            const mEntries = entries.filter(e => e.date.startsWith(mo));
-            if (mEntries.length > 0) {
-              let accOT = 0;
-              const g = mEntries.reduce((a, e) => { const c = calcDay(e, settings, accOT); accOT += c.overtimeHours; return a + c.grossPay; }, 0);
-              gross = g + totalTeate;
-              fonte = "calculado";
-            }
-          }
-          if (gross) totalWages += gross;
-          totalCalDays += calDays;
-          monthRows.push({ label, calDays, gross, fonte });
-        }
-        const monthsWithData = monthRows.filter(r => r.gross !== null).length;
-        if (monthsWithData === 0) return null;
-        const avgDay = totalWages / totalCalDays;
-        return (
-          <div className="rounded-xl border p-4 space-y-3" style={{borderColor:"var(--border)"}}>
-            <div>
-              <div className="text-xs uppercase tracking-widest font-medium" style={{color:"var(--text-muted)"}}>Art. 26 LSA · 休業手当</div>
-              <div className="text-xs mt-0.5" style={{color:"var(--text-muted)"}}>Suspensão por decisão do empregador · média dos últimos 3 meses</div>
-            </div>
-            <div className="space-y-1.5">
-              {[...monthRows].reverse().map((r, i) => (
-                <div key={i} className="flex justify-between items-center">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs capitalize" style={{color:"var(--text-muted)"}}>{r.label} · {r.calDays}d</span>
-                    {r.fonte && <span className="text-xs px-1 rounded" style={{fontSize:"9px", background: r.fonte === "holerite" ? "rgba(34,197,94,0.1)" : "rgba(161,161,170,0.15)", color: r.fonte === "holerite" ? "#16a34a" : "var(--text-muted)"}}>{r.fonte === "holerite" ? "real" : "est."}</span>}
-                  </div>
-                  <span className="font-mono text-xs" style={{color: r.gross ? "var(--text-sub)" : "var(--text-muted)"}}>
-                    {r.gross ? YEN(r.gross) : "—"}
-                  </span>
-                </div>
-              ))}
-              <div className="flex justify-between items-center pt-1.5 border-t" style={{borderColor:"var(--border)"}}>
-                <span className="text-xs" style={{color:"var(--text-muted)"}}>平均賃金 · Média/dia corrido</span>
-                <span className="font-mono text-xs font-semibold" style={{color:"var(--text-sub)"}}>{YEN(Math.round(avgDay))}</span>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {[[60,"#d97706","mínimo legal"],[70,"#16a34a","comum"],[80,"#2563eb","generoso"]].map(([pct, color, lbl]) => (
-                <div key={pct} className="rounded-xl p-2.5 text-center space-y-0.5" style={{background:"var(--bg-card)", border:"1px solid var(--border)"}}>
-                  <div className="text-xs font-semibold" style={{color}}>{pct}%</div>
-                  <div className="font-mono text-xs font-semibold" style={{color}}>{YEN(Math.round(avgDay * pct / 100))}</div>
-                  <div style={{color:"var(--text-muted)", fontSize:"10px"}}>{lbl}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
+      <Art26Card month={month} entries={entries} settings={settings} />
 
       {showForm && (
         <EntryForm
