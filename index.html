@@ -757,16 +757,16 @@ function EntryForm({ initial, settings, onSave, onClose, entries = [] }) {
           </div>}
           <div className="col-span-2 flex flex-col gap-1.5">
             <label className="text-xs text-zinc-400 font-medium tracking-wide uppercase">Tipo de Dia</label>
-            <div className="flex items-center gap-2">
-              <select
-                value={form.dayType}
-                onChange={(e) => set("dayType", e.target.value)}
-                className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 transition-all">
-                {DAY_TYPES.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-              </select>
+            <select
+              value={form.dayType}
+              onChange={(e) => set("dayType", e.target.value)}
+              className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 transition-all">
+              {DAY_TYPES.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+            </select>
+            <div className="flex gap-2">
               <button
                 onClick={() => setForm(f => ({ ...f, dayType: "normal", start: "05:45", end: "17:00", breakMinutes: 60 }))}
-                className="shrink-0 px-2.5 py-2 rounded-lg text-xs font-medium border-2 transition-all"
+                className="flex-1 px-3 py-2 rounded-lg text-xs font-medium border-2 transition-all"
                 style={{
                   background: form.start === "05:45" && form.end === "17:00" ? "#f59e0b" : "transparent",
                   borderColor: "#f59e0b",
@@ -776,7 +776,7 @@ function EntryForm({ initial, settings, onSave, onClose, entries = [] }) {
               </button>
               <button
                 onClick={() => setForm(f => ({ ...f, dayType: "normal", start: "17:00", end: "03:45", breakMinutes: 60 }))}
-                className="shrink-0 px-2.5 py-2 rounded-lg text-xs font-medium border-2 transition-all"
+                className="flex-1 px-3 py-2 rounded-lg text-xs font-medium border-2 transition-all"
                 style={{
                   background: form.start === "17:00" && form.end === "03:45" ? "#a855f7" : "transparent",
                   borderColor: "#a855f7",
