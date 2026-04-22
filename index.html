@@ -556,26 +556,25 @@ const defaultGastos = {
     { id: "r2", name: "Outro", amount: 0, active: false },
   ],
   despesas: [
-    { id: "d1", name: "KDDI Telefonia", amount: 43851, tipo: "debito", active: true },
-    { id: "d2", name: "Seguro Outlander", amount: 10580, tipo: "debito", active: true },
-    { id: "d3", name: "Seguro Acqua", amount: 5960, tipo: "debito", active: true },
-    { id: "d4", name: "Seguro Casa", amount: 4500, tipo: "debito", active: true },
-    { id: "d5", name: "Internet", amount: 7450, tipo: "debito", active: true },
-    { id: "d6", name: "Netflix", amount: 2290, tipo: "debito", active: true },
-    { id: "d7", name: "YouTube Premium", amount: 1280, tipo: "debito", active: true },
-    { id: "d8", name: "Hotmart 99Vidas", amount: 295, tipo: "debito", active: true },
-    { id: "d9", name: "Cartão de Crédito", amount: 173588, tipo: "hagaki", active: true },
-    { id: "d10", name: "Eletricidade", amount: 38790, tipo: "hagaki", active: true },
-    { id: "d11", name: "Gás", amount: 18376, tipo: "hagaki", active: true },
-    { id: "d12", name: "Água", amount: 7301, tipo: "hagaki", active: true },
-    { id: "d13", name: "Imposto Casa", amount: 0, tipo: "hagaki", active: false },
-    { id: "d14", name: "Imposto Igor", amount: 0, tipo: "hagaki", active: false },
-    { id: "d15", name: "Imposto Patrícia", amount: 0, tipo: "hagaki", active: false },
-    { id: "d16", name: "Imposto Outlander", amount: 0, tipo: "hagaki", active: false },
-    { id: "d17", name: "Imposto Acqua", amount: 0, tipo: "hagaki", active: false },
-    { id: "d18", name: "Empréstimo", amount: 0, tipo: "hagaki", active: false },
+    { id: "d1",  name: "Telefonia",       amount: 0, tipo: "debito", active: false },
+    { id: "d2",  name: "Seguro Carro 1",  amount: 0, tipo: "debito", active: false },
+    { id: "d3",  name: "Seguro Carro 2",  amount: 0, tipo: "debito", active: false },
+    { id: "d4",  name: "Seguro Casa",     amount: 0, tipo: "debito", active: false },
+    { id: "d5",  name: "Internet",        amount: 0, tipo: "debito", active: false },
+    { id: "d6",  name: "Streaming 1",     amount: 0, tipo: "debito", active: false },
+    { id: "d7",  name: "Streaming 2",     amount: 0, tipo: "debito", active: false },
+    { id: "d8",  name: "Assinatura",      amount: 0, tipo: "debito", active: false },
+    { id: "d9",  name: "Cartão de Crédito", amount: 0, tipo: "hagaki", active: false },
+    { id: "d10", name: "Eletricidade",    amount: 0, tipo: "hagaki", active: false },
+    { id: "d11", name: "Gás",             amount: 0, tipo: "hagaki", active: false },
+    { id: "d12", name: "Água",            amount: 0, tipo: "hagaki", active: false },
+    { id: "d13", name: "Imposto Casa",    amount: 0, tipo: "hagaki", active: false },
+    { id: "d14", name: "Imposto Pessoal 1", amount: 0, tipo: "hagaki", active: false },
+    { id: "d15", name: "Imposto Pessoal 2", amount: 0, tipo: "hagaki", active: false },
+    { id: "d16", name: "Imposto Carro 1", amount: 0, tipo: "hagaki", active: false },
+    { id: "d17", name: "Imposto Carro 2", amount: 0, tipo: "hagaki", active: false },
+    { id: "d18", name: "Empréstimo",      amount: 0, tipo: "hagaki", active: false },
   ],
-  // Sobrescritas mensais: { "2026-03": { "d1": 45000, ... } }
   overrides: {},
 };
 
@@ -1011,7 +1010,7 @@ function TeateSection({ teate = [], onChange }) {
                 <input
                   type="number"
                   min="0"
-                  value={t.amount}
+                  value={t.amount || ""}
                   onChange={e => update(t.id, "amount", parseInt(e.target.value)||0)}
                   className="w-24 bg-zinc-800 border border-zinc-700 rounded-lg pl-5 pr-2 py-1.5 text-xs text-zinc-200 font-mono focus:outline-none focus:border-amber-500 transition-all"
                 />
@@ -1072,8 +1071,8 @@ function SettingsScreen({ settings, onSave, entries = [], auditHistory = [], onS
         <h3 className="text-sm font-semibold text-amber-400 mb-2 uppercase tracking-widest">Trabalhador</h3>
         <div className="grid grid-cols-1 gap-3">
           <Input label="Nome" value={s.name} onChange={(e) => set("name", e.target.value)} placeholder="Seu nome" />
-          <Input label="Salário por hora (¥)" type="number" value={s.hourlyRate} onChange={(e) => set("hourlyRate", Number(e.target.value))} />
-          <Input label="Idade" type="number" value={s.age} onChange={(e) => set("age", Number(e.target.value))} />
+          <Input label="Salário por hora (¥)" type="number" value={s.hourlyRate || ""} onChange={(e) => set("hourlyRate", Number(e.target.value))} />
+          <Input label="Idade" type="number" value={s.age || ""} onChange={(e) => set("age", Number(e.target.value))} />
           <Input label="Prefeitura (para seguro saúde)" value={s.prefecture || ""} onChange={(e) => set("prefecture", e.target.value)} placeholder="Ex: Tokyo" />
           <div className="col-span-1">
             <Input label="Data de Contratação" type="date" value={s.hireDate || ""} onChange={(e) => set("hireDate", e.target.value)} />
@@ -2915,7 +2914,7 @@ function GastosScreen({ gastos, onSave }) {
     const updated = { ...localGastos, despesas: [...localGastos.despesas, newItem] };
     setLocalGastos(updated);
     onSave(updated);
-    setTimeout(() => setEditingItem({ item: newItem, type: "despesas", tempVal: "0", tempName: "Nova despesa" }), 50);
+    setTimeout(() => setEditingItem({ item: newItem, type: "despesas", tempVal: "", tempName: "Nova despesa" }), 50);
   }
 
   function addItemThisMonth(tipo) {
@@ -2926,7 +2925,7 @@ function GastosScreen({ gastos, onSave }) {
     const updated = { ...localGastos, monthItems: mi };
     setLocalGastos(updated);
     onSave(updated);
-    setTimeout(() => setEditingItem({ item: newItem, type: "monthItems", tempVal: "0", tempName: "Nova despesa" }), 50);
+    setTimeout(() => setEditingItem({ item: newItem, type: "monthItems", tempVal: "", tempName: "Nova despesa" }), 50);
   }
 
   function removeMonthItem(id) {
@@ -2945,7 +2944,7 @@ function GastosScreen({ gastos, onSave }) {
     const updated = { ...localGastos, monthItems: mi };
     setLocalGastos(updated);
     onSave(updated);
-    setTimeout(() => setEditingItem({ item: newItem, type: "monthItems", tempVal: "0", tempName: "Nova renda" }), 50);
+    setTimeout(() => setEditingItem({ item: newItem, type: "monthItems", tempVal: "", tempName: "Nova renda" }), 50);
   }
 
 
@@ -2954,7 +2953,7 @@ function GastosScreen({ gastos, onSave }) {
     const updated = { ...localGastos, rendas: [...localGastos.rendas, newItem] };
     setLocalGastos(updated);
     onSave(updated);
-    setTimeout(() => setEditingItem({ item: newItem, type: "rendas", tempVal: "0", tempName: "Nova renda" }), 50);
+    setTimeout(() => setEditingItem({ item: newItem, type: "rendas", tempVal: "", tempName: "Nova renda" }), 50);
   }
 
   function removeItem(type, id) {
@@ -3014,7 +3013,7 @@ function GastosScreen({ gastos, onSave }) {
   const [editingItem, setEditingItem] = useState(null); // { item, type, tempVal, tempName }
 
   function openEdit(item, type) {
-    setEditingItem({ item, type, tempVal: String(getVal(item)), tempName: item.name });
+    setEditingItem({ item, type, tempVal: getVal(item) ? String(getVal(item)) : "", tempName: item.name });
   }
 
   function confirmEdit() {
@@ -3145,7 +3144,7 @@ function GastosScreen({ gastos, onSave }) {
           <div key={item.id} className="flex items-center gap-2 py-2 border-b last:border-0" style={{borderColor:"var(--border)"}}>
             <span className="text-xs px-1 py-0.5 rounded text-blue-400 border border-blue-800/50 shrink-0" style={{fontSize:"9px"}}>MÊS</span>
             <span className="flex-1 text-xs" style={{color:"var(--text)"}}>{item.name}</span>
-            <button onClick={() => setEditingItem({ item, type: "monthItems", tempVal: String(item.amount), tempName: item.name })}
+            <button onClick={() => setEditingItem({ item, type: "monthItems", tempVal: item.amount ? String(item.amount) : "", tempName: item.name })}
               className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-mono font-semibold shrink-0"
               style={{color:"var(--text)"}}>
               {YEN(item.amount)} <span style={{color:"var(--text-muted)"}}>✏️</span>
