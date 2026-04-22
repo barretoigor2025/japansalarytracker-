@@ -2109,49 +2109,47 @@ function Art26Card({ month, storagePrefix }) {
   while (linhas.length < 3) linhas.push(null);
 
   return (
-    <div className="rounded-xl border p-4 space-y-3" style={{borderColor:"var(--border)"}}>
+    <Card className="space-y-3">
       {/* Header */}
-      <div className="text-xs uppercase tracking-widest font-medium" style={{color:"var(--text-muted)"}}>
-        Art. 26 LSA · 休業手当
+      <div className="flex items-center gap-1.5 text-zinc-500 text-xs">
+        <span>⏸️</span>
+        <span className="uppercase tracking-widest font-medium">Art. 26 LSA · 休業手当</span>
       </div>
 
-      {/* Bloco central: meses (esq) + resultado (dir) */}
+      {/* Meses + resultado lado a lado */}
       <div className="flex gap-2 items-stretch">
-        {/* Coluna esquerda: 3 linhas de meses */}
+        {/* 3 linhas de meses */}
         <div className="flex-1 flex flex-col gap-1.5">
           {linhas.map((r, i) => r ? (
-            <div key={r.key} className="flex-1 flex flex-col justify-center rounded-lg px-2.5 py-2 min-h-[3rem]"
-              style={{background:"var(--bg-card)", border:"1px solid var(--border)"}}>
-              <div className="text-xs font-medium capitalize leading-tight" style={{color:"var(--text)"}}>{r.label}</div>
-              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                <span className="font-mono text-xs" style={{color:"var(--text-sub)"}}>{YEN(r.bruto)}</span>
-                <span style={{color:"var(--text-muted)", fontSize:"10px"}}>{r.diasCal}d{tipo === "horista" && r.diasTrab ? ` · ${r.diasTrab}t` : ""}</span>
+            <div key={r.key} className="flex-1 flex flex-col justify-center bg-zinc-900/80 border border-zinc-800 rounded-xl px-2.5 py-2 min-h-[3rem]">
+              <div className="text-xs font-medium capitalize text-zinc-300 leading-tight">{r.label}</div>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-xs font-mono text-zinc-400">{YEN(r.bruto)}</span>
+                <span className="text-zinc-600 text-xs">{r.diasCal}d{tipo === "horista" && r.diasTrab ? ` · ${r.diasTrab}t` : ""}</span>
               </div>
             </div>
           ) : (
-            <div key={i} className="flex-1 flex items-center justify-center rounded-lg min-h-[3rem]"
-              style={{background:"var(--bg-card)", border:"1px dashed var(--border)"}}>
-              <span style={{color:"var(--text-muted)", fontSize:"10px"}}>não informado</span>
+            <div key={i} className="flex-1 flex items-center justify-center bg-zinc-900/40 border border-dashed border-zinc-800 rounded-xl min-h-[3rem]">
+              <span className="text-zinc-700 text-xs">—</span>
             </div>
           ))}
         </div>
 
-        {/* Coluna direita: resultado */}
-        <div className="w-28 flex flex-col items-center justify-center rounded-lg px-2 py-3 text-center"
-          style={{background: avgDay ? "#16a34a18" : "var(--bg-card)", border: avgDay ? "1px solid #16a34a55" : "1px solid var(--border)"}}>
+        {/* Resultado */}
+        <div className={`w-28 flex flex-col items-center justify-center rounded-xl px-2 py-3 text-center ${avgDay ? "bg-green-950/40 border border-green-900/50" : "bg-zinc-900/80 border border-zinc-800"}`}>
           {avgDay ? (
             <>
-              <div style={{color:"var(--text-muted)", fontSize:"9px", textTransform:"uppercase", letterSpacing:"0.05em", lineHeight:1.2}}>dia parado</div>
-              <div className="font-mono font-bold mt-1" style={{color:"#16a34a", fontSize:"1.05rem", lineHeight:1.1}}>
+              <div className="text-zinc-500 text-xs uppercase tracking-widest leading-tight">dia parado</div>
+              <div className="text-lg font-bold font-mono text-green-400 mt-1 leading-tight">
                 {YEN(Math.round(avgDay * pct / 100))}
               </div>
-              <div style={{color:"#16a34a", fontSize:"10px", marginTop:"2px"}}>{pct}%</div>
-              <div style={{color:"var(--text-muted)", fontSize:"9px", marginTop:"4px", lineHeight:1.3}}>
+              <div className="text-green-600 text-xs mt-0.5">{pct}%</div>
+              <div className="text-zinc-600 text-xs mt-2 leading-tight">
                 平均賃金<br/>{YEN(Math.round(avgDay))}
               </div>
             </>
           ) : (
-            <span style={{color:"var(--text-muted)", fontSize:"10px", lineHeight:1.4}}>lance os 3 meses anteriores</span>
+            <span className="text-zinc-700 text-xs leading-snug text-center">lance os 3 meses anteriores</span>
           )}
         </div>
       </div>
@@ -2160,12 +2158,11 @@ function Art26Card({ month, storagePrefix }) {
       <div className="flex gap-1.5">
         {PCTS.map(p => (
           <button key={p} onClick={() => setPct(p)}
-            className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-            style={{
-              background: pct === p ? "#16a34a"          : "var(--bg-card)",
-              color:      pct === p ? "#fff"              : "var(--text-sub)",
-              border:     pct === p ? "1px solid #16a34a" : "1px solid var(--border)"
-            }}>
+            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+              pct === p
+                ? "bg-green-500/20 border-green-700/60 text-green-400"
+                : "bg-zinc-900/80 border-zinc-800 text-zinc-500 hover:text-zinc-300"
+            }`}>
             {p}%
           </button>
         ))}
@@ -2173,8 +2170,7 @@ function Art26Card({ month, storagePrefix }) {
 
       {/* Botão de lançamento */}
       <button onClick={() => setShowModal(true)}
-        className="w-full py-2.5 rounded-xl text-xs font-semibold"
-        style={{background:"var(--bg-card)", border:"1px solid var(--border)", color:"var(--text)"}}>
+        className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-semibold transition-colors">
         + Lançar salário
       </button>
 
@@ -2182,27 +2178,23 @@ function Art26Card({ month, storagePrefix }) {
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
           style={{background:"rgba(0,0,0,0.75)"}} onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}>
-          <div className="w-full max-w-md rounded-2xl overflow-hidden shadow-2xl border"
-            style={{background:"var(--bg-card)", borderColor:"var(--border)"}}>
-            {/* Header modal */}
-            <div className="flex items-center justify-between px-4 py-3 border-b" style={{borderColor:"var(--border)"}}>
+          <div className="w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
               <div>
-                <div className="text-sm font-semibold" style={{color:"var(--text)"}}>Lançar · Art. 26</div>
-                <div className="text-xs" style={{color:"var(--text-muted)"}}>Informe o salário bruto do mês</div>
+                <div className="text-sm font-semibold text-zinc-100">Lançar · Art. 26</div>
+                <div className="text-xs text-zinc-500">Salário bruto recebido no mês</div>
               </div>
-              <button onClick={() => setShowModal(false)} className="text-xl px-1" style={{color:"var(--text-muted)"}}>×</button>
+              <button onClick={() => setShowModal(false)} className="text-zinc-500 hover:text-zinc-200 text-xl">×</button>
             </div>
 
             <div className="p-4 space-y-3">
               {/* Tipo */}
-              <div className="flex rounded-lg overflow-hidden border" style={{borderColor:"var(--border)"}}>
+              <div className="flex rounded-lg overflow-hidden border border-zinc-800">
                 {["mensalista","horista"].map(t => (
                   <button key={t} onClick={() => setTipo(t)}
-                    className="flex-1 py-2 text-xs font-semibold"
-                    style={{
-                      background: tipo === t ? "var(--text)" : "var(--bg-card)",
-                      color:      tipo === t ? "var(--bg)"   : "var(--text-sub)"
-                    }}>
+                    className={`flex-1 py-2 text-xs font-semibold transition-colors ${
+                      tipo === t ? "bg-zinc-100 text-zinc-900" : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+                    }`}>
                     {t.charAt(0).toUpperCase() + t.slice(1)}
                   </button>
                 ))}
@@ -2210,54 +2202,49 @@ function Art26Card({ month, storagePrefix }) {
 
               {/* Mês */}
               <div>
-                <div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>Mês de referência</div>
+                <div className="text-xs text-zinc-500 mb-1 uppercase tracking-wide">Mês de referência</div>
                 <input type="month" value={formKey} onChange={e => setFormKey(e.target.value)}
-                  className="w-full rounded-lg px-3 py-2 text-sm"
-                  style={{background:"var(--bg-card)", border:"1px solid var(--border)", color:"var(--text)"}}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-amber-500 transition-all"
                 />
               </div>
 
               {/* Bruto */}
               <div>
-                <div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>Salário bruto (¥)</div>
+                <div className="text-xs text-zinc-500 mb-1 uppercase tracking-wide">Salário bruto (¥)</div>
                 <input type="number" min="0" value={formBruto} onChange={e => setFormBruto(e.target.value)}
                   placeholder="0"
-                  className="w-full rounded-lg px-3 py-2 text-sm font-mono text-right"
-                  style={{background:"var(--bg-card)", border:"1px solid var(--border)", color:"var(--text)"}}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm font-mono text-right text-zinc-100 focus:outline-none focus:border-amber-500 transition-all"
                 />
               </div>
 
               {/* Dias trabalhados (horista) */}
               {tipo === "horista" && (
                 <div>
-                  <div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>Dias trabalhados no mês</div>
+                  <div className="text-xs text-zinc-500 mb-1 uppercase tracking-wide">Dias trabalhados no mês</div>
                   <input type="number" min="0" value={formDias} onChange={e => setFormDias(e.target.value)}
                     placeholder="0"
-                    className="w-full rounded-lg px-3 py-2 text-sm font-mono text-right"
-                    style={{background:"var(--bg-card)", border:"1px solid var(--border)", color:"var(--text)"}}
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm font-mono text-right text-zinc-100 focus:outline-none focus:border-amber-500 transition-all"
                   />
                 </div>
               )}
 
-              {/* Botão confirmar */}
+              {/* Confirmar */}
               <button onClick={lancar} disabled={!formBruto}
-                className="w-full py-3 rounded-xl text-sm font-semibold"
-                style={{background:"#16a34a", color:"#fff", opacity: formBruto ? 1 : 0.35}}>
+                className={`w-full py-3 rounded-xl text-sm font-semibold transition-opacity ${formBruto ? "bg-amber-500 hover:bg-amber-400 text-black" : "bg-zinc-800 text-zinc-600 cursor-not-allowed"}`}>
                 Lançar
               </button>
 
               {/* Registros existentes */}
               {registros.length > 0 && (
-                <div className="border-t pt-3 space-y-1.5" style={{borderColor:"var(--border)"}}>
-                  <div className="text-xs" style={{color:"var(--text-muted)"}}>Registros salvos</div>
+                <div className="border-t border-zinc-800 pt-3 space-y-1.5">
+                  <div className="text-xs text-zinc-600 uppercase tracking-wide">Registros salvos</div>
                   {registros.map(r => (
-                    <div key={r.key} className="flex items-center gap-2 rounded-lg px-3 py-2"
-                      style={{background:"rgba(0,0,0,0.15)", border:"1px solid var(--border)"}}>
+                    <div key={r.key} className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2">
                       <div className="flex-1 min-w-0">
-                        <span className="text-xs font-medium capitalize" style={{color:"var(--text)"}}>{r.label}</span>
-                        <span className="font-mono text-xs ml-2" style={{color:"var(--text-sub)"}}>{YEN(r.bruto)}</span>
+                        <span className="text-xs font-medium capitalize text-zinc-300">{r.label}</span>
+                        <span className="font-mono text-xs text-zinc-500 ml-2">{YEN(r.bruto)}</span>
                       </div>
-                      <button onClick={() => remover(r.key)} className="text-lg px-1" style={{color:"var(--text-muted)"}}>×</button>
+                      <button onClick={() => remover(r.key)} className="text-zinc-600 hover:text-zinc-300 text-lg px-1">×</button>
                     </div>
                   ))}
                 </div>
@@ -2266,7 +2253,7 @@ function Art26Card({ month, storagePrefix }) {
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
