@@ -1912,6 +1912,7 @@ function HoleriteScreen({ entries, settings, auditHistory = [], onSaveAudit }) {
   const [auditBruto, setAuditBruto] = useState("");
   const [auditLiquido, setAuditLiquido] = useState("");
   const [auditSaved, setAuditSaved] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   const mEntries = entries.filter(e => e.date.startsWith(auditMonth));
   let accOT = 0;
@@ -2023,7 +2024,7 @@ function HoleriteScreen({ entries, settings, auditHistory = [], onSaveAudit }) {
                   <span className="text-sm font-semibold" style={{color:"var(--text)"}}>
                     {new Date(a.month + "-01").toLocaleDateString("pt-BR", {month:"long", year:"numeric"})}
                   </span>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
                     {a.brutoAcc !== null && (
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${a.brutoAcc >= 95 ? "bg-green-900/40 text-green-400" : a.brutoAcc >= 85 ? "bg-amber-900/40 text-amber-400" : "bg-red-900/40 text-red-400"}`}>
                         B: {a.brutoAcc}%
@@ -2033,6 +2034,23 @@ function HoleriteScreen({ entries, settings, auditHistory = [], onSaveAudit }) {
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${a.liquidoAcc >= 95 ? "bg-green-900/40 text-green-400" : a.liquidoAcc >= 85 ? "bg-amber-900/40 text-amber-400" : "bg-red-900/40 text-red-400"}`}>
                         L: {a.liquidoAcc}%
                       </span>
+                    )}
+                    {confirmDelete === a.month ? (
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => { onSaveAudit(auditHistory.filter(x => x.month !== a.month)); setConfirmDelete(null); }}
+                          className="text-xs px-2 py-0.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold transition-colors">
+                          Excluir
+                        </button>
+                        <button onClick={() => setConfirmDelete(null)}
+                          className="text-xs px-2 py-0.5 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-zinc-300 transition-colors">
+                          Não
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmDelete(a.month)}
+                        className="text-zinc-600 hover:text-red-400 transition-colors text-base leading-none" title="Excluir">
+                        🗑
+                      </button>
                     )}
                   </div>
                 </div>
