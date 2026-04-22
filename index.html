@@ -477,14 +477,44 @@ function estimateDeductions(grossMonthly, settings) {
 // STORAGE (localStorage)
 // ─────────────────────────────────────────────
 
-const STORAGE_KEYS = {
-  entries: "jst_entries",
-  settings: "jst_settings",
-  payslips: "jst_payslips",
-  gastos: "jst_gastos",
-  payslipAudit: "jst_audit",
-  carro: "jst_carro",
-};
+const JST_PROFILES_KEY = "jst_profiles";
+const JST_ACTIVE_KEY   = "jst_active_profile";
+
+function getStorageKeys(pid) {
+  const p = `jst_p_${pid}`;
+  return {
+    entries:      `${p}_entries`,
+    settings:     `${p}_settings`,
+    payslips:     `${p}_payslips`,
+    gastos:       `${p}_gastos`,
+    payslipAudit: `${p}_audit`,
+    carro:        `${p}_carro`,
+  };
+}
+
+function migrateIfNeeded() {
+  if (localStorage.getItem(JST_PROFILES_KEY)) return;
+  let existingSettings = null;
+  try { existingSettings = JSON.parse(localStorage.getItem("jst_settings")); } catch {}
+  const profileName = existingSettings?.name || "Meu Perfil";
+  const pid = "u" + Date.now().toString(36);
+  const legacyMap = {
+    "jst_entries":    `jst_p_${pid}_entries`,
+    "jst_settings":   `jst_p_${pid}_settings`,
+    "jst_gastos":     `jst_p_${pid}_gastos`,
+    "jst_audit":      `jst_p_${pid}_audit`,
+    "jst_carro":      `jst_p_${pid}_carro`,
+    "jst_art26_tipo": `jst_p_${pid}_art26_tipo`,
+    "jst_art26_reg":  `jst_p_${pid}_art26_reg`,
+    "jst_art26_pct":  `jst_p_${pid}_art26_pct`,
+  };
+  Object.entries(legacyMap).forEach(([oldKey, newKey]) => {
+    const val = localStorage.getItem(oldKey);
+    if (val !== null) localStorage.setItem(newKey, val);
+  });
+  localStorage.setItem(JST_PROFILES_KEY, JSON.stringify([{ id: pid, name: profileName, color: "#f59e0b" }]));
+  localStorage.setItem(JST_ACTIVE_KEY, pid);
+}
 
 const TABS = [
   { id: "dashboard", label: "Início", icon: "🏠" },
@@ -2013,10 +2043,10 @@ function YukyuModal({ entries, settings, onAddEntry, onClose }) {
 // COMPONENTE: Art. 26 LSA — 休業手当
 // ─────────────────────────────────────────────
 
-function Art26Card({ month }) {
-  const TIPO_KEY = "jst_art26_tipo";
-  const REG_KEY  = "jst_art26_reg";
-  const PCT_KEY  = "jst_art26_pct";
+function Art26Card({ month, storagePrefix }) {
+  const TIPO_KEY = storagePrefix + "_art26_tipo";
+  const REG_KEY  = storagePrefix + "_art26_reg";
+  const PCT_KEY  = storagePrefix + "_art26_pct";
 
   const [tipo, setTipoState] = React.useState(() => localStorage.getItem(TIPO_KEY) || "mensalista");
   const [registros, setRegistros] = React.useState(() => {
@@ -2246,7 +2276,7 @@ function Art26Card({ month }) {
 // TELA: DASHBOARD
 // ─────────────────────────────────────────────
 
-function DashboardScreen({ entries, settings, onAddEntry, auditHistory = [] }) {
+function DashboardScreen({ entries, settings, onAddEntry, auditHistory = [], storagePrefix }) {
   const [showForm, setShowForm] = useState(false);
   const [showYukyu, setShowYukyu] = useState(false);
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
@@ -2367,7 +2397,7 @@ function DashboardScreen({ entries, settings, onAddEntry, auditHistory = [] }) {
         );
       })()}
 
-      <Art26Card month={month} />
+      <Art26Card month={month} storagePrefix={storagePrefix} />
 
       {showForm && (
         <EntryForm
@@ -3889,7 +3919,9 @@ function CompareScreen({ entries, settings }) {
 
 
 
-function App() {
+function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }) {
+  const KEYS = React.useMemo(() => getStorageKeys(profileId), [profileId]);
+  const storagePrefix = `jst_p_${profileId}`;
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstall, setShowInstall] = useState(false);
 
@@ -3914,17 +3946,17 @@ function App() {
 
   const [tab, setTab] = useState("dashboard");
   const [theme, setTheme] = useState(() => localStorage.getItem("jst_theme") || "dark");
-  const [entries, setEntries] = useState(() => loadData(STORAGE_KEYS.entries, []));
-  const [gastos, setGastos] = useState(() => loadData(STORAGE_KEYS.gastos, defaultGastos));
-  const [auditHistory, setAuditHistory] = useState(() => loadData(STORAGE_KEYS.payslipAudit, []));
+  const [entries, setEntries] = useState(() => loadData(KEYS.entries, []));
+  const [gastos, setGastos] = useState(() => loadData(KEYS.gastos, defaultGastos));
+  const [auditHistory, setAuditHistory] = useState(() => loadData(KEYS.payslipAudit, []));
   const [carro, setCarro] = useState(() => {
-    const saved = loadData(STORAGE_KEYS.carro, defaultCarro);
+    const saved = loadData(KEYS.carro, defaultCarro);
     if (saved?.financiamentos?.[0]?.id === "f1" && saved.financiamentos[0].valorTotal !== 570000) return defaultCarro;
     if (saved?.financiamentos?.[0]?.id === "f1" && saved.financiamentos[0].parcelas.length > 8) return defaultCarro;
     return saved;
   });
   const [settings, setSettings] = useState(() => {
-    const saved = loadData(STORAGE_KEYS.settings, defaultSettings);
+    const saved = loadData(KEYS.settings, defaultSettings);
     if (!saved.teate || saved.teate.length === 0) saved.teate = defaultSettings.teate;
     return saved;
   });
@@ -3937,11 +3969,11 @@ function App() {
     setTimeout(() => setToast(null), 2500);
   };
 
-  useEffect(() => { saveData(STORAGE_KEYS.entries, entries); }, [entries]);
-  useEffect(() => { saveData(STORAGE_KEYS.settings, settings); }, [settings]);
-  useEffect(() => { saveData(STORAGE_KEYS.gastos, gastos); }, [gastos]);
-  useEffect(() => { saveData(STORAGE_KEYS.payslipAudit, auditHistory); }, [auditHistory]);
-  useEffect(() => { saveData(STORAGE_KEYS.carro, carro); }, [carro]);
+  useEffect(() => { saveData(KEYS.entries, entries); }, [entries]);
+  useEffect(() => { saveData(KEYS.settings, settings); }, [settings]);
+  useEffect(() => { saveData(KEYS.gastos, gastos); }, [gastos]);
+  useEffect(() => { saveData(KEYS.payslipAudit, auditHistory); }, [auditHistory]);
+  useEffect(() => { saveData(KEYS.carro, carro); }, [carro]);
   useEffect(() => { localStorage.setItem("jst_theme", theme); }, [theme]);
 
   useEffect(() => {
@@ -4032,7 +4064,17 @@ function App() {
           <div className="flex items-center gap-2">
             <span className="text-lg">⛩️</span>
             <span className={`text-sm font-semibold tracking-wide ${theme === "dark" ? "text-zinc-200" : "text-neutral-900"}`}>給与管理</span>
-            <span className={`text-xs ${theme === "dark" ? "text-zinc-600" : "text-neutral-400"}`}>· {settings.mode === "japan" ? "JP Padrão" : "Personalizado"}</span>
+            {profiles.length > 1 && (
+              <button onClick={onSwitchProfile}
+                className="flex items-center gap-1.5 ml-1 px-2 py-0.5 rounded-full text-xs font-semibold transition-colors"
+                style={{background: profileColor + "33", color: profileColor, border: `1px solid ${profileColor}55`}}>
+                <span className="w-4 h-4 rounded-full flex items-center justify-center text-xs font-bold"
+                  style={{background: profileColor, color: "#000", fontSize:"9px"}}>
+                  {profileName.charAt(0).toUpperCase()}
+                </span>
+                {profileName.split(" ")[0]}
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -4075,7 +4117,7 @@ function App() {
       {/* Content */}
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 pt-3">
         {tab === "dashboard" && (
-          <DashboardScreen entries={entries} settings={settings} onAddEntry={(e) => setEntries((prev) => [...prev, e])} auditHistory={auditHistory} />
+          <DashboardScreen entries={entries} settings={settings} onAddEntry={(e) => setEntries((prev) => [...prev, e])} auditHistory={auditHistory} storagePrefix={storagePrefix} />
         )}
         {tab === "entries" && (
           <EntriesScreen
@@ -4136,8 +4178,170 @@ function App() {
   );
 }
 
+// ─────────────────────────────────────────────
+// SELETOR DE PERFIS
+// ─────────────────────────────────────────────
+
+const PROFILE_COLORS = ["#f59e0b","#3b82f6","#ec4899","#10b981","#8b5cf6","#ef4444","#06b6d4","#f97316"];
+
+function ProfileSelector({ profiles, activeId, onSelect, onAddProfile, onClose }) {
+  const [adding, setAdding] = React.useState(false);
+  const [newName, setNewName] = React.useState("");
+  const [newColor, setNewColor] = React.useState(PROFILE_COLORS[1]);
+
+  function addProfile() {
+    if (!newName.trim()) return;
+    const pid = "u" + Date.now().toString(36);
+    onAddProfile({ id: pid, name: newName.trim(), color: newColor });
+    setAdding(false);
+    setNewName("");
+  }
+
+  const theme = localStorage.getItem("jst_theme") || "dark";
+  const bg    = theme === "dark" ? "#09090b" : "#f9f9f9";
+  const card  = theme === "dark" ? "#18181b" : "#ffffff";
+  const text  = theme === "dark" ? "#f4f4f5" : "#111111";
+  const sub   = theme === "dark" ? "#a1a1aa" : "#555555";
+  const bdr   = theme === "dark" ? "#27272a" : "#e4e4e7";
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" style={{background: bg}}>
+      <div className="px-6 pt-14 pb-6">
+        <div className="text-xs uppercase tracking-widest mb-1" style={{color: sub}}>給与管理</div>
+        <h1 className="text-2xl font-bold" style={{color: text}}>Quem está usando?</h1>
+      </div>
+
+      <div className="flex-1 px-6 space-y-3 overflow-y-auto pb-6">
+        {profiles.map(p => (
+          <button key={p.id} onClick={() => onSelect(p.id)}
+            className="w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all"
+            style={{
+              background: p.id === activeId ? p.color + "22" : card,
+              border: `2px solid ${p.id === activeId ? p.color : bdr}`,
+            }}>
+            <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold shrink-0"
+              style={{background: p.color, color: "#000"}}>
+              {p.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <div className="font-semibold text-base" style={{color: text}}>{p.name}</div>
+              {p.id === activeId && <div className="text-xs" style={{color: sub}}>Ativo agora</div>}
+            </div>
+          </button>
+        ))}
+
+        {adding ? (
+          <div className="p-4 rounded-2xl border space-y-3" style={{background: card, borderColor: bdr}}>
+            <input type="text" value={newName} onChange={e => setNewName(e.target.value)}
+              placeholder="Nome do perfil" autoFocus
+              onKeyDown={e => e.key === "Enter" && addProfile()}
+              className="w-full rounded-xl px-3 py-2.5 text-sm"
+              style={{background: bg, border: `1px solid ${bdr}`, color: text}}
+            />
+            <div className="flex gap-2 flex-wrap">
+              {PROFILE_COLORS.map(c => (
+                <button key={c} onClick={() => setNewColor(c)}
+                  className="w-8 h-8 rounded-full transition-transform"
+                  style={{background: c, outline: newColor === c ? `3px solid ${text}` : "none", outlineOffset:"2px"}}
+                />
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setAdding(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm"
+                style={{background: bg, border: `1px solid ${bdr}`, color: sub}}>
+                Cancelar
+              </button>
+              <button onClick={addProfile} disabled={!newName.trim()}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                style={{background:"#16a34a", color:"#fff", opacity: newName.trim() ? 1 : 0.4}}>
+                Criar perfil
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => setAdding(true)}
+            className="w-full flex items-center gap-4 p-4 rounded-2xl text-left"
+            style={{background: card, border: `2px dashed ${bdr}`}}>
+            <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl shrink-0"
+              style={{background: bg, border: `2px dashed ${bdr}`, color: sub}}>+</div>
+            <div className="text-sm" style={{color: sub}}>Adicionar perfil</div>
+          </button>
+        )}
+      </div>
+
+      {onClose && (
+        <div className="px-6 py-5 border-t" style={{borderColor: bdr}}>
+          <button onClick={onClose}
+            className="w-full py-3 rounded-2xl text-sm font-semibold"
+            style={{background: card, border: `1px solid ${bdr}`, color: sub}}>
+            Voltar
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// ROOT: gerencia perfis e monta o App correto
+// ─────────────────────────────────────────────
+
+function AppRoot() {
+  migrateIfNeeded();
+
+  const [profiles, setProfiles] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(JST_PROFILES_KEY)) || []; }
+    catch { return []; }
+  });
+  const [activeId, setActiveId] = React.useState(
+    () => localStorage.getItem(JST_ACTIVE_KEY) || ""
+  );
+  const [showSelector, setShowSelector] = React.useState(
+    () => !localStorage.getItem(JST_ACTIVE_KEY)
+  );
+
+  function selectProfile(pid) {
+    localStorage.setItem(JST_ACTIVE_KEY, pid);
+    setActiveId(pid);
+    setShowSelector(false);
+  }
+
+  function addProfile(profile) {
+    const updated = [...profiles, profile];
+    setProfiles(updated);
+    localStorage.setItem(JST_PROFILES_KEY, JSON.stringify(updated));
+    selectProfile(profile.id);
+  }
+
+  const activeProfile = profiles.find(p => p.id === activeId);
+
+  if (showSelector || !activeProfile) {
+    return (
+      <ProfileSelector
+        profiles={profiles}
+        activeId={activeId}
+        onSelect={selectProfile}
+        onAddProfile={addProfile}
+        onClose={activeProfile ? () => setShowSelector(false) : null}
+      />
+    );
+  }
+
+  return (
+    <App
+      key={activeId}
+      profileId={activeId}
+      profileName={activeProfile.name}
+      profileColor={activeProfile.color}
+      profiles={profiles}
+      onSwitchProfile={() => setShowSelector(true)}
+    />
+  );
+}
+
     const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+    root.render(<AppRoot />);
   </script>
 </body>
 </html>
