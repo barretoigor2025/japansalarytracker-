@@ -4063,18 +4063,15 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-lg">⛩️</span>
-            <span className={`text-sm font-semibold tracking-wide ${theme === "dark" ? "text-zinc-200" : "text-neutral-900"}`}>給与管理</span>
-            {profiles.length > 1 && (
-              <button onClick={onSwitchProfile}
-                className="flex items-center gap-1.5 ml-1 px-2 py-0.5 rounded-full text-xs font-semibold transition-colors"
-                style={{background: profileColor + "33", color: profileColor, border: `1px solid ${profileColor}55`}}>
-                <span className="w-4 h-4 rounded-full flex items-center justify-center text-xs font-bold"
-                  style={{background: profileColor, color: "#000", fontSize:"9px"}}>
-                  {profileName.charAt(0).toUpperCase()}
-                </span>
-                {profileName.split(" ")[0]}
-              </button>
-            )}
+            <button onClick={onSwitchProfile}
+              className="flex items-center gap-1.5 ml-1 px-2 py-0.5 rounded-full text-xs font-semibold transition-colors"
+              style={{background: profileColor + "33", color: profileColor, border: `1px solid ${profileColor}55`}}>
+              <span className="w-4 h-4 rounded-full flex items-center justify-center font-bold shrink-0"
+                style={{background: profileColor, color: "#000", fontSize:"9px"}}>
+                {profileName.charAt(0).toUpperCase()}
+              </span>
+              {profileName.split(" ")[0]}
+            </button>
           </div>
           <div className="flex items-center gap-2">
             <button
