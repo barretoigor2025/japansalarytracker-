@@ -593,13 +593,12 @@ const defaultSettings = {
   defaultBreak: 60,
   hireDate: "",
   customRules: { ...JAPAN_RULES },
-  // 手当 (Teate) — benefícios fixos mensais
-  // Pré-carregados com valores do holerite real (Aichi-ken, Toyota-shi)
+  // 手当 (Teate) — lista em branco para novos perfis (cada pessoa configura os seus)
   teate: [
-    { id: "t1", name: "非課税通勤手当", label: "Vale Transporte (通勤手当)", amount: 12900, taxable: false, active: true },
+    { id: "t1", name: "非課税通勤手当", label: "Vale Transporte (通勤手当)", amount: 0, taxable: false, active: false },
     { id: "t2", name: "調用旅費", label: "Deslocamento/Viagem (eventual)", amount: 0, taxable: false, active: false },
-    { id: "t3", name: "住宅手当①", label: "Moradia 1 (住宅手当)", amount: 15000, taxable: true, active: true },
-    { id: "t4", name: "住宅手当②", label: "Moradia 2 (住宅手当)", amount: 10000, taxable: true, active: true },
+    { id: "t3", name: "住宅手当①", label: "Moradia 1 (住宅手当)", amount: 0, taxable: true, active: false },
+    { id: "t4", name: "住宅手当②", label: "Moradia 2 (住宅手当)", amount: 0, taxable: true, active: false },
     { id: "t5", name: "その他手当", label: "Outro benefício", amount: 0, taxable: true, active: false },
   ],
 };
@@ -4178,10 +4177,11 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
 
 const PROFILE_COLORS = ["#f59e0b","#3b82f6","#ec4899","#10b981","#8b5cf6","#ef4444","#06b6d4","#f97316"];
 
-function ProfileSelector({ profiles, activeId, onSelect, onAddProfile, onClose }) {
+function ProfileSelector({ profiles, activeId, onSelect, onAddProfile, onDeleteProfile, onClose }) {
   const [adding, setAdding] = React.useState(false);
   const [newName, setNewName] = React.useState("");
   const [newColor, setNewColor] = React.useState(PROFILE_COLORS[1]);
+  const [confirmDelete, setConfirmDelete] = React.useState(null); // id a deletar
 
   function addProfile() {
     if (!newName.trim()) return;
@@ -4192,11 +4192,11 @@ function ProfileSelector({ profiles, activeId, onSelect, onAddProfile, onClose }
   }
 
   const theme = localStorage.getItem("jst_theme") || "dark";
-  const bg    = theme === "dark" ? "#09090b" : "#f9f9f9";
-  const card  = theme === "dark" ? "#18181b" : "#ffffff";
-  const text  = theme === "dark" ? "#f4f4f5" : "#111111";
-  const sub   = theme === "dark" ? "#a1a1aa" : "#555555";
-  const bdr   = theme === "dark" ? "#27272a" : "#e4e4e7";
+  const bg   = theme === "dark" ? "#09090b" : "#f9f9f9";
+  const card = theme === "dark" ? "#18181b" : "#ffffff";
+  const text = theme === "dark" ? "#f4f4f5" : "#111111";
+  const sub  = theme === "dark" ? "#a1a1aa" : "#555555";
+  const bdr  = theme === "dark" ? "#27272a" : "#e4e4e7";
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{background: bg}}>
@@ -4207,21 +4207,54 @@ function ProfileSelector({ profiles, activeId, onSelect, onAddProfile, onClose }
 
       <div className="flex-1 px-6 space-y-3 overflow-y-auto pb-6">
         {profiles.map(p => (
-          <button key={p.id} onClick={() => onSelect(p.id)}
-            className="w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all"
-            style={{
-              background: p.id === activeId ? p.color + "22" : card,
-              border: `2px solid ${p.id === activeId ? p.color : bdr}`,
-            }}>
-            <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold shrink-0"
-              style={{background: p.color, color: "#000"}}>
-              {p.name.charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <div className="font-semibold text-base" style={{color: text}}>{p.name}</div>
-              {p.id === activeId && <div className="text-xs" style={{color: sub}}>Ativo agora</div>}
-            </div>
-          </button>
+          <div key={p.id}>
+            {confirmDelete === p.id ? (
+              /* Confirmação de exclusão inline */
+              <div className="p-4 rounded-2xl border space-y-3" style={{background: "#7f1d1d33", borderColor:"#ef4444"}}>
+                <div className="text-sm font-semibold" style={{color: text}}>
+                  Apagar perfil de <span style={{color:"#ef4444"}}>{p.name}</span>?
+                </div>
+                <div className="text-xs" style={{color: sub}}>Todos os dados deste perfil serão apagados permanentemente.</div>
+                <div className="flex gap-2">
+                  <button onClick={() => setConfirmDelete(null)}
+                    className="flex-1 py-2.5 rounded-xl text-sm"
+                    style={{background: card, border: `1px solid ${bdr}`, color: sub}}>
+                    Cancelar
+                  </button>
+                  <button onClick={() => { onDeleteProfile(p.id); setConfirmDelete(null); }}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                    style={{background:"#ef4444", color:"#fff"}}>
+                    Apagar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button onClick={() => onSelect(p.id)}
+                  className="flex-1 flex items-center gap-4 p-4 rounded-2xl text-left transition-all"
+                  style={{
+                    background: p.id === activeId ? p.color + "22" : card,
+                    border: `2px solid ${p.id === activeId ? p.color : bdr}`,
+                  }}>
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold shrink-0"
+                    style={{background: p.color, color: "#000"}}>
+                    {p.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold text-base" style={{color: text}}>{p.name}</div>
+                    {p.id === activeId && <div className="text-xs" style={{color: sub}}>Ativo agora</div>}
+                  </div>
+                </button>
+                {profiles.length > 1 && (
+                  <button onClick={() => setConfirmDelete(p.id)}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg"
+                    style={{background: card, border: `1px solid ${bdr}`, color: sub}}>
+                    🗑
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         ))}
 
         {adding ? (
@@ -4235,7 +4268,7 @@ function ProfileSelector({ profiles, activeId, onSelect, onAddProfile, onClose }
             <div className="flex gap-2 flex-wrap">
               {PROFILE_COLORS.map(c => (
                 <button key={c} onClick={() => setNewColor(c)}
-                  className="w-8 h-8 rounded-full transition-transform"
+                  className="w-8 h-8 rounded-full"
                   style={{background: c, outline: newColor === c ? `3px solid ${text}` : "none", outlineOffset:"2px"}}
                 />
               ))}
@@ -4306,6 +4339,27 @@ function AppRoot() {
     selectProfile(profile.id);
   }
 
+  function deleteProfile(pid) {
+    // Apaga todas as chaves do perfil no localStorage
+    const prefix = `jst_p_${pid}_`;
+    const toDelete = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(prefix)) toDelete.push(k);
+    }
+    toDelete.forEach(k => localStorage.removeItem(k));
+
+    const updated = profiles.filter(p => p.id !== pid);
+    setProfiles(updated);
+    localStorage.setItem(JST_PROFILES_KEY, JSON.stringify(updated));
+
+    // Se era o perfil ativo, muda para o primeiro restante
+    if (pid === activeId && updated.length > 0) {
+      localStorage.setItem(JST_ACTIVE_KEY, updated[0].id);
+      setActiveId(updated[0].id);
+    }
+  }
+
   const activeProfile = profiles.find(p => p.id === activeId);
 
   if (showSelector || !activeProfile) {
@@ -4315,6 +4369,7 @@ function AppRoot() {
         activeId={activeId}
         onSelect={selectProfile}
         onAddProfile={addProfile}
+        onDeleteProfile={deleteProfile}
         onClose={activeProfile ? () => setShowSelector(false) : null}
       />
     );
