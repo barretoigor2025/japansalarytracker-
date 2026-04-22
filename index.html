@@ -2314,11 +2314,8 @@ function DashboardScreen({ entries, settings, onAddEntry, auditHistory = [], sto
 
   return (
     <div className="space-y-3 pb-24 sm:pb-28">
-      {/* Header boas-vindas */}
-      <div className="pt-1 flex items-center justify-between gap-3">
-        <div className="text-sm font-medium" style={{color:"var(--text-sub)"}}>
-          {settings.name ? `Olá, ${settings.name.split(" ")[0]}` : "Japan Salary Tracker"}
-        </div>
+      {/* Header mês */}
+      <div className="pt-1 flex items-center justify-end gap-3">
         <div className="shrink-0">
           <MonthPicker value={month} onChange={setMonth} />
         </div>
@@ -4294,9 +4291,7 @@ function AppRoot() {
   const [activeId, setActiveId] = React.useState(
     () => localStorage.getItem(JST_ACTIVE_KEY) || ""
   );
-  const [showSelector, setShowSelector] = React.useState(
-    () => !localStorage.getItem(JST_ACTIVE_KEY)
-  );
+  const [showSelector, setShowSelector] = React.useState(true);
 
   function selectProfile(pid) {
     localStorage.setItem(JST_ACTIVE_KEY, pid);
