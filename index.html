@@ -519,6 +519,7 @@ function migrateIfNeeded() {
 const TABS = [
   { id: "dashboard", label: "Início", icon: "🏠" },
   { id: "entries", label: "Jornada", icon: "📋" },
+  { id: "holerite", label: "Holerite", icon: "🧾" },
   { id: "reports", label: "Relatórios", icon: "📊" },
   { id: "gastos", label: "Gastos", icon: "💸" },
   { id: "carro", label: "Carro", icon: "🚗" },
@@ -1056,13 +1057,9 @@ function TeateSection({ teate = [], onChange }) {
 // TELA: SETTINGS
 // ─────────────────────────────────────────────
 
-function SettingsScreen({ settings, onSave, entries = [], auditHistory = [], onSaveAudit }) {
+function SettingsScreen({ settings, onSave }) {
   const [s, setS] = useState({ ...settings });
   const set = (k, v) => setS((prev) => ({ ...prev, [k]: v }));
-  const [auditMonth, setAuditMonth] = useState(new Date().toISOString().slice(0, 7));
-  const [auditBruto, setAuditBruto] = useState("");
-  const [auditLiquido, setAuditLiquido] = useState("");
-  const [auditSaved, setAuditSaved] = useState(false);
 
   return (
     <div className="space-y-3 pb-24 sm:pb-28">
@@ -1284,137 +1281,6 @@ function SettingsScreen({ settings, onSave, entries = [], auditHistory = [], onS
           onChange={(t) => set("teate", t)}
         />
       </Card>
-
-      {/* ── Auditoria de Acertividade ── */}
-      <Card>
-        <h3 className="text-sm font-semibold text-amber-400 mb-1 uppercase tracking-widest">🎯 Auditoria de Acertividade</h3>
-        <p className="text-xs mb-3" style={{color:"var(--text-muted)"}}>Compare o cálculo do app com seu holerite real e acompanhe a precisão mês a mês.</p>
-
-        <div className="space-y-2">
-          <input type="month" value={auditMonth} onChange={e => setAuditMonth(e.target.value)}
-            className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500 border transition-all"
-            style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
-
-          {(() => {
-            // Calculate what app predicted for this month
-            const mEntries = entries.filter(e => e.date.startsWith(auditMonth));
-            let accOT = 0;
-            const calcs = mEntries.map(e => { const c = calcDay(e, s, accOT); accOT += c.overtimeHours; return c; });
-            const appBruto = calcs.reduce((a,c) => a + c.grossPay, 0);
-            const totalTeate = (s.teate||[]).filter(t=>t.active).reduce((a,t)=>a+(t.amount||0),0);
-            const appBrutoTotal = appBruto + totalTeate;
-            const { netPay: appLiquido } = estimateDeductions(appBrutoTotal, s);
-
-            return (
-              <div className="bg-zinc-800/40 rounded-xl p-3 space-y-1.5">
-                <div className="text-xs font-semibold mb-2" style={{color:"var(--text-sub)"}}>App calculou para {auditMonth}:</div>
-                <div className="flex justify-between text-xs">
-                  <span style={{color:"var(--text-muted)"}}>Bruto estimado</span>
-                  <span className="font-mono text-green-400">{YEN(appBrutoTotal)}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span style={{color:"var(--text-muted)"}}>Líquido estimado</span>
-                  <span className="font-mono text-amber-400">{YEN(appLiquido)}</span>
-                </div>
-                {mEntries.length === 0 && <div className="text-xs text-zinc-600">Sem lançamentos neste mês</div>}
-              </div>
-            );
-          })()}
-
-          <div className="grid grid-cols-2 gap-2">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Bruto real (holerite)</label>
-              <input type="number" placeholder="¥0" value={auditBruto}
-                onChange={e => setAuditBruto(e.target.value)}
-                className="rounded-lg px-3 py-2 text-sm border focus:outline-none focus:border-amber-500 font-mono"
-                style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Líquido real (holerite)</label>
-              <input type="number" placeholder="¥0" value={auditLiquido}
-                onChange={e => setAuditLiquido(e.target.value)}
-                className="rounded-lg px-3 py-2 text-sm border focus:outline-none focus:border-amber-500 font-mono"
-                style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
-            </div>
-          </div>
-
-          <button
-            onClick={() => {
-              if (!auditBruto && !auditLiquido) return;
-              const mEntries = entries.filter(e => e.date.startsWith(auditMonth));
-              let accOT = 0;
-              const calcs = mEntries.map(e => { const c = calcDay(e, s, accOT); accOT += c.overtimeHours; return c; });
-              const appBruto = calcs.reduce((a,c) => a + c.grossPay, 0);
-              const totalTeate = (s.teate||[]).filter(t=>t.active).reduce((a,t)=>a+(t.amount||0),0);
-              const appBrutoTotal = appBruto + totalTeate;
-              const { netPay: appLiquido } = estimateDeductions(appBrutoTotal, s);
-              const realBruto = parseInt(auditBruto) || 0;
-              const realLiquido = parseInt(auditLiquido) || 0;
-              const brutoAcc = realBruto > 0 ? Math.round((1 - Math.abs(appBrutoTotal - realBruto) / realBruto) * 100) : null;
-              const liquidoAcc = realLiquido > 0 ? Math.round((1 - Math.abs(appLiquido - realLiquido) / realLiquido) * 100) : null;
-              const entry = { month: auditMonth, appBruto: appBrutoTotal, appLiquido, realBruto, realLiquido, brutoAcc, liquidoAcc, savedAt: new Date().toISOString() };
-              const updated = [...auditHistory.filter(a => a.month !== auditMonth), entry].sort((a,b) => b.month.localeCompare(a.month));
-              onSaveAudit(updated);
-              setAuditBruto(""); setAuditLiquido(""); setAuditSaved(true);
-              setTimeout(() => setAuditSaved(false), 2500);
-            }}
-            className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm transition-colors"
-          >
-            {auditSaved ? "✓ Salvo!" : "Registrar Holerite Real"}
-          </button>
-        </div>
-
-        {/* Histórico de auditoria */}
-        {auditHistory.length > 0 && (
-          <div className="mt-4 space-y-2">
-            <div className="text-xs font-semibold uppercase tracking-widest" style={{color:"var(--text-muted)"}}>Histórico de Acertividade</div>
-            {(() => {
-              const avgBruto = Math.round(auditHistory.filter(a => a.brutoAcc !== null).reduce((s,a) => s + a.brutoAcc, 0) / auditHistory.filter(a => a.brutoAcc !== null).length);
-              const avgLiquido = Math.round(auditHistory.filter(a => a.liquidoAcc !== null).reduce((s,a) => s + a.liquidoAcc, 0) / auditHistory.filter(a => a.liquidoAcc !== null).length);
-              return (
-                <div className="grid grid-cols-2 gap-2 mb-2">
-                  <div className="bg-zinc-800/40 rounded-xl p-2.5 text-center">
-                    <div className="text-xs" style={{color:"var(--text-muted)"}}>Média Bruto</div>
-                    <div className={`text-xl font-bold ${avgBruto >= 95 ? "text-green-400" : avgBruto >= 85 ? "text-amber-400" : "text-red-400"}`}>{avgBruto}%</div>
-                  </div>
-                  <div className="bg-zinc-800/40 rounded-xl p-2.5 text-center">
-                    <div className="text-xs" style={{color:"var(--text-muted)"}}>Média Líquido</div>
-                    <div className={`text-xl font-bold ${avgLiquido >= 95 ? "text-green-400" : avgLiquido >= 85 ? "text-amber-400" : "text-red-400"}`}>{avgLiquido}%</div>
-                  </div>
-                </div>
-              );
-            })()}
-            {auditHistory.map((a, i) => (
-              <div key={a.month} className="rounded-xl p-3 border" style={{borderColor:"var(--border)", background:"var(--bg-card)"}}>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-semibold" style={{color:"var(--text)"}}>
-                    {new Date(a.month + "-01").toLocaleDateString("pt-BR", {month:"long", year:"numeric"})}
-                  </span>
-                  <div className="flex gap-2">
-                    {a.brutoAcc !== null && (
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${a.brutoAcc >= 95 ? "bg-green-900/40 text-green-400" : a.brutoAcc >= 85 ? "bg-amber-900/40 text-amber-400" : "bg-red-900/40 text-red-400"}`}>
-                        B: {a.brutoAcc}%
-                      </span>
-                    )}
-                    {a.liquidoAcc !== null && (
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${a.liquidoAcc >= 95 ? "bg-green-900/40 text-green-400" : a.liquidoAcc >= 85 ? "bg-amber-900/40 text-amber-400" : "bg-red-900/40 text-red-400"}`}>
-                        L: {a.liquidoAcc}%
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-x-4 text-xs" style={{color:"var(--text-muted)"}}>
-                  <div>App bruto: <span className="font-mono text-green-400">{YEN(a.appBruto)}</span></div>
-                  <div>Real: <span className="font-mono" style={{color:"var(--text)"}}>{YEN(a.realBruto)}</span></div>
-                  <div>App líquido: <span className="font-mono text-amber-400">{YEN(a.appLiquido)}</span></div>
-                  <div>Real: <span className="font-mono" style={{color:"var(--text)"}}>{YEN(a.realLiquido)}</span></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-
 
       <button
         onClick={() => onSave(s)}
@@ -2037,10 +1903,162 @@ function YukyuModal({ entries, settings, onAddEntry, onClose }) {
 }
 
 // ─────────────────────────────────────────────
+// TELA: HOLERITE
+// ─────────────────────────────────────────────
+
+function HoleriteScreen({ entries, settings, auditHistory = [], onSaveAudit }) {
+  const [auditMonth, setAuditMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [auditDias, setAuditDias] = useState("");
+  const [auditBruto, setAuditBruto] = useState("");
+  const [auditLiquido, setAuditLiquido] = useState("");
+  const [auditSaved, setAuditSaved] = useState(false);
+
+  const mEntries = entries.filter(e => e.date.startsWith(auditMonth));
+  let accOT = 0;
+  const calcs = mEntries.map(e => { const c = calcDay(e, settings, accOT); accOT += c.overtimeHours; return c; });
+  const appBruto = calcs.reduce((a, c) => a + c.grossPay, 0);
+  const totalTeate = (settings.teate || []).filter(t => t.active).reduce((a, t) => a + (t.amount || 0), 0);
+  const appBrutoTotal = appBruto + totalTeate;
+  const { netPay: appLiquido } = estimateDeductions(appBrutoTotal, settings);
+
+  function saveAudit() {
+    if (!auditBruto && !auditLiquido) return;
+    const realBruto = parseInt(auditBruto) || 0;
+    const realLiquido = parseInt(auditLiquido) || 0;
+    const brutoAcc = realBruto > 0 ? Math.round((1 - Math.abs(appBrutoTotal - realBruto) / realBruto) * 100) : null;
+    const liquidoAcc = realLiquido > 0 ? Math.round((1 - Math.abs(appLiquido - realLiquido) / realLiquido) * 100) : null;
+    const diasTrabalhados = parseInt(auditDias) || 0;
+    const entry = { month: auditMonth, diasTrabalhados, appBruto: appBrutoTotal, appLiquido, realBruto, realLiquido, brutoAcc, liquidoAcc, savedAt: new Date().toISOString() };
+    const updated = [...auditHistory.filter(a => a.month !== auditMonth), entry].sort((a, b) => b.month.localeCompare(a.month));
+    onSaveAudit(updated);
+    setAuditDias(""); setAuditBruto(""); setAuditLiquido(""); setAuditSaved(true);
+    setTimeout(() => setAuditSaved(false), 2500);
+  }
+
+  return (
+    <div className="space-y-3 pb-24 sm:pb-28">
+      <Card>
+        <h3 className="text-sm font-semibold text-amber-400 mb-1 uppercase tracking-widest">🧾 Lançar Holerite</h3>
+        <p className="text-xs mb-3" style={{color:"var(--text-muted)"}}>Registre os valores reais do seu holerite. Esses dados alimentam o cálculo do Art. 26 e a acertividade.</p>
+
+        <div className="space-y-2">
+          <input type="month" value={auditMonth} onChange={e => setAuditMonth(e.target.value)}
+            className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500 border transition-all"
+            style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
+
+          <div className="bg-zinc-800/40 rounded-xl p-3 space-y-1.5">
+            <div className="text-xs font-semibold mb-2" style={{color:"var(--text-sub)"}}>App calculou para {auditMonth}:</div>
+            <div className="flex justify-between text-xs">
+              <span style={{color:"var(--text-muted)"}}>Bruto estimado</span>
+              <span className="font-mono text-green-400">{YEN(appBrutoTotal)}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span style={{color:"var(--text-muted)"}}>Líquido estimado</span>
+              <span className="font-mono text-amber-400">{YEN(appLiquido)}</span>
+            </div>
+            {mEntries.length === 0 && <div className="text-xs text-zinc-600">Sem lançamentos neste mês</div>}
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Dias trabalhados (holerite)</label>
+            <input type="number" placeholder="Ex: 22" value={auditDias}
+              onChange={e => setAuditDias(e.target.value)}
+              className="rounded-lg px-3 py-2 text-sm border focus:outline-none focus:border-amber-500 font-mono"
+              style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Bruto real</label>
+              <input type="number" placeholder="¥0" value={auditBruto}
+                onChange={e => setAuditBruto(e.target.value)}
+                className="rounded-lg px-3 py-2 text-sm border focus:outline-none focus:border-amber-500 font-mono"
+                style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Líquido real</label>
+              <input type="number" placeholder="¥0" value={auditLiquido}
+                onChange={e => setAuditLiquido(e.target.value)}
+                className="rounded-lg px-3 py-2 text-sm border focus:outline-none focus:border-amber-500 font-mono"
+                style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
+            </div>
+          </div>
+
+          <button onClick={saveAudit}
+            className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm transition-colors">
+            {auditSaved ? "✓ Salvo!" : "Registrar Holerite"}
+          </button>
+        </div>
+      </Card>
+
+      {auditHistory.length > 0 && (
+        <Card>
+          <h3 className="text-sm font-semibold text-amber-400 mb-3 uppercase tracking-widest">🎯 Acertividade</h3>
+          {(() => {
+            const validBruto = auditHistory.filter(a => a.brutoAcc !== null);
+            const validLiquido = auditHistory.filter(a => a.liquidoAcc !== null);
+            const avgBruto = validBruto.length > 0 ? Math.round(validBruto.reduce((s, a) => s + a.brutoAcc, 0) / validBruto.length) : null;
+            const avgLiquido = validLiquido.length > 0 ? Math.round(validLiquido.reduce((s, a) => s + a.liquidoAcc, 0) / validLiquido.length) : null;
+            return (
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="bg-zinc-800/40 rounded-xl p-2.5 text-center">
+                  <div className="text-xs" style={{color:"var(--text-muted)"}}>Média Bruto</div>
+                  {avgBruto !== null
+                    ? <div className={`text-xl font-bold ${avgBruto >= 95 ? "text-green-400" : avgBruto >= 85 ? "text-amber-400" : "text-red-400"}`}>{avgBruto}%</div>
+                    : <div className="text-xl font-bold text-zinc-600">—</div>}
+                </div>
+                <div className="bg-zinc-800/40 rounded-xl p-2.5 text-center">
+                  <div className="text-xs" style={{color:"var(--text-muted)"}}>Média Líquido</div>
+                  {avgLiquido !== null
+                    ? <div className={`text-xl font-bold ${avgLiquido >= 95 ? "text-green-400" : avgLiquido >= 85 ? "text-amber-400" : "text-red-400"}`}>{avgLiquido}%</div>
+                    : <div className="text-xl font-bold text-zinc-600">—</div>}
+                </div>
+              </div>
+            );
+          })()}
+          <div className="space-y-2">
+            {auditHistory.map(a => (
+              <div key={a.month} className="rounded-xl p-3 border" style={{borderColor:"var(--border)", background:"var(--bg-card)"}}>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-semibold" style={{color:"var(--text)"}}>
+                    {new Date(a.month + "-01").toLocaleDateString("pt-BR", {month:"long", year:"numeric"})}
+                  </span>
+                  <div className="flex gap-2">
+                    {a.brutoAcc !== null && (
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${a.brutoAcc >= 95 ? "bg-green-900/40 text-green-400" : a.brutoAcc >= 85 ? "bg-amber-900/40 text-amber-400" : "bg-red-900/40 text-red-400"}`}>
+                        B: {a.brutoAcc}%
+                      </span>
+                    )}
+                    {a.liquidoAcc !== null && (
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${a.liquidoAcc >= 95 ? "bg-green-900/40 text-green-400" : a.liquidoAcc >= 85 ? "bg-amber-900/40 text-amber-400" : "bg-red-900/40 text-red-400"}`}>
+                        L: {a.liquidoAcc}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 text-xs" style={{color:"var(--text-muted)"}}>
+                  {(a.diasTrabalhados > 0) && (
+                    <div className="col-span-2 mb-1">Dias trab.: <span className="font-mono" style={{color:"var(--text)"}}>{a.diasTrabalhados}</span></div>
+                  )}
+                  <div>App bruto: <span className="font-mono text-green-400">{YEN(a.appBruto)}</span></div>
+                  <div>Real: <span className="font-mono" style={{color:"var(--text)"}}>{YEN(a.realBruto)}</span></div>
+                  <div>App líquido: <span className="font-mono text-amber-400">{YEN(a.appLiquido)}</span></div>
+                  <div>Real: <span className="font-mono" style={{color:"var(--text)"}}>{YEN(a.realLiquido)}</span></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
 // COMPONENTE: Art. 26 LSA — 休業手当
 // ─────────────────────────────────────────────
 
-function Art26Card({ month, storagePrefix, auditHistory = [], entries = [] }) {
+function Art26Card({ month, storagePrefix, auditHistory = [] }) {
   const TIPO_KEY = storagePrefix + "_art26_tipo";
   const PCT_KEY  = storagePrefix + "_art26_pct";
 
@@ -2063,9 +2081,7 @@ function Art26Card({ month, storagePrefix, auditHistory = [], entries = [] }) {
     totalBruto += r.realBruto;
     totalCal   += new Date(y, m, 0).getDate();
     if (tipo === "horista") {
-      totalTrab += entries.filter(e =>
-        e.date.startsWith(r.month) && !["yukyu","company_off"].includes(e.dayType)
-      ).length;
+      totalTrab += r.diasTrabalhados || 0;
     }
   });
 
@@ -2107,10 +2123,8 @@ function Art26Card({ month, storagePrefix, auditHistory = [], entries = [] }) {
               </div>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="text-xs font-mono text-zinc-400">{YEN(r.realBruto)}</span>
-                {tipo === "horista" && (
-                  <span className="text-zinc-600 text-xs">
-                    · {entries.filter(e => e.date.startsWith(r.month) && !["yukyu","company_off"].includes(e.dayType)).length}d trab.
-                  </span>
+                {tipo === "horista" && r.diasTrabalhados > 0 && (
+                  <span className="text-zinc-600 text-xs">· {r.diasTrabalhados}d trab.</span>
                 )}
               </div>
             </div>
@@ -2138,7 +2152,7 @@ function Art26Card({ month, storagePrefix, auditHistory = [], entries = [] }) {
           ) : (
             <span className="text-zinc-700 text-xs leading-snug">
               {auditHistory.length === 0
-                ? "configure holerites na aba Config"
+                ? "lance holerites na aba Holerite"
                 : "aguardando 3 meses de holerite"}
             </span>
           )}
@@ -2284,7 +2298,7 @@ function DashboardScreen({ entries, settings, onAddEntry, auditHistory = [], sto
         );
       })()}
 
-      <Art26Card month={month} storagePrefix={storagePrefix} auditHistory={auditHistory} entries={entries} />
+      <Art26Card month={month} storagePrefix={storagePrefix} auditHistory={auditHistory} />
 
       {showForm && (
         <EntryForm
@@ -3895,6 +3909,9 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
             onDelete={(id) => setEntries((prev) => prev.filter((e) => e.id !== id))}
           />
         )}
+        {tab === "holerite" && (
+          <HoleriteScreen entries={entries} settings={settings} auditHistory={auditHistory} onSaveAudit={setAuditHistory} />
+        )}
         {tab === "reports" && <ReportsScreen entries={entries} settings={settings} />}
 
         {tab === "gastos" && (
@@ -3904,8 +3921,7 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
           <CarroScreen carro={carro} onSave={setCarro} />
         )}
         {tab === "settings" && (
-          <SettingsScreen settings={settings} onSave={saveSettings} entries={entries}
-            auditHistory={auditHistory} onSaveAudit={setAuditHistory} />
+          <SettingsScreen settings={settings} onSave={saveSettings} />
         )}
       </div>
 
