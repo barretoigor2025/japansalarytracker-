@@ -436,7 +436,7 @@ function estimateDeductions(grossMonthly, settings) {
 
   // 所得税 — 源泉徴収 mensal (令和7年 甲欄, 給与所得控除+基礎控除+扶養控除)
   const totalSocialSec = deductions.reduce((a, b) => a + b.amount, 0);
-  const numDependents = settings.dependents || 0;
+  const numDependents = (settings.spouseDependent ? 1 : 0) + (settings.dependentChildren || 0);
   const annualGross = grossMonthly * 12;
 
   // 給与所得控除 (employment income deduction)
@@ -606,7 +606,8 @@ const defaultSettings = {
   pension: true,
   employmentInsurance: true,
   municipalTax: false,
-  dependents: 0,
+  spouseDependent: false,
+  dependentChildren: 0,
   saturdayRate: 0,
   sundayRate: 0,
   defaultBreak: 60,
@@ -1085,19 +1086,12 @@ function SettingsScreen({ settings, onSave }) {
     <div className="space-y-3 pb-24 sm:pb-28">
       <Card>
         <h3 className="text-sm font-semibold text-amber-400 mb-2 uppercase tracking-widest">Trabalhador</h3>
-        <div className="grid grid-cols-1 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <Input label="Nome" value={s.name} onChange={(e) => set("name", e.target.value)} placeholder="Seu nome" />
           <Input label="Salário por hora (¥)" type="number" value={s.hourlyRate || ""} onChange={(e) => set("hourlyRate", Number(e.target.value))} />
           <Input label="Idade" type="number" value={s.age || ""} onChange={(e) => set("age", Number(e.target.value))} />
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-zinc-400 font-medium tracking-wide uppercase">Dependentes (扶養人数)</label>
-            <input type="number" placeholder="0" value={s.dependents ?? ""}
-              onChange={(e) => set("dependents", Number(e.target.value))}
-              className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 transition-all placeholder:text-zinc-600" />
-            <span className="text-xs text-zinc-500">Cônjuge/filhos declarados — reduz o cálculo do 所得税</span>
-          </div>
-          <Input label="Prefeitura (para seguro saúde)" value={s.prefecture || ""} onChange={(e) => set("prefecture", e.target.value)} placeholder="Ex: Tokyo" />
-          <div className="col-span-1">
+          <Input label="Prefeitura" value={s.prefecture || ""} onChange={(e) => set("prefecture", e.target.value)} placeholder="Ex: Toyota" />
+          <div className="col-span-2">
             <Input label="Data de Contratação" type="date" value={s.hireDate || ""} onChange={(e) => set("hireDate", e.target.value)} />
           </div>
           {s.hireDate && (() => {
@@ -1188,6 +1182,38 @@ function SettingsScreen({ settings, onSave }) {
               </div>
             );
           })()}
+        </div>
+
+        {/* ── 扶養 Dependentes ── */}
+        <div className="mt-4 pt-4 border-t border-zinc-800 space-y-3">
+          <div className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">扶養 — Dependentes <span className="text-zinc-600 normal-case">(afeta 所得税)</span></div>
+          <Toggle
+            label="Cônjuge (配偶者控除)"
+            note="Esposa/marido declarado como dependente — deduz ¥380k/ano"
+            checked={!!s.spouseDependent}
+            onChange={(v) => set("spouseDependent", v)}
+          />
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm text-zinc-200">Filhos (扶養子供)</div>
+              <div className="text-xs text-zinc-500">declarados como dependentes — ¥380k/ano cada</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => set("dependentChildren", Math.max(0, (s.dependentChildren || 0) - 1))}
+                className="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700 text-base leading-none flex items-center justify-center">−</button>
+              <span className="text-base font-bold text-zinc-100 w-4 text-center">{s.dependentChildren || 0}</span>
+              <button onClick={() => set("dependentChildren", (s.dependentChildren || 0) + 1)}
+                className="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 hover:bg-zinc-700 text-base leading-none flex items-center justify-center">+</button>
+            </div>
+          </div>
+          {((s.spouseDependent ? 1 : 0) + (s.dependentChildren || 0)) > 0 && (
+            <div className="bg-zinc-800/40 rounded-xl px-3 py-2 flex justify-between text-xs">
+              <span style={{color:"var(--text-muted)"}}>Redução estimada no 所得税</span>
+              <span className="font-mono text-green-400">
+                −{YEN(Math.round(((s.spouseDependent ? 1 : 0) + (s.dependentChildren || 0)) * 380000 * 0.10 / 12))}/mês
+              </span>
+            </div>
+          )}
         </div>
       </Card>
 
