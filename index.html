@@ -2180,7 +2180,7 @@ function Art26Card({ month, storagePrefix, auditHistory = [] }) {
 
   // 3 holerites reais mais recentes antes do mês atual
   const regsEmUso = auditHistory
-    .filter(a => a.month < month && a.realBruto > 0)
+    .filter(a => a.month <= month && a.realBruto > 0)
     .sort((a, b) => b.month.localeCompare(a.month))
     .slice(0, 3);
 
