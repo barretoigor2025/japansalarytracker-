@@ -365,24 +365,13 @@ function calcDay(entry, settings, monthlyOvertimeSoFar = 0) {
 // Base de cálculo: 標準報酬月額 (salário padronizado tabelado)
 // Diferente da 協会けんぽ padrão — taxas específicas do setor
 // ─────────────────────────────────────────────
+// Taxas calibradas pelo holerite real mar/2026 (base tributável ¥494.313)
+// 健保+介護+厚年 sobre 標準報酬月額 ¥500.000; 雇保 sobre salário tributável
 const AICHI_RATES = {
-  // 健康保険 — Cooperativa caminhões Aichi (10.5% total / 5.25% empregado)
-  // Taxa real do holerite: 25,075 / 488,969 = 5.1281%
-  // (diferença devida à 標準報酬月額)
-  kenkouHoken: 0.051281,
-
-  // 厚生年金 — pensão (18.3% total / 9.15% empregado)
-  // Taxa real: 45,750 / 488,969 = 9.3564%
-  kouseiNenkin: 0.093564,
-
-  // 介護保険 — seguro cuidados 40+ (1.64% total / 0.82% empregado)
-  // Taxa real: 3,975 / 488,969 = 0.8129%
-  kaigoHoken: 0.008129,
-
-  // 雇用保険 — seguro desemprego (0.6% empregado)
-  // Taxa real: 2,760 / 488,969 = 0.5645%
-  koyouHoken: 0.005645,
-
+  kenkouHoken:  0.050212,  // 健康保険  24.825 / 494.313 = 5,021%
+  kaigoHoken:   0.008194,  // 介護保険   4.050 / 494.313 = 0,819%
+  kouseiNenkin: 0.092534,  // 厚生年金  45.750 / 494.313 = 9,253%
+  koyouHoken:   0.005645,  // 雇用保険   2.790 / 494.313 = 0,565%
 };
 
 function estimateDeductions(grossMonthly, settings) {
@@ -414,13 +403,13 @@ function estimateDeductions(grossMonthly, settings) {
     });
   }
 
-  if (age >= 40) {
+  {
     const kaigo = Math.round(grossMonthly * rates.kaigoHoken);
     deductions.push({
       name: "介護保険 (Kaigo Hoken)",
       amount: kaigo,
       rate: rates.kaigoHoken,
-      note: `${(rates.kaigoHoken*100).toFixed(4)}% — aplicado aos 40+ anos`
+      note: `${(rates.kaigoHoken*100).toFixed(4)}% — confirmado no holerite real`
     });
   }
 
@@ -1985,11 +1974,14 @@ function HoleriteScreen({ entries, settings, auditHistory = [], onSaveAudit }) {
   let accOT = 0;
   const calcs = mEntries.map(e => { const c = calcDay(e, settings, accOT); accOT += c.overtimeHours; return c; });
   const appBruto = calcs.reduce((a, c) => a + c.grossPay, 0);
-  const totalTeate = (settings.teate || []).filter(t => t.active).reduce((a, t) => a + (t.amount || 0), 0);
+  const activeTeateAudit = (settings.teate || []).filter(t => t.active && t.amount > 0);
+  const taxableTeateAudit    = activeTeateAudit.filter(t => t.taxable !== false).reduce((a, t) => a + t.amount, 0);
+  const nonTaxableTeateAudit = activeTeateAudit.filter(t => t.taxable === false).reduce((a, t) => a + t.amount, 0);
+  const totalTeate    = taxableTeateAudit + nonTaxableTeateAudit;
   const appBrutoTotal = appBruto + totalTeate;
-  // Deduções só sobre salário — teate (交通費) isento de shakai hoken e imposto
-  const { netPay: appLiquidoBase } = estimateDeductions(appBruto, settings);
-  const appLiquido = appLiquidoBase + totalTeate;
+  // Deduções sobre salário + teate tributável; teate isento vai direto ao líquido
+  const { netPay: appLiquidoBase } = estimateDeductions(appBruto + taxableTeateAudit, settings);
+  const appLiquido = appLiquidoBase + nonTaxableTeateAudit;
   const existingEntry = auditHistory.find(a => a.month === auditMonth);
 
   function saveAudit() {
@@ -2316,10 +2308,13 @@ function DashboardScreen({ entries, settings, onAddEntry, auditHistory = [], sto
     { totalHours: 0, overtimeHours: 0, nightHours: 0, grossPay: 0 }
   );
 
-  const totalTeate = (settings.teate || []).filter(t => t.active).reduce((a, t) => a + (t.amount||0), 0);
+  const activeTeate = (settings.teate || []).filter(t => t.active && t.amount > 0);
+  const taxableTeate   = activeTeate.filter(t => t.taxable !== false).reduce((a, t) => a + t.amount, 0);
+  const nonTaxableTeate = activeTeate.filter(t => t.taxable === false).reduce((a, t) => a + t.amount, 0);
+  const totalTeate = taxableTeate + nonTaxableTeate;
   const grossWithTeate = totals.grossPay + totalTeate;
-  // Deduções só sobre salário das horas — teate (交通費) é isento de shakai hoken e imposto
-  const deductionInfo = estimateDeductions(totals.grossPay, settings);
+  // Deduções sobre salário + teate tributável; teate isento (通勤) vai direto ao líquido
+  const deductionInfo = estimateDeductions(totals.grossPay + taxableTeate, settings);
 
   // Última entrada
   const lastEntry = [...entries].sort((a, b) => b.date.localeCompare(a.date))[0];
@@ -2343,7 +2338,7 @@ function DashboardScreen({ entries, settings, onAddEntry, auditHistory = [], sto
       <div className="grid grid-cols-2 gap-2">
         <>
           <SummaryCard icon="💴" label="Bruto Mês" value={YEN(grossWithTeate)} sub={diasMes > 0 ? `${diasMes} dias lançados` : "sem lançamentos"} accent="text-green-400" />
-          <SummaryCard icon="💰" label="Líquido Mês" value={YEN(deductionInfo.netPay + totalTeate)} sub="após descontos" accent="text-amber-400" />
+          <SummaryCard icon="💰" label="Líquido Mês" value={YEN(deductionInfo.netPay + nonTaxableTeate)} sub="após descontos" accent="text-amber-400" />
         </>
         <SummaryCard icon="⏱️" label="Horas Totais" value={`${totals.totalHours.toFixed(1)}h`} sub={`${diasMes} dias`} />
         <SummaryCard icon="⚡" label="Horas Extras" value={`${totals.overtimeHours.toFixed(1)}h`}
