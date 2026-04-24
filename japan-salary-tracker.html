@@ -224,8 +224,8 @@ function calcDay(entry, settings, monthlyOvertimeSoFar = 0) {
   const totalMin = outMin - inMin - breakMin;
   const totalHours = minutesToHours(totalMin);
 
-  // Horas noturnas (no período trabalhado, descontando break proporcionalmente)
-  const nightMin = calcNightMinutes(inMin, outMin - breakMin, rules);
+  // Break de 夜勤 (17h–03:45) cai antes das 22h — não reduz janela noturna
+  const nightMin = calcNightMinutes(inMin, outMin, rules);
   // Horas normais diárias
   const dailyLimitMin = (rules.dailyHours || 8) * 60;
 
