@@ -1987,7 +1987,9 @@ function HoleriteScreen({ entries, settings, auditHistory = [], onSaveAudit }) {
   const appBruto = calcs.reduce((a, c) => a + c.grossPay, 0);
   const totalTeate = (settings.teate || []).filter(t => t.active).reduce((a, t) => a + (t.amount || 0), 0);
   const appBrutoTotal = appBruto + totalTeate;
-  const { netPay: appLiquido } = estimateDeductions(appBrutoTotal, settings);
+  // Deduções só sobre salário — teate (交通費) isento de shakai hoken e imposto
+  const { netPay: appLiquidoBase } = estimateDeductions(appBruto, settings);
+  const appLiquido = appLiquidoBase + totalTeate;
   const existingEntry = auditHistory.find(a => a.month === auditMonth);
 
   function saveAudit() {
@@ -2316,7 +2318,8 @@ function DashboardScreen({ entries, settings, onAddEntry, auditHistory = [], sto
 
   const totalTeate = (settings.teate || []).filter(t => t.active).reduce((a, t) => a + (t.amount||0), 0);
   const grossWithTeate = totals.grossPay + totalTeate;
-  const deductionInfo = estimateDeductions(grossWithTeate, settings);
+  // Deduções só sobre salário das horas — teate (交通費) é isento de shakai hoken e imposto
+  const deductionInfo = estimateDeductions(totals.grossPay, settings);
 
   // Última entrada
   const lastEntry = [...entries].sort((a, b) => b.date.localeCompare(a.date))[0];
@@ -2340,7 +2343,7 @@ function DashboardScreen({ entries, settings, onAddEntry, auditHistory = [], sto
       <div className="grid grid-cols-2 gap-2">
         <>
           <SummaryCard icon="💴" label="Bruto Mês" value={YEN(grossWithTeate)} sub={diasMes > 0 ? `${diasMes} dias lançados` : "sem lançamentos"} accent="text-green-400" />
-          <SummaryCard icon="💰" label="Líquido Mês" value={YEN(deductionInfo.netPay)} sub="após descontos" accent="text-amber-400" />
+          <SummaryCard icon="💰" label="Líquido Mês" value={YEN(deductionInfo.netPay + totalTeate)} sub="após descontos" accent="text-amber-400" />
         </>
         <SummaryCard icon="⏱️" label="Horas Totais" value={`${totals.totalHours.toFixed(1)}h`} sub={`${diasMes} dias`} />
         <SummaryCard icon="⚡" label="Horas Extras" value={`${totals.overtimeHours.toFixed(1)}h`}
