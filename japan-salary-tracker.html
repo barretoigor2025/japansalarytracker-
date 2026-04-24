@@ -488,7 +488,6 @@ const STORAGE_KEYS = {
 const TABS = [
   { id: "dashboard", label: "Início", icon: "🏠" },
   { id: "entries", label: "Jornada", icon: "📋" },
-  { id: "reports", label: "Relatórios", icon: "📊" },
   { id: "compare", label: "Comparar", icon: "📈" },
   { id: "gastos", label: "Gastos", icon: "💸" },
   { id: "carro", label: "Carro", icon: "🚗" },
@@ -2035,7 +2034,9 @@ function DashboardScreen({ entries, settings, onAddEntry }) {
     { totalHours: 0, overtimeHours: 0, nightHours: 0, grossPay: 0 }
   );
 
-  const deductionInfo = estimateDeductions(totals.grossPay, settings);
+  const totalTeate = (settings.teate || []).filter(t => t.active).reduce((a, t) => a + (t.amount||0), 0);
+  const grossWithTeate = totals.grossPay + totalTeate;
+  const deductionInfo = estimateDeductions(grossWithTeate, settings);
 
   // Última entrada
   const lastEntry = [...entries].sort((a, b) => b.date.localeCompare(a.date))[0];
@@ -2063,15 +2064,10 @@ function DashboardScreen({ entries, settings, onAddEntry }) {
 
       {/* Cards de resumo */}
       <div className="grid grid-cols-2 gap-2">
-        {(() => {
-          const totalTeate = (settings.teate || []).filter(t => t.active).reduce((a, t) => a + (t.amount||0), 0);
-          return (
-            <>
-              <SummaryCard icon="💴" label="Bruto Mês" value={YEN(totals.grossPay + totalTeate)} sub={totalTeate > 0 ? `inclui ${YEN(totalTeate)} teate` : "estimativa"} accent="text-green-400" />
-              <SummaryCard icon="💰" label="Líquido Mês" value={YEN(deductionInfo.netPay + totalTeate)} sub="após descontos" accent="text-amber-400" />
-            </>
-          );
-        })()}
+        <>
+          <SummaryCard icon="💴" label="Bruto Mês" value={YEN(grossWithTeate)} sub={diasMes > 0 ? `${diasMes} dias lançados` : "sem lançamentos"} accent="text-green-400" />
+          <SummaryCard icon="💰" label="Líquido Mês" value={YEN(deductionInfo.netPay)} sub="após descontos" accent="text-amber-400" />
+        </>
         <SummaryCard icon="⏱️" label="Horas Totais" value={`${totals.totalHours.toFixed(1)}h`} sub={`${diasMes} dias`} />
         <SummaryCard icon="⚡" label="Horas Extras" value={`${totals.overtimeHours.toFixed(1)}h`}
           sub={totals.overtimeHours > 60 ? "⚠️ acima de 60h" : "este mês"}
@@ -3866,7 +3862,6 @@ function App() {
             onDelete={(id) => setEntries((prev) => prev.filter((e) => e.id !== id))}
           />
         )}
-        {tab === "reports" && <ReportsScreen entries={entries} settings={settings} />}
         {tab === "compare" && <CompareScreen entries={entries} settings={settings} />}
         {tab === "gastos" && (
           <GastosScreen gastos={gastos} onSave={setGastos} />
