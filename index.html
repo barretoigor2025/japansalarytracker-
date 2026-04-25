@@ -528,12 +528,13 @@ function migrateIfNeeded() {
 }
 
 const TABS = [
-  { id: "dashboard", label: "Início", icon: "🏠" },
-  { id: "entries", label: "Jornada", icon: "📋" },
-  { id: "holerite", label: "Holerite", icon: "🧾" },
-  { id: "gastos", label: "Gastos", icon: "💸" },
-  { id: "carro", label: "Carro", icon: "🚗" },
-  { id: "settings", label: "Config", icon: "⚙️" },
+  { id: "dashboard", label: "Início",    icon: "🏠" },
+  { id: "entries",   label: "Jornada",   icon: "📋" },
+  { id: "holerite",  label: "Holerite",  icon: "🧾" },
+  { id: "gastos",    label: "Gastos",    icon: "💸" },
+  { id: "carro",     label: "Carro",     icon: "🚗" },
+  { id: "impostos",  label: "Impostos",  icon: "🏛️" },
+  { id: "settings",  label: "Config",    icon: "⚙️" },
 ];
 
 const defaultCarro = {
@@ -2324,6 +2325,250 @@ function Art26Card({ month, storagePrefix, auditHistory = [] }) {
 // ─────────────────────────────────────────────
 // TELA: DASHBOARD
 // ─────────────────────────────────────────────
+
+// ─── 自動車税 / Imposto Veicular ─────────────────────────────────────
+const JIDOUSHA_ZEI_NEW = [ // Registrado a partir de abril/2019
+  { maxCc:1000,tax:25000},{maxCc:1500,tax:30500},{maxCc:2000,tax:36000},
+  {maxCc:2500,tax:43500},{maxCc:3000,tax:50000},{maxCc:3500,tax:57000},
+  {maxCc:4000,tax:65500},{maxCc:4500,tax:75500},{maxCc:6000,tax:87000},
+  {maxCc:Infinity,tax:110000},
+];
+const JIDOUSHA_ZEI_OLD = [ // Registrado antes de abril/2019
+  {maxCc:1000,tax:29500},{maxCc:1500,tax:34500},{maxCc:2000,tax:39500},
+  {maxCc:2500,tax:45000},{maxCc:3000,tax:51000},{maxCc:3500,tax:58000},
+  {maxCc:4000,tax:66500},{maxCc:4500,tax:76500},{maxCc:6000,tax:88000},
+  {maxCc:Infinity,tax:111000},
+];
+const JURYO_ZEI_TABLE = [ // 重量税 (por 2 anos de vistoria)
+  {maxKg:500,base:2500},{maxKg:1000,base:5000},{maxKg:1500,base:7500},
+  {maxKg:2000,base:10000},{maxKg:2500,base:12500},{maxKg:3000,base:15000},
+  {maxKg:3500,base:17500},{maxKg:Infinity,base:20000},
+];
+
+function calcJidoushaZei(v) {
+  const age = new Date().getFullYear() - (v.registrationYear || new Date().getFullYear());
+  const isJuka = age >= 13;
+
+  if (v.type === "kei") {
+    const annualTax = isJuka ? 12900 : (v.registrationYear||2015) < 2015 ? 7200 : 10800;
+    const juryoZei2yr = isJuka ? 9900 : 6600; // kei 重量税 (2 anos)
+    return { annualTax, juryoZei2yr, jibaiseki2yr: 19640, isJuka, age };
+  }
+
+  const table = (v.registrationYear||2019) >= 2019 ? JIDOUSHA_ZEI_NEW : JIDOUSHA_ZEI_OLD;
+  const cc = v.displacement || 1500;
+  const baseTax = (table.find(r => cc <= r.maxCc) || table[table.length-1]).tax;
+  const annualTax = isJuka ? Math.round(baseTax * 1.15 / 100) * 100 : baseTax;
+
+  let juryoZei2yr = null;
+  if (v.weight) {
+    const jr = (JURYO_ZEI_TABLE.find(r => v.weight <= r.maxKg) || JURYO_ZEI_TABLE[JURYO_ZEI_TABLE.length-1]).base;
+    juryoZei2yr = isJuka ? Math.round(jr * 1.5) * 2 : jr * 2;
+  }
+
+  return { annualTax, baseTax, juryoZei2yr, jibaiseki2yr: 20010, isJuka, age };
+}
+
+// ─── ImpostosScreen ──────────────────────────────────────────────────
+function VehicleForm({ onSave, onCancel, initial }) {
+  const blank = { name:"", type:"normal", displacement:1500, registrationYear: new Date().getFullYear(), weight:"", fuel:"gasoline" };
+  const [v, setV] = useState(initial || blank);
+  const f = (k, val) => setV(prev => ({ ...prev, [k]: val }));
+  return (
+    <div className="space-y-3 p-3 bg-zinc-800/60 rounded-xl border border-zinc-700">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="col-span-2">
+          <label className="text-xs text-zinc-400 mb-1 block">Nome do veículo</label>
+          <input className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100" value={v.name} onChange={e=>f("name",e.target.value)} placeholder="ex: Honda Fit" />
+        </div>
+        <div>
+          <label className="text-xs text-zinc-400 mb-1 block">Tipo</label>
+          <select className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100" value={v.type} onChange={e=>f("type",e.target.value)}>
+            <option value="normal">普通車 / 小型車</option>
+            <option value="kei">軽自動車 (Kei)</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs text-zinc-400 mb-1 block">Combustível</label>
+          <select className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100" value={v.fuel} onChange={e=>f("fuel",e.target.value)}>
+            <option value="gasoline">Gasolina / GLP</option>
+            <option value="diesel">Diesel</option>
+            <option value="hybrid">Híbrido</option>
+            <option value="electric">Elétrico (EV)</option>
+          </select>
+        </div>
+        {v.type === "normal" && (
+          <div>
+            <label className="text-xs text-zinc-400 mb-1 block">Cilindrada (cc)</label>
+            <input type="number" className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100" value={v.displacement} onChange={e=>f("displacement",Number(e.target.value))} placeholder="1500" />
+          </div>
+        )}
+        {v.type === "normal" && (
+          <div>
+            <label className="text-xs text-zinc-400 mb-1 block">Peso (kg) — opcional</label>
+            <input type="number" className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100" value={v.weight} onChange={e=>f("weight",e.target.value)} placeholder="1300" />
+          </div>
+        )}
+        <div>
+          <label className="text-xs text-zinc-400 mb-1 block">Ano de registro (初度登録)</label>
+          <input type="number" className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100" value={v.registrationYear} onChange={e=>f("registrationYear",Number(e.target.value))} placeholder="2018" />
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <button onClick={()=>onSave(v)} className="flex-1 py-2 rounded-xl bg-amber-500 text-black text-sm font-semibold">Salvar</button>
+        <button onClick={onCancel} className="flex-1 py-2 rounded-xl bg-zinc-700 text-zinc-200 text-sm">Cancelar</button>
+      </div>
+    </div>
+  );
+}
+
+function ImpostosScreen({ entries, settings }) {
+  const VKEY = "jst_tax_vehicles";
+  const [vehicles, setVehicles] = useState(() => { try { return JSON.parse(localStorage.getItem(VKEY)||"[]"); } catch { return []; } });
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState(null);
+
+  function save(list) { setVehicles(list); localStorage.setItem(VKEY, JSON.stringify(list)); }
+  function addVehicle(v) { save([...vehicles, { ...v, id:"v"+Date.now() }]); setShowForm(false); }
+  function updateVehicle(v) { save(vehicles.map(x => x.id===v.id ? v : x)); setEditId(null); }
+  function removeVehicle(id) { if (confirm("Remover veículo?")) save(vehicles.filter(x => x.id!==id)); }
+
+  // 住民税
+  const thisMonth = new Date().toISOString().slice(0,7);
+  const mEntries = entries.filter(e => e.date.startsWith(thisMonth));
+  let accOT = 0;
+  const mCalcs = mEntries.map(e => { const c = calcDay(e, settings, accOT); accOT += c.overtimeHours; return c; });
+  const grossHours = mCalcs.reduce((a,c) => a + c.grossPay, 0);
+  const taxTeate = (settings.teate||[]).filter(t=>t.active&&t.taxable!==false&&t.amount>0).reduce((a,t)=>a+t.amount,0);
+  const jz = grossHours > 0 ? estimateJuuminZei(grossHours + taxTeate, settings) : null;
+
+  // 自動車税
+  const vData = vehicles.map(v => ({ ...v, calc: calcJidoushaZei(v) }));
+  const totalJidousha = vData.reduce((a,v) => a + v.calc.annualTax, 0);
+  const totalAnual = (jz?.total||0) + totalJidousha;
+
+  const fuelLabel = { gasoline:"Gasolina", diesel:"Diesel", hybrid:"Híbrido", electric:"Elétrico" };
+
+  return (
+    <div className="space-y-3 pb-24 sm:pb-28">
+      <div className="pt-1">
+        <div className="text-xs uppercase tracking-widest text-zinc-500">Fiscal</div>
+        <h2 className="text-lg font-bold text-zinc-100">Impostos</h2>
+      </div>
+
+      {/* Resumo total */}
+      {(jz || vData.length > 0) && (
+        <Card>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-xs text-zinc-500 uppercase tracking-widest">Total anual estimado</div>
+              <div className="text-2xl font-bold font-mono text-red-400">{YEN(totalAnual)}</div>
+            </div>
+            <div className="text-right space-y-1">
+              {jz && <div className="text-xs text-zinc-500">住民税 <span className="font-mono text-orange-400">{YEN(jz.total)}</span></div>}
+              {vData.length > 0 && <div className="text-xs text-zinc-500">自動車税 <span className="font-mono text-blue-400">{YEN(totalJidousha)}</span></div>}
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* 住民税 */}
+      <Card>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-widest">住民税 · Imposto Municipal</h3>
+            <div className="text-xs text-zinc-500 mt-0.5">普通徴収 — 4 boletos (Jun · Ago · Out · Jan)</div>
+          </div>
+          {jz ? (
+            <div className="text-right">
+              <div className="text-xl font-bold font-mono text-orange-400">{YEN(jz.total)}</div>
+              <div className="text-xs text-zinc-500">por ano</div>
+            </div>
+          ) : (
+            <div className="text-xs text-zinc-600">Lance jornada para calcular</div>
+          )}
+        </div>
+        {jz && (
+          <>
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              {[{m:"Jun",n:1},{m:"Ago",n:2},{m:"Out",n:3},{m:"Jan",n:4}].map(p=>(
+                <div key={p.n} className="bg-zinc-800/60 rounded-xl p-2 text-center">
+                  <div className="text-xs text-zinc-500">{p.m}</div>
+                  <div className="text-sm font-bold font-mono text-orange-300">{YEN(jz.installment)}</div>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-1 text-xs border-t border-zinc-800 pt-2">
+              <div className="flex justify-between"><span className="text-zinc-500">所得割 (10%)</span><span className="font-mono text-zinc-300">{YEN(jz.shotokuWari)}</span></div>
+              <div className="flex justify-between"><span className="text-zinc-500">均等割 (fixo)</span><span className="font-mono text-zinc-300">{YEN(jz.kintouWari)}</span></div>
+              {jz.numDependents > 0 && <div className="text-zinc-600 mt-1">{jz.numDependents} dependente(s) reduz ¥{(jz.numDependents*330000/10000).toFixed(0)}万 da base</div>}
+            </div>
+          </>
+        )}
+      </Card>
+
+      {/* 自動車税 */}
+      <Card>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-widest">自動車税 · Imposto Veicular</h3>
+            <div className="text-xs text-zinc-500 mt-0.5">Vencimento em maio · por cilindrada / tipo</div>
+          </div>
+          {vData.length > 0 && <div className="text-right"><div className="text-xl font-bold font-mono text-blue-400">{YEN(totalJidousha)}</div><div className="text-xs text-zinc-500">total/ano</div></div>}
+        </div>
+
+        <div className="space-y-3 mb-3">
+          {vData.map(v => (
+            <div key={v.id}>
+              {editId === v.id ? (
+                <VehicleForm initial={v} onSave={updateVehicle} onCancel={()=>setEditId(null)} />
+              ) : (
+                <div className="flex items-start justify-between gap-2 p-3 bg-zinc-800/50 rounded-xl border border-zinc-700/50">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-semibold text-zinc-100 truncate">{v.name||"Veículo"}</span>
+                      {v.calc.isJuka && <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-900/50 text-red-400">重課 +15%</span>}
+                    </div>
+                    <div className="text-xs text-zinc-500 space-y-0.5">
+                      <div>{v.type==="kei" ? "軽自動車" : `${v.displacement||"?"}cc`} · {fuelLabel[v.fuel]||v.fuel} · {v.registrationYear} ({v.calc.age} anos)</div>
+                      {v.calc.juryoZei2yr && <div className="text-zinc-600">重量税 {YEN(v.calc.juryoZei2yr)} a cada vistoria (2 anos)</div>}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-base font-bold font-mono text-blue-400">{YEN(v.calc.annualTax)}<span className="text-xs font-normal text-zinc-500">/ano</span></div>
+                    <div className="flex gap-1 mt-1.5 justify-end">
+                      <button onClick={()=>setEditId(v.id)} className="text-xs px-2 py-1 rounded-lg bg-zinc-700 text-zinc-300 hover:bg-zinc-600">editar</button>
+                      <button onClick={()=>removeVehicle(v.id)} className="text-xs px-2 py-1 rounded-lg bg-red-900/40 text-red-400 hover:bg-red-900/70">×</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {showForm ? (
+          <VehicleForm onSave={addVehicle} onCancel={()=>setShowForm(false)} />
+        ) : (
+          <button onClick={()=>setShowForm(true)} className="w-full py-2.5 rounded-xl border border-dashed border-zinc-600 text-zinc-400 text-sm hover:border-amber-500 hover:text-amber-400 transition-colors">
+            + Adicionar veículo
+          </button>
+        )}
+
+        {vData.length > 1 && (
+          <div className="mt-3 pt-2 border-t border-zinc-800 flex justify-between text-xs">
+            <span className="text-zinc-500">{vData.length} veículos · total anual</span>
+            <span className="font-mono font-bold text-blue-400">{YEN(totalJidousha)}</span>
+          </div>
+        )}
+
+        <div className="mt-3 text-xs text-zinc-700">
+          重量税 e 自賠責保険 incidem na vistoria (車検) a cada 2 anos — inclua o peso para estimativa.
+        </div>
+      </Card>
+    </div>
+  );
+}
 
 function estimateJuuminZei(grossMonthlyTaxable, settings) {
   const numDependents = (settings.spouseDependent ? 1 : 0) + (settings.dependentChildren || 0);
@@ -4149,6 +4394,9 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
         )}
         {tab === "carro" && (
           <CarroScreen carro={carro} onSave={setCarro} />
+        )}
+        {tab === "impostos" && (
+          <ImpostosScreen entries={entries} settings={settings} />
         )}
         {tab === "settings" && (
           <SettingsScreen settings={settings} onSave={saveSettings} />
