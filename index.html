@@ -533,6 +533,7 @@ const TABS = [
   { id: "holerite",  label: "Holerite",  icon: "🧾" },
   { id: "gastos",    label: "Gastos",    icon: "💸" },
   { id: "carro",     label: "Carro",     icon: "🚗" },
+  { id: "gensen",    label: "Gensen",    icon: "📄" },
   { id: "impostos",  label: "Impostos",  icon: "🏛️" },
   { id: "settings",  label: "Config",    icon: "⚙️" },
 ];
@@ -2371,26 +2372,27 @@ function calcJidoushaZei(v) {
 
 // ─── ImpostosScreen ──────────────────────────────────────────────────
 function VehicleForm({ onSave, onCancel, initial }) {
-  const blank = { name:"", type:"normal", displacement:1500, registrationYear: new Date().getFullYear(), weight:"", fuel:"gasoline" };
+  const blank = { name:"", type:"normal", displacement:1500, registrationYear: new Date().getFullYear(), weight:"", fuel:"gasoline", shakenExpiry:"" };
   const [v, setV] = useState(initial || blank);
   const f = (k, val) => setV(prev => ({ ...prev, [k]: val }));
+  const inCls = "w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100";
   return (
     <div className="space-y-3 p-3 bg-zinc-800/60 rounded-xl border border-zinc-700">
       <div className="grid grid-cols-2 gap-2">
         <div className="col-span-2">
           <label className="text-xs text-zinc-400 mb-1 block">Nome do veículo</label>
-          <input className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100" value={v.name} onChange={e=>f("name",e.target.value)} placeholder="ex: Honda Fit" />
+          <input className={inCls} value={v.name} onChange={e=>f("name",e.target.value)} placeholder="ex: Honda Fit" />
         </div>
         <div>
           <label className="text-xs text-zinc-400 mb-1 block">Tipo</label>
-          <select className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100" value={v.type} onChange={e=>f("type",e.target.value)}>
+          <select className={inCls} value={v.type} onChange={e=>f("type",e.target.value)}>
             <option value="normal">普通車 / 小型車</option>
             <option value="kei">軽自動車 (Kei)</option>
           </select>
         </div>
         <div>
           <label className="text-xs text-zinc-400 mb-1 block">Combustível</label>
-          <select className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100" value={v.fuel} onChange={e=>f("fuel",e.target.value)}>
+          <select className={inCls} value={v.fuel} onChange={e=>f("fuel",e.target.value)}>
             <option value="gasoline">Gasolina / GLP</option>
             <option value="diesel">Diesel</option>
             <option value="hybrid">Híbrido</option>
@@ -2400,7 +2402,7 @@ function VehicleForm({ onSave, onCancel, initial }) {
         {v.type === "normal" && (
           <div>
             <label className="text-xs text-zinc-400 mb-1 block">Cilindrada (排気量)</label>
-            <select className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100" value={v.displacement} onChange={e=>f("displacement",Number(e.target.value))}>
+            <select className={inCls} value={v.displacement} onChange={e=>f("displacement",Number(e.target.value))}>
               <option value={1000}>até 1.000cc</option>
               <option value={1500}>1.001 – 1.500cc</option>
               <option value={2000}>1.501 – 2.000cc</option>
@@ -2417,12 +2419,16 @@ function VehicleForm({ onSave, onCancel, initial }) {
         {v.type === "normal" && (
           <div>
             <label className="text-xs text-zinc-400 mb-1 block">Peso (kg) — opcional</label>
-            <input type="number" className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100" value={v.weight || ""} onChange={e=>f("weight",e.target.value)} placeholder="1300" />
+            <input type="number" className={inCls} value={v.weight || ""} onChange={e=>f("weight",e.target.value)} placeholder="1300" />
           </div>
         )}
         <div>
           <label className="text-xs text-zinc-400 mb-1 block">Ano de registro (初度登録)</label>
-          <input type="number" className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100" value={v.registrationYear} onChange={e=>f("registrationYear",Number(e.target.value))} placeholder="2018" />
+          <input type="number" className={inCls} value={v.registrationYear} onChange={e=>f("registrationYear",Number(e.target.value))} placeholder="2018" />
+        </div>
+        <div>
+          <label className="text-xs text-zinc-400 mb-1 block">車検 validade (ano/mês)</label>
+          <input type="month" className={inCls} value={v.shakenExpiry||""} onChange={e=>f("shakenExpiry",e.target.value)} />
         </div>
       </div>
       <div className="flex gap-2">
@@ -2433,34 +2439,13 @@ function VehicleForm({ onSave, onCancel, initial }) {
   );
 }
 
-function ImpostosScreen({ entries, settings }) {
-  const VKEY = "jst_tax_vehicles";
-  const GKEY = "jst_gensen";
-  const [vehicles, setVehicles] = useState(() => { try { return JSON.parse(localStorage.getItem(VKEY)||"[]"); } catch { return []; } });
-  const [showForm, setShowForm] = useState(false);
-  const [editId, setEditId] = useState(null);
-  const [gensenList, setGensenList] = useState(() => {
-    try {
-      const raw = JSON.parse(localStorage.getItem(GKEY)||"null");
-      if (!raw) return [];
-      if (Array.isArray(raw)) return raw;
-      return [{ ...raw, id: "g_legacy" }]; // migra formato antigo (objeto único)
-    } catch { return []; }
-  });
-  const [gensenModal, setGensenModal] = useState(null); // null | "add" | {record}
+function ImpostosScreen({ entries, settings, onTabSwitch }) {
+  // Leitura direta do localStorage (sempre atualizado ao navegar para esta aba)
+  const vehicles = (() => { try { return JSON.parse(localStorage.getItem("jst_tax_vehicles")||"[]"); } catch { return []; } })();
+  const rawG = (() => { try { const r = JSON.parse(localStorage.getItem("jst_gensen")||"null"); if (!r) return []; if (Array.isArray(r)) return r; return [{ ...r, id: "g_legacy" }]; } catch { return []; } })();
 
-  function saveVehicles(list) { setVehicles(list); localStorage.setItem(VKEY, JSON.stringify(list)); }
-  function addVehicle(v) { saveVehicles([...vehicles, { ...v, id:"v"+Date.now() }]); setShowForm(false); }
-  function updateVehicle(v) { saveVehicles(vehicles.map(x => x.id===v.id ? v : x)); setEditId(null); }
-  function removeVehicle(id) { if (confirm("Remover veículo?")) saveVehicles(vehicles.filter(x => x.id!==id)); }
-
-  function saveGensenList(list) { setGensenList(list); localStorage.setItem(GKEY, JSON.stringify(list)); }
-  function handleGensenSave(g) {
-    const isUpdate = g.id && gensenList.some(x => x.id === g.id);
-    saveGensenList(isUpdate ? gensenList.map(x => x.id===g.id ? g : x) : [...gensenList, g]);
-    setGensenModal(null);
-  }
-  function removeGensen(id) { if (confirm("Remover este Gensen?")) saveGensenList(gensenList.filter(x => x.id!==id)); }
+  // Derivações
+  const latestGensen = rawG.length > 0 ? [...rawG].sort((a,b) => b.nenBun - a.nenBun)[0] : null;
 
   // 住民税
   const thisMonth = new Date().toISOString().slice(0,7);
@@ -2469,33 +2454,36 @@ function ImpostosScreen({ entries, settings }) {
   const mCalcs = mEntries.map(e => { const c = calcDay(e, settings, accOT); accOT += c.overtimeHours; return c; });
   const grossHours = mCalcs.reduce((a,c) => a + c.grossPay, 0);
   const taxTeate = (settings.teate||[]).filter(t=>t.active&&t.taxable!==false&&t.amount>0).reduce((a,t)=>a+t.amount,0);
-
-  const latestGensen = gensenList.length > 0 ? [...gensenList].sort((a,b) => b.nenBun - a.nenBun)[0] : null;
   const jz = (latestGensen?.shiharaiGaku > 0 && latestGensen?.shakaiHoken > 0)
     ? estimateJuuminZeiFromGensen(latestGensen.shiharaiGaku, latestGensen.shakaiHoken, settings)
     : (grossHours > 0 ? estimateJuuminZei(grossHours + taxTeate, settings) : null);
-
-  const restituicao = (latestGensen?.shiharaiGaku > 0 && latestGensen?.shakaiHoken > 0 && latestGensen?.gensenZei > 0) ? (() => {
-    const est = calcShotokuZeiEstimado(latestGensen.shiharaiGaku, latestGensen.shakaiHoken, settings);
-    const refund = est.total - latestGensen.gensenZei;
-    return { estimated: est.total, paid: latestGensen.gensenZei, refund, nenBun: latestGensen.nenBun };
-  })() : null;
 
   // 自動車税
   const vData = vehicles.map(v => ({ ...v, calc: calcJidoushaZei(v) }));
   const totalJidousha = vData.reduce((a,v) => a + v.calc.annualTax, 0);
   const totalAnual = (jz?.total||0) + totalJidousha;
 
-  const fuelLabel = { gasoline:"Gasolina", diesel:"Diesel", hybrid:"Híbrido", electric:"Elétrico" };
+  // Restituição
+  const restituicao = (latestGensen?.shiharaiGaku > 0 && latestGensen?.shakaiHoken > 0 && latestGensen?.gensenZei > 0) ? (() => {
+    const est = calcShotokuZeiEstimado(latestGensen.shiharaiGaku, latestGensen.shakaiHoken, settings);
+    return { estimated: est.total, paid: latestGensen.gensenZei, refund: est.total - latestGensen.gensenZei };
+  })() : null;
+
+  // 車検 próximas
+  const shakenAlerts = vData.filter(v => v.shakenExpiry).map(v => {
+    const exp = new Date(v.shakenExpiry + "-01");
+    const months = (exp.getFullYear() - new Date().getFullYear()) * 12 + (exp.getMonth() - new Date().getMonth());
+    return { ...v, months };
+  }).filter(v => v.months <= 6).sort((a,b) => a.months - b.months);
 
   return (
     <div className="space-y-3 pb-24 sm:pb-28">
       <div className="pt-1">
         <div className="text-xs uppercase tracking-widest text-zinc-500">Fiscal</div>
-        <h2 className="text-lg font-bold text-zinc-100">Impostos</h2>
+        <h2 className="text-lg font-bold text-zinc-100">Impostos · Painel</h2>
       </div>
 
-      {/* Resumo total */}
+      {/* Total anual */}
       {(jz || vData.length > 0) && (
         <Card>
           <div className="flex items-center justify-between">
@@ -2524,14 +2512,16 @@ function ImpostosScreen({ entries, settings }) {
               <div className="text-xs text-zinc-500">por ano</div>
             </div>
           ) : (
-            <div className="text-xs text-zinc-600">Lance jornada ou cadastre um Gensen</div>
+            <div className="text-xs text-zinc-600">Cadastre um Gensen ou lance jornada</div>
           )}
         </div>
         {jz && (
           <>
             <div className="mb-3">
               {jz.fromGensen ? (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-green-900/40 text-green-400 border border-green-800/40">Gensen {latestGensen.nenBun}年 · dado real</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-green-900/40 text-green-400 border border-green-800/40">
+                  Gensen {latestGensen.nenBun}年 {latestGensen.empresa ? `· ${latestGensen.empresa}` : ""} · dado real
+                </span>
               ) : (
                 <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-500 border border-zinc-700">Projeção mensal × 12</span>
               )}
@@ -2544,45 +2534,15 @@ function ImpostosScreen({ entries, settings }) {
                 </div>
               ))}
             </div>
-            <div className="space-y-1 text-xs border-t border-zinc-800 pt-2 mb-3">
-              <div className="flex justify-between"><span className="text-zinc-500">所得割 · taxa 10%</span><span className="font-mono text-zinc-300">{YEN(jz.shotokuWari)}</span></div>
+            <div className="space-y-1 text-xs border-t border-zinc-800 pt-2">
+              <div className="flex justify-between"><span className="text-zinc-500">所得割 · 10%</span><span className="font-mono text-zinc-300">{YEN(jz.shotokuWari)}</span></div>
               <div className="flex justify-between"><span className="text-zinc-500">均等割 · taxa fixa</span><span className="font-mono text-zinc-300">{YEN(jz.kintouWari)}</span></div>
-              {jz.numDependents > 0 && <div className="text-zinc-600">{jz.numDependents} dependente(s) reduz ¥{(jz.numDependents*330000/10000).toFixed(0)}万 da base</div>}
+              {jz.numDependents > 0 && <div className="text-zinc-600">{jz.numDependents} dependente(s) · -¥{(jz.numDependents*330000/10000).toFixed(0)}万 da base</div>}
             </div>
           </>
         )}
-
-        {/* Lista de Gensens */}
-        <div className={jz ? "border-t border-zinc-800 pt-3" : ""}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-zinc-400">源泉徴収票 · Gensens cadastrados</span>
-            <button onClick={()=>setGensenModal("add")} className="text-xs text-amber-400 hover:text-amber-300 font-medium">+ Adicionar</button>
-          </div>
-          {gensenList.length === 0 ? (
-            <div className="text-xs text-zinc-600 py-1">Nenhum Gensen cadastrado — adicione para previsão mais precisa</div>
-          ) : (
-            <div className="space-y-2">
-              {[...gensenList].sort((a,b)=>b.nenBun-a.nenBun).map(g => (
-                <div key={g.id} className={"flex items-start justify-between gap-2 p-2.5 rounded-xl border " + (g.id===latestGensen?.id ? "border-green-800/50 bg-green-900/10" : "border-zinc-700/50 bg-zinc-800/30")}>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="text-xs font-bold text-zinc-200">{g.nenBun}年</span>
-                      {g.id===latestGensen?.id && <span className="text-xs text-green-400">· em uso</span>}
-                    </div>
-                    <div className="text-xs text-zinc-500 flex flex-wrap gap-x-3 gap-y-0.5">
-                      <span>支払 <span className="font-mono text-zinc-400">{YEN(g.shiharaiGaku)}</span></span>
-                      <span>社保 <span className="font-mono text-zinc-400">{YEN(g.shakaiHoken)}</span></span>
-                      {g.gensenZei > 0 && <span>源泉税 <span className="font-mono text-zinc-400">{YEN(g.gensenZei)}</span></span>}
-                    </div>
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    <button onClick={()=>setGensenModal(g)} className="text-xs px-2 py-1 rounded-lg bg-zinc-700 text-zinc-300 hover:bg-zinc-600">editar</button>
-                    <button onClick={()=>removeGensen(g.id)} className="text-xs px-2 py-1 rounded-lg bg-red-900/40 text-red-400 hover:bg-red-900/70">×</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+        <div className="mt-3 pt-2 border-t border-zinc-800 text-xs text-zinc-600">
+          Gerencie Gensens na aba <button onClick={()=>onTabSwitch?.("gensen")} className="text-amber-500 underline">Gensen</button>
         </div>
       </Card>
 
@@ -2608,82 +2568,69 @@ function ImpostosScreen({ entries, settings }) {
             </div>
           ) : (
             <div className="bg-zinc-800/40 border border-zinc-700/40 rounded-xl p-3 mb-3">
-              <div className="text-xs text-zinc-400">IR retido {restituicao.paid < restituicao.estimated ? "menor que o estimado" : "confere com o estimado"}</div>
-              <div className="text-xs text-zinc-600 mt-1">Empregador pode ter aplicado deduções adicionais (生命保険, ideCo, etc.)</div>
+              <div className="text-xs text-zinc-500">IR retido menor ou igual ao estimado — deduções adicionais do empregador já aplicadas</div>
             </div>
           )}
           <div className="text-xs text-zinc-600 border-t border-zinc-800 pt-2">
-            Deduções extras? <span className="text-zinc-500">確定申告</span> aceita 医療費, ふるさと納税, etc. — prazo <span className="text-zinc-400">16/Fev a 15/Mar</span>, restitui em ~2 meses.
+            確定申告 — deduções extras (医療費, ふるさと納税): prazo <span className="text-zinc-400">16/Fev – 15/Mar</span>, restitui em ~2 meses
           </div>
         </Card>
       )}
 
-      {/* 自動車税 */}
-      <Card>
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-widest">自動車税 · Imposto Veicular</h3>
-            <div className="text-xs text-zinc-500 mt-0.5">Vencimento em maio · por cilindrada / tipo</div>
-          </div>
-          {vData.length > 0 && <div className="text-right"><div className="text-xl font-bold font-mono text-blue-400">{YEN(totalJidousha)}</div><div className="text-xs text-zinc-500">total/ano</div></div>}
-        </div>
-
-        <div className="space-y-3 mb-3">
-          {vData.map(v => (
-            <div key={v.id}>
-              {editId === v.id ? (
-                <VehicleForm initial={v} onSave={updateVehicle} onCancel={()=>setEditId(null)} />
-              ) : (
-                <div className="flex items-start justify-between gap-2 p-3 bg-zinc-800/50 rounded-xl border border-zinc-700/50">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-semibold text-zinc-100 truncate">{v.name||"Veículo"}</span>
-                      {v.calc.isJuka && <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-900/50 text-red-400">重課 +15%</span>}
-                    </div>
-                    <div className="text-xs text-zinc-500 space-y-0.5">
-                      <div>{v.type==="kei" ? "軽自動車" : ({1000:"≤1.000cc",1500:"1.001–1.500cc",2000:"1.501–2.000cc",2500:"2.001–2.500cc",3000:"2.501–3.000cc",3500:"3.001–3.500cc",4000:"3.501–4.000cc",4500:"4.001–4.500cc",6000:"4.501–6.000cc",6001:"＞6.000cc"}[v.displacement]||`${v.displacement}cc`)} · {fuelLabel[v.fuel]||v.fuel} · {v.registrationYear} ({v.calc.age} anos)</div>
-                      {v.calc.juryoZei2yr && <div className="text-zinc-600">重量税 {YEN(v.calc.juryoZei2yr)} a cada vistoria (2 anos)</div>}
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-base font-bold font-mono text-blue-400">{YEN(v.calc.annualTax)}<span className="text-xs font-normal text-zinc-500">/ano</span></div>
-                    <div className="flex gap-1 mt-1.5 justify-end">
-                      <button onClick={()=>setEditId(v.id)} className="text-xs px-2 py-1 rounded-lg bg-zinc-700 text-zinc-300 hover:bg-zinc-600">editar</button>
-                      <button onClick={()=>removeVehicle(v.id)} className="text-xs px-2 py-1 rounded-lg bg-red-900/40 text-red-400 hover:bg-red-900/70">×</button>
-                    </div>
-                  </div>
-                </div>
-              )}
+      {/* 自動車税 resumo */}
+      {vData.length > 0 && (
+        <Card>
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-widest">自動車税 · Resumo</h3>
+              <div className="text-xs text-zinc-500 mt-0.5">Vencimento em maio</div>
             </div>
-          ))}
-        </div>
-
-        {showForm ? (
-          <VehicleForm onSave={addVehicle} onCancel={()=>setShowForm(false)} />
-        ) : (
-          <button onClick={()=>setShowForm(true)} className="w-full py-2.5 rounded-xl border border-dashed border-zinc-600 text-zinc-400 text-sm hover:border-amber-500 hover:text-amber-400 transition-colors">
-            + Adicionar veículo
-          </button>
-        )}
-
-        {vData.length > 1 && (
-          <div className="mt-3 pt-2 border-t border-zinc-800 flex justify-between text-xs">
-            <span className="text-zinc-500">{vData.length} veículos · total anual</span>
-            <span className="font-mono font-bold text-blue-400">{YEN(totalJidousha)}</span>
+            <div className="text-xl font-bold font-mono text-blue-400">{YEN(totalJidousha)}</div>
           </div>
-        )}
+          <div className="space-y-1 mb-2">
+            {vData.map(v => (
+              <div key={v.id} className="flex justify-between text-xs text-zinc-500">
+                <span>{v.name || "Veículo"} <span className="text-zinc-600">({v.registrationYear})</span></span>
+                <span className="font-mono text-blue-300">{YEN(v.calc.annualTax)}/ano</span>
+              </div>
+            ))}
+          </div>
+          <div className="text-xs text-zinc-600">
+            Gerencie veículos na aba <button onClick={()=>onTabSwitch?.("carro")} className="text-amber-500 underline">Carro</button>
+          </div>
+        </Card>
+      )}
 
-        <div className="mt-3 text-xs text-zinc-700">
-          重量税 e 自賠責保険 incidem na vistoria (車検) a cada 2 anos — inclua o peso para estimativa.
-        </div>
-      </Card>
+      {/* 車検 alertas */}
+      {shakenAlerts.length > 0 && (
+        <Card>
+          <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-widest mb-2">車検 · Próximas vistorias</h3>
+          <div className="space-y-2">
+            {shakenAlerts.map(v => (
+              <div key={v.id} className={`flex items-center justify-between p-2.5 rounded-xl border ${v.months < 0 ? "bg-red-900/20 border-red-800/40" : v.months < 3 ? "bg-yellow-900/20 border-yellow-800/40" : "bg-zinc-800/40 border-zinc-700/40"}`}>
+                <span className="text-xs text-zinc-300">{v.name || "Veículo"}</span>
+                <span className={`text-xs font-semibold ${v.months < 0 ? "text-red-400" : v.months < 3 ? "text-yellow-400" : "text-zinc-400"}`}>
+                  {v.months < 0 ? "VENCIDA!" : `${v.shakenExpiry} · ${v.months} mês(es)`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
-      {gensenModal && (
-        <GensenModal
-          initial={gensenModal === "add" ? null : gensenModal}
-          onSave={handleGensenSave}
-          onClose={()=>setGensenModal(null)}
-        />
+      {/* Estado vazio */}
+      {!jz && vData.length === 0 && (
+        <Card>
+          <div className="py-6 text-center space-y-3">
+            <div className="text-zinc-500 text-sm">Nenhum dado fiscal cadastrado</div>
+            <div className="text-xs text-zinc-700">
+              Acesse <button onClick={()=>onTabSwitch?.("gensen")} className="text-amber-500">Gensen</button> para adicionar o comprovante anual (住民税)
+            </div>
+            <div className="text-xs text-zinc-700">
+              e <button onClick={()=>onTabSwitch?.("carro")} className="text-amber-500">Carro</button> para cadastrar veículos (自動車税)
+            </div>
+          </div>
+        </Card>
       )}
     </div>
   );
@@ -2712,18 +2659,23 @@ function calcShotokuZeiEstimado(annualGross, annualSocial, settings) {
   return { total: shotokuZei + fukkou, kazeiShotoku };
 }
 
+const PREFECTURES_JP = ["北海道","青森県","岩手県","宮城県","秋田県","山形県","福島県","茨城県","栃木県","群馬県","埼玉県","千葉県","東京都","神奈川県","新潟県","富山県","石川県","福井県","山梨県","長野県","岐阜県","静岡県","愛知県","三重県","滋賀県","京都府","大阪府","兵庫県","奈良県","和歌山県","鳥取県","島根県","岡山県","広島県","山口県","徳島県","香川県","愛媛県","高知県","福岡県","佐賀県","長崎県","熊本県","大分県","宮崎県","鹿児島県","沖縄県"];
+
 function GensenModal({ initial, onSave, onClose }) {
   const thisYear = new Date().getFullYear();
-  const [d, setD] = useState(initial || { nenBun: thisYear - 1, shiharaiGaku: "", shakaiHoken: "", gensenZei: "" });
+  const blank = { nenBun: thisYear - 1, empresa: "", todochifu: "", shiku: "", shiharaiGaku: "", kyuyoShotokuGo: "", shotokuKojo: "", gensenZei: "", shakaiHoken: "", seimeiHoken: "", jishinHoken: "", jutakuKariire: "" };
+  const [d, setD] = useState(initial ? { ...blank, ...initial } : blank);
   const f = (k, v) => setD(prev => ({...prev, [k]: v}));
   const canSave = Number(d.shiharaiGaku) > 0 && Number(d.shakaiHoken) > 0;
   function handleSave() {
     if (!canSave) return;
-    onSave({ ...d, id: d.id || "g" + Date.now(), shiharaiGaku: Number(d.shiharaiGaku), shakaiHoken: Number(d.shakaiHoken), gensenZei: Number(d.gensenZei) || 0 });
+    const n = v => Number(v) || 0;
+    onSave({ ...d, id: d.id || "g" + Date.now(), shiharaiGaku: n(d.shiharaiGaku), kyuyoShotokuGo: n(d.kyuyoShotokuGo), shotokuKojo: n(d.shotokuKojo), gensenZei: n(d.gensenZei), shakaiHoken: n(d.shakaiHoken), seimeiHoken: n(d.seimeiHoken), jishinHoken: n(d.jishinHoken), jutakuKariire: n(d.jutakuKariire) });
   }
   const iCls = "w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2.5 text-sm text-zinc-100 focus:outline-none focus:border-amber-500";
   const lCls = "text-xs text-zinc-400 mb-1 block";
   const sCls = "text-xs text-zinc-600 mt-0.5";
+  const secCls = "text-xs font-semibold text-zinc-500 uppercase tracking-widest pt-2 pb-1 border-t border-zinc-800";
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{background:"rgba(0,0,0,0.78)"}}>
       <div className="bg-zinc-950 rounded-t-3xl border-t border-zinc-800 px-4 pt-5 pb-8 space-y-3 max-h-[92vh] overflow-y-auto">
@@ -2734,34 +2686,184 @@ function GensenModal({ initial, onSave, onClose }) {
           </div>
           <button onClick={onClose} className="text-2xl leading-none text-zinc-500 hover:text-zinc-300 px-1">×</button>
         </div>
-        <div>
-          <label className={lCls}>年分 · Ano fiscal</label>
-          <select value={d.nenBun} onChange={e=>f("nenBun",Number(e.target.value))} className={iCls}>
-            {Array.from({length:6},(_,i)=>thisYear-1-i).map(y=>(
-              <option key={y} value={y}>{y}年 · {y >= 2019 ? `令和${y-2018}年` : `平成${y-1988}年`}</option>
-            ))}
-          </select>
+
+        <div className={secCls}>Identificação</div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className={lCls}>年分 · Ano fiscal</label>
+            <select value={d.nenBun} onChange={e=>f("nenBun",Number(e.target.value))} className={iCls}>
+              {Array.from({length:7},(_,i)=>thisYear-1-i).map(y=>(
+                <option key={y} value={y}>{y}年 · {y >= 2019 ? `令和${y-2018}年` : `平成${y-1988}年`}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={lCls}>支払者名 · Empresa</label>
+            <input value={d.empresa||""} onChange={e=>f("empresa",e.target.value)} className={iCls} placeholder="ex: 株式会社 ○○" />
+          </div>
         </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className={lCls}>都道府県 · Prefeitura</label>
+            <select value={d.todochifu||""} onChange={e=>f("todochifu",e.target.value)} className={iCls}>
+              <option value="">— selecione —</option>
+              {PREFECTURES_JP.map(p=><option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={lCls}>市区町村 · Município</label>
+            <input value={d.shiku||""} onChange={e=>f("shiku",e.target.value)} className={iCls} placeholder="ex: 豊田市" />
+          </div>
+        </div>
+
+        <div className={secCls}>Valores principais</div>
         <div>
-          <label className={lCls}>支払金額 · Renda bruta anual (¥)</label>
-          <input type="number" inputMode="numeric" value={d.shiharaiGaku || ""} onChange={e=>f("shiharaiGaku",e.target.value)} className={iCls} placeholder="ex: 5800000" />
+          <label className={lCls}>支払金額 · Renda bruta anual (¥) <span className="text-amber-500">*</span></label>
+          <input type="number" inputMode="numeric" value={d.shiharaiGaku||""} onChange={e=>f("shiharaiGaku",e.target.value)} className={iCls} placeholder="ex: 5923386" />
           <div className={sCls}>Total dos salários recebidos no ano, antes de qualquer desconto</div>
         </div>
         <div>
-          <label className={lCls}>社会保険料等の金額 · Previdência social anual (¥)</label>
-          <input type="number" inputMode="numeric" value={d.shakaiHoken || ""} onChange={e=>f("shakaiHoken",e.target.value)} className={iCls} placeholder="ex: 780000" />
-          <div className={sCls}>Saúde + Pensão + Desemprego acumulados no ano (quadro amarelo do Gensen)</div>
+          <label className={lCls}>給与所得控除後の金額 · Renda após dedução empregatória (¥) <span className="text-zinc-600">opcional</span></label>
+          <input type="number" inputMode="numeric" value={d.kyuyoShotokuGo||""} onChange={e=>f("kyuyoShotokuGo",e.target.value)} className={iCls} placeholder="ex: 4296000" />
+          <div className={sCls}>Segundo campo do Gensen — melhora precisão do cálculo</div>
         </div>
         <div>
-          <label className={lCls}>源泉徴収税額 · IR retido na fonte (¥) <span className="text-zinc-600 font-normal">· opcional</span></label>
-          <input type="number" inputMode="numeric" value={d.gensenZei || ""} onChange={e=>f("gensenZei",e.target.value)} className={iCls} placeholder="ex: 120000" />
+          <label className={lCls}>所得控除の額の合計額 · Total de deduções (¥) <span className="text-zinc-600">opcional</span></label>
+          <input type="number" inputMode="numeric" value={d.shotokuKojo||""} onChange={e=>f("shotokuKojo",e.target.value)} className={iCls} placeholder="ex: 380000" />
+          <div className={sCls}>Terceiro campo do Gensen — soma de todas as deduções aplicadas</div>
+        </div>
+        <div>
+          <label className={lCls}>源泉徴収税額 · IR retido na fonte (¥) <span className="text-zinc-600">opcional</span></label>
+          <input type="number" inputMode="numeric" value={d.gensenZei||""} onChange={e=>f("gensenZei",e.target.value)} className={iCls} placeholder="ex: 776951" />
           <div className={sCls}>IR final após 年末調整 — preencha para calcular restituição</div>
         </div>
+        <div>
+          <label className={lCls}>社会保険料等の金額 · Previdência social anual (¥) <span className="text-amber-500">*</span></label>
+          <input type="number" inputMode="numeric" value={d.shakaiHoken||""} onChange={e=>f("shakaiHoken",e.target.value)} className={iCls} placeholder="ex: 680000" />
+          <div className={sCls}>Saúde + Pensão + Desemprego acumulados no ano (quadro amarelo do Gensen)</div>
+        </div>
+
+        <div className={secCls}>Deduções adicionais (opcional)</div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className={lCls}>生命保険料控除額 · Seg. de vida (¥)</label>
+            <input type="number" inputMode="numeric" value={d.seimeiHoken||""} onChange={e=>f("seimeiHoken",e.target.value)} className={iCls} placeholder="0" />
+          </div>
+          <div>
+            <label className={lCls}>地震保険料控除額 · Seg. sismo (¥)</label>
+            <input type="number" inputMode="numeric" value={d.jishinHoken||""} onChange={e=>f("jishinHoken",e.target.value)} className={iCls} placeholder="0" />
+          </div>
+        </div>
+        <div>
+          <label className={lCls}>住宅借入金等特別控除 · Dedução financiamento imóvel (¥)</label>
+          <input type="number" inputMode="numeric" value={d.jutakuKariire||""} onChange={e=>f("jutakuKariire",e.target.value)} className={iCls} placeholder="0" />
+        </div>
+
         <div className="flex gap-2 pt-1">
           <button onClick={onClose} className="flex-1 py-3 rounded-xl bg-zinc-800 text-zinc-300 text-sm">Cancelar</button>
           <button onClick={handleSave} disabled={!canSave} className="flex-1 py-3 rounded-xl bg-amber-500 text-black text-sm font-semibold disabled:opacity-40">Salvar</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function GensenScreen({ settings }) {
+  const GKEY = "jst_gensen";
+  const [gensenList, setGensenList] = useState(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(GKEY)||"null");
+      if (!raw) return [];
+      if (Array.isArray(raw)) return raw;
+      return [{ ...raw, id: "g_legacy" }];
+    } catch { return []; }
+  });
+  const [modal, setModal] = useState(null);
+
+  function saveList(list) { setGensenList(list); localStorage.setItem(GKEY, JSON.stringify(list)); }
+  function handleSave(g) {
+    const isUpdate = g.id && gensenList.some(x => x.id === g.id);
+    saveList(isUpdate ? gensenList.map(x => x.id===g.id ? g : x) : [...gensenList, g]);
+    setModal(null);
+  }
+  function removeGensen(id) { if (confirm("Remover este Gensen?")) saveList(gensenList.filter(x => x.id!==id)); }
+
+  const latest = gensenList.length > 0 ? [...gensenList].sort((a,b) => b.nenBun - a.nenBun)[0] : null;
+
+  return (
+    <div className="space-y-3 pb-24 sm:pb-28">
+      <div className="pt-1">
+        <div className="text-xs uppercase tracking-widest text-zinc-500">Fiscal</div>
+        <h2 className="text-lg font-bold text-zinc-100">Gensen · 源泉徴収票</h2>
+      </div>
+
+      {latest && (
+        <Card>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="text-xs text-zinc-500 uppercase tracking-widest mb-0.5">Último · em uso para cálculos</div>
+              <div className="text-base font-bold text-zinc-100">{latest.empresa || "—"}</div>
+              <div className="text-xs text-zinc-500">{latest.nenBun}年 {latest.todochifu && `· ${latest.todochifu}`} {latest.shiku && latest.shiku}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-xl font-bold font-mono text-amber-400">{YEN(latest.shiharaiGaku)}</div>
+              <div className="text-xs text-zinc-500">支払金額</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+            {latest.shakaiHoken > 0 && <div className="bg-zinc-800/60 rounded-xl p-2"><div className="text-zinc-500 mb-0.5">社会保険料</div><div className="font-mono font-semibold text-zinc-300">{YEN(latest.shakaiHoken)}</div></div>}
+            {latest.gensenZei > 0 && <div className="bg-zinc-800/60 rounded-xl p-2"><div className="text-zinc-500 mb-0.5">源泉徴収税額</div><div className="font-mono font-semibold text-zinc-300">{YEN(latest.gensenZei)}</div></div>}
+            {latest.kyuyoShotokuGo > 0 && <div className="bg-zinc-800/60 rounded-xl p-2"><div className="text-zinc-500 mb-0.5">給与所得控除後</div><div className="font-mono font-semibold text-zinc-300">{YEN(latest.kyuyoShotokuGo)}</div></div>}
+            {latest.shotokuKojo > 0 && <div className="bg-zinc-800/60 rounded-xl p-2"><div className="text-zinc-500 mb-0.5">所得控除合計</div><div className="font-mono font-semibold text-zinc-300">{YEN(latest.shotokuKojo)}</div></div>}
+          </div>
+        </Card>
+      )}
+
+      <Card>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-widest">Todos os Gensens</h3>
+          <button onClick={()=>setModal("add")} className="text-xs text-amber-400 hover:text-amber-300 font-medium">+ Adicionar</button>
+        </div>
+        {gensenList.length === 0 ? (
+          <div className="py-6 text-center space-y-2">
+            <div className="text-zinc-500 text-sm">Nenhum Gensen cadastrado</div>
+            <div className="text-xs text-zinc-700">Adicione o comprovante anual para calcular 住民税 com precisão e estimar restituição</div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {[...gensenList].sort((a,b)=>b.nenBun-a.nenBun).map(g => (
+              <div key={g.id} className={"p-3 rounded-xl border " + (g.id===latest?.id ? "border-green-800/50 bg-green-900/10" : "border-zinc-700/50 bg-zinc-800/30")}>
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-bold text-zinc-100">{g.nenBun}年</span>
+                      {g.empresa && <span className="text-xs text-zinc-400 truncate">{g.empresa}</span>}
+                      {g.id===latest?.id && <span className="text-xs px-1.5 py-0.5 rounded-full bg-green-900/50 text-green-400 border border-green-800/30">ativo</span>}
+                    </div>
+                    {(g.todochifu || g.shiku) && <div className="text-xs text-zinc-600 mt-0.5">{g.todochifu} {g.shiku}</div>}
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <button onClick={()=>setModal(g)} className="text-xs px-2 py-1 rounded-lg bg-zinc-700 text-zinc-300 hover:bg-zinc-600">editar</button>
+                    <button onClick={()=>removeGensen(g.id)} className="text-xs px-2 py-1 rounded-lg bg-red-900/40 text-red-400 hover:bg-red-900/70">×</button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-zinc-500">
+                  <span>支払 <span className="font-mono text-zinc-400">{YEN(g.shiharaiGaku)}</span></span>
+                  <span>社保 <span className="font-mono text-zinc-400">{YEN(g.shakaiHoken)}</span></span>
+                  {g.gensenZei > 0 && <span>源泉税 <span className="font-mono text-zinc-400">{YEN(g.gensenZei)}</span></span>}
+                  {g.kyuyoShotokuGo > 0 && <span>給与所得控後 <span className="font-mono text-zinc-400">{YEN(g.kyuyoShotokuGo)}</span></span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <div className="text-center text-xs text-zinc-700 py-1">
+        Os cálculos de 住民税 e restituição ficam centralizados na aba Impostos
+      </div>
+
+      {modal && <GensenModal initial={modal === "add" ? null : modal} onSave={handleSave} onClose={()=>setModal(null)} />}
     </div>
   );
 }
@@ -2789,7 +2891,7 @@ function estimateJuuminZei(grossMonthlyTaxable, settings) {
 
   const kazeiShotoku = Math.max(0, kyuyoShotoku - annualSocial - kisokojo - fuyokojo);
   const shotokuWari  = Math.floor(kazeiShotoku * 0.10);
-  const kintouWari   = 5000;
+  const kintouWari   = 6000; // ¥5.000 + ¥1.000 森林環境税 (desde 2024)
   const total        = shotokuWari + kintouWari;
   const installment  = Math.ceil(total / 4);
 
@@ -2813,7 +2915,7 @@ function estimateJuuminZeiFromGensen(shiharaiGaku, shakaiHokenGaku, settings) {
   const fuyokojo      = numDependents * 330000;
   const kazeiShotoku  = Math.max(0, kyuyoShotoku - shakaiHokenGaku - kisokojo - fuyokojo);
   const shotokuWari   = Math.floor(kazeiShotoku * 0.10);
-  const kintouWari    = 5000;
+  const kintouWari    = 6000; // ¥5.000 + ¥1.000 森林環境税 (desde 2024)
   const total         = shotokuWari + kintouWari;
   const installment   = Math.ceil(total / 4);
 
@@ -4051,6 +4153,101 @@ function GastosScreen({ gastos, onSave }) {
 // TELA: CONTROLE DE FINANCIAMENTO 🚗
 // ─────────────────────────────────────────────
 
+function VehicleTaxSection() {
+  const VKEY = "jst_tax_vehicles";
+  const [vehicles, setVehicles] = useState(() => { try { return JSON.parse(localStorage.getItem(VKEY)||"[]"); } catch { return []; } });
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState(null);
+
+  function saveVehicles(list) { setVehicles(list); localStorage.setItem(VKEY, JSON.stringify(list)); }
+  function addVehicle(v) { saveVehicles([...vehicles, { ...v, id:"v"+Date.now() }]); setShowForm(false); }
+  function updateVehicle(v) { saveVehicles(vehicles.map(x => x.id===v.id ? v : x)); setEditId(null); }
+  function removeVehicle(id) { if (confirm("Remover veículo?")) saveVehicles(vehicles.filter(x => x.id!==id)); }
+
+  const vData = vehicles.map(v => ({ ...v, calc: calcJidoushaZei(v) }));
+  const fuelLabel = { gasoline:"Gasolina", diesel:"Diesel", hybrid:"Híbrido", electric:"Elétrico" };
+
+  function shakenStatus(expiry) {
+    if (!expiry) return null;
+    const exp = new Date(expiry + "-01");
+    const now = new Date();
+    const months = (exp.getFullYear() - now.getFullYear()) * 12 + (exp.getMonth() - now.getMonth());
+    const days = Math.round((exp - now) / (1000*60*60*24));
+    return { months, days, expired: months < 0, urgent: months >= 0 && months < 3 };
+  }
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-widest">自動車税 · Impostos Veiculares</h3>
+          <div className="text-xs text-zinc-500 mt-0.5">Vencimento em maio · por cilindrada / tipo</div>
+        </div>
+        {vData.length > 0 && (
+          <div className="text-right">
+            <div className="text-xl font-bold font-mono text-blue-400">{YEN(vData.reduce((a,v)=>a+v.calc.annualTax,0))}</div>
+            <div className="text-xs text-zinc-500">total/ano</div>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-3 mb-3">
+        {vData.map(v => {
+          const sk = shakenStatus(v.shakenExpiry);
+          return (
+            <div key={v.id}>
+              {editId === v.id ? (
+                <VehicleForm initial={v} onSave={updateVehicle} onCancel={()=>setEditId(null)} />
+              ) : (
+                <div className="flex items-start justify-between gap-2 p-3 bg-zinc-800/50 rounded-xl border border-zinc-700/50">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-semibold text-zinc-100 truncate">{v.name||"Veículo"}</span>
+                      {v.calc.isJuka && <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-900/50 text-red-400">重課 +15%</span>}
+                    </div>
+                    <div className="text-xs text-zinc-500 space-y-0.5">
+                      <div>{v.type==="kei" ? "軽自動車" : ({1000:"≤1.000cc",1500:"1.001–1.500cc",2000:"1.501–2.000cc",2500:"2.001–2.500cc",3000:"2.501–3.000cc",3500:"3.001–3.500cc",4000:"3.501–4.000cc",4500:"4.001–4.500cc",6000:"4.501–6.000cc",6001:"＞6.000cc"}[v.displacement]||"")} · {fuelLabel[v.fuel]||v.fuel} · {v.registrationYear} ({v.calc.age} anos)</div>
+                      {v.calc.juryoZei2yr > 0 && <div className="text-zinc-600">重量税 {YEN(v.calc.juryoZei2yr)} por vistoria (2 anos)</div>}
+                      {sk && (
+                        <div className={sk.expired ? "text-red-400 font-semibold" : sk.urgent ? "text-yellow-400" : "text-zinc-500"}>
+                          車検 {v.shakenExpiry} · {sk.expired ? "VENCIDA!" : sk.months < 1 ? `${sk.days} dias restantes` : `${sk.months} meses restantes`}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-base font-bold font-mono text-blue-400">{YEN(v.calc.annualTax)}<span className="text-xs font-normal text-zinc-500">/ano</span></div>
+                    <div className="flex gap-1 mt-1.5 justify-end">
+                      <button onClick={()=>setEditId(v.id)} className="text-xs px-2 py-1 rounded-lg bg-zinc-700 text-zinc-300 hover:bg-zinc-600">editar</button>
+                      <button onClick={()=>removeVehicle(v.id)} className="text-xs px-2 py-1 rounded-lg bg-red-900/40 text-red-400 hover:bg-red-900/70">×</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {showForm ? (
+        <VehicleForm onSave={addVehicle} onCancel={()=>setShowForm(false)} />
+      ) : (
+        <button onClick={()=>setShowForm(true)} className="w-full py-2.5 rounded-xl border border-dashed border-zinc-600 text-zinc-400 text-sm hover:border-amber-500 hover:text-amber-400 transition-colors">
+          + Adicionar veículo
+        </button>
+      )}
+
+      {vData.length > 1 && (
+        <div className="mt-3 pt-2 border-t border-zinc-800 flex justify-between text-xs">
+          <span className="text-zinc-500">{vData.length} veículos · total anual</span>
+          <span className="font-mono font-bold text-blue-400">{YEN(vData.reduce((a,v)=>a+v.calc.annualTax,0))}</span>
+        </div>
+      )}
+      <div className="mt-2 text-xs text-zinc-700">重量税 e 自賠責 incidem na 車検 a cada 2 anos.</div>
+    </Card>
+  );
+}
+
 function CarroScreen({ carro, onSave }) {
   const [selId, setSelId] = useState(carro.financiamentos[0]?.id || null);
   const [editMode, setEditMode] = useState(false);
@@ -4337,6 +4534,8 @@ function CarroScreen({ carro, onSave }) {
           <div className="flex-1" onClick={() => setShowAddFinanc(false)} />
         </div>
       )}
+
+      <VehicleTaxSection />
     </div>
   );
 }
@@ -4560,8 +4759,11 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
         {tab === "carro" && (
           <CarroScreen carro={carro} onSave={setCarro} />
         )}
+        {tab === "gensen" && (
+          <GensenScreen settings={settings} />
+        )}
         {tab === "impostos" && (
-          <ImpostosScreen entries={entries} settings={settings} />
+          <ImpostosScreen entries={entries} settings={settings} onTabSwitch={setTab} />
         )}
         {tab === "settings" && (
           <SettingsScreen settings={settings} onSave={saveSettings} />
