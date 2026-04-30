@@ -4635,8 +4635,8 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
     showToast("Backup restaurado com sucesso!", "blue");
   };
 
-  const bodyBg = theme === "dark" ? "#09090b" : "#f9f9f9";
-  const rootCls = `min-h-screen font-sans theme-${theme} ` + (theme === "dark" ? "bg-zinc-950 text-zinc-100" : "text-neutral-900");
+  const bodyBg = theme === "dark" ? "#09090b" : theme === "graphite" ? "#141414" : "#f9f9f9";
+  const rootCls = `min-h-screen font-sans theme-${theme} ` + (theme === "light" ? "text-neutral-900" : "bg-zinc-950 text-zinc-100");
 
   const staticCss = `
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -4658,11 +4658,12 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
         .safe-top    { padding-top:    max(12px, env(safe-area-inset-top)); }
         .safe-bottom { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
         button:active { opacity: 0.75; transform: scale(0.97); }
-        input[type="time"] { -webkit-appearance: none; color-scheme: ${theme === "dark" ? "dark" : "light"}; }
-        input[type="date"], input[type="month"] { color-scheme: ${theme === "dark" ? "dark" : "light"}; }
+        input[type="time"] { -webkit-appearance: none; color-scheme: ${theme === "light" ? "light" : "dark"}; }
+        input[type="date"], input[type="month"] { color-scheme: ${theme === "light" ? "light" : "dark"}; }
         input, select, textarea { font-size: 16px; }
-        .theme-light { --bg: #f9f9f9; --bg-card: #ffffff; --border: #e0e0e0; --text: #111111; --text-sub: #444444; --text-muted: #909090; --accent: #b91c1c; }
-        .theme-dark  { --bg: #09090b; --bg-card: rgba(24,24,27,0.8); --border: #27272a; --text: #f4f4f5; --text-sub: #a1a1aa; --text-muted: #52525b; --accent: #f59e0b; }
+        .theme-light    { --bg: #f9f9f9; --bg-card: #ffffff; --border: #e0e0e0; --text: #111111; --text-sub: #444444; --text-muted: #909090; --accent: #b91c1c; }
+        .theme-dark     { --bg: #09090b; --bg-card: rgba(24,24,27,0.8); --border: #27272a; --text: #f4f4f5; --text-sub: #a1a1aa; --text-muted: #52525b; --accent: #f59e0b; }
+        .theme-graphite { --bg: #141414; --bg-card: rgba(28,28,28,0.9); --border: #2c2c2c; --text: #d0d0d0; --text-sub: #888888; --text-muted: #4e4e4e; --accent: #a1a1aa; }
 
         /* Light mode: forçar todos os backgrounds dark para claro */
         .theme-light [class*="bg-zinc-9"],
@@ -4670,18 +4671,32 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
         .theme-light [class*="bg-zinc-7"] { background-color: #ececec !important; }
         .theme-light [class*="border-zinc-8"],
         .theme-light [class*="border-zinc-7"] { border-color: #d4d4d4 !important; }
-        .theme-light input,
-        .theme-light select,
-        .theme-light textarea {
-          background: #ffffff !important;
-          color: #111111 !important;
-          border-color: #d4d4d4 !important;
+        .theme-light input, .theme-light select, .theme-light textarea {
+          background: #ffffff !important; color: #111111 !important; border-color: #d4d4d4 !important;
         }
         .theme-light [class*="text-zinc-2"],
         .theme-light [class*="text-zinc-1"] { color: #222222 !important; }
         .theme-light [class*="text-zinc-4"],
         .theme-light [class*="text-zinc-5"],
         .theme-light [class*="text-zinc-6"] { color: #666666 !important; }
+
+        /* Graphite mode: zinc blue-black → cinza neutro */
+        .theme-graphite [class*="bg-zinc-950"] { background-color: #141414 !important; }
+        .theme-graphite [class*="bg-zinc-900"] { background-color: #1e1e1e !important; }
+        .theme-graphite [class*="bg-zinc-800"] { background-color: #2a2a2a !important; }
+        .theme-graphite [class*="bg-zinc-700"] { background-color: #363636 !important; }
+        .theme-graphite [class*="border-zinc-800"] { border-color: #2c2c2c !important; }
+        .theme-graphite [class*="border-zinc-700"] { border-color: #383838 !important; }
+        .theme-graphite [class*="text-zinc-100"] { color: #d8d8d8 !important; }
+        .theme-graphite [class*="text-zinc-200"] { color: #cccccc !important; }
+        .theme-graphite [class*="text-zinc-300"] { color: #b8b8b8 !important; }
+        .theme-graphite [class*="text-zinc-400"] { color: #909090 !important; }
+        .theme-graphite [class*="text-zinc-500"] { color: #6a6a6a !important; }
+        .theme-graphite [class*="text-zinc-600"] { color: #505050 !important; }
+        .theme-graphite [class*="text-zinc-700"] { color: #404040 !important; }
+        .theme-graphite input, .theme-graphite select, .theme-graphite textarea {
+          background: #1e1e1e !important; color: #d0d0d0 !important; border-color: #2c2c2c !important;
+        }
 
         @keyframes pulse-border { 0%,100% { border-color: #f59e0b; } 50% { border-color: #ef4444; } }
         .edit-mode-active { animation: pulse-border 1.5s ease-in-out infinite; }
@@ -4697,7 +4712,7 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
       <style>{staticCss}</style>
 
       {/* Top bar */}
-      <div className={`sticky top-0 z-40 backdrop-blur border-b px-4 py-2 ${theme === "dark" ? "bg-zinc-950/90 border-zinc-800/50" : "bg-white/95 border-neutral-200"}`}>
+      <div className={`sticky top-0 z-40 backdrop-blur border-b px-4 py-2 ${theme === "light" ? "bg-white/95 border-neutral-200" : theme === "graphite" ? "bg-zinc-950/90 border-zinc-800/50" : "bg-zinc-950/90 border-zinc-800/50"}`} style={theme === "graphite" ? {background:"rgba(20,20,20,0.92)", borderColor:"#2c2c2c"} : {}}>
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-lg">⛩️</span>
@@ -4713,11 +4728,11 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${theme === "dark" ? "border-zinc-700 hover:border-amber-600" : "border-neutral-300 hover:border-neutral-500"}`}
-              title={theme === "dark" ? "Modo claro" : "Modo escuro"}
+              onClick={() => { const next = theme === "dark" ? "graphite" : theme === "graphite" ? "light" : "dark"; setTheme(next); }}
+              className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${theme === "light" ? "border-neutral-300 hover:border-neutral-500" : "border-zinc-700 hover:border-zinc-500"}`}
+              title={theme === "dark" ? "Mudar para Grafite" : theme === "graphite" ? "Mudar para Claro" : "Mudar para Escuro"}
             >
-              {theme === "dark" ? "☀️" : "🌙"}
+              {theme === "dark" ? "🌑" : theme === "graphite" ? "☀️" : "🌙"}
             </button>
             {showInstall && (
               <button onClick={handleInstall}
@@ -4785,7 +4800,7 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
       </div>
 
       {/* Bottom nav */}
-      <div className={`fixed bottom-0 inset-x-0 z-40 backdrop-blur border-t ${theme === "dark" ? "bg-zinc-950/95 border-zinc-800/50" : "bg-white/95 border-neutral-200"}`}
+      <div className={`fixed bottom-0 inset-x-0 z-40 backdrop-blur border-t ${theme === "light" ? "bg-white/95 border-neutral-200" : "bg-zinc-950/95 border-zinc-800/50"}`} style={theme === "graphite" ? {background:"rgba(20,20,20,0.96)", borderColor:"#2c2c2c"} : {}}
         style={{paddingBottom: "env(safe-area-inset-bottom, 0px)"}}>
         <div className="max-w-2xl mx-auto flex">
           {TABS.map((t) => (
