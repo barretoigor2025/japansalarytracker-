@@ -3105,28 +3105,20 @@ function ExampleCalc({ settings }) {
 // ─────────────────────────────────────────────
 
 function exportBackup(entries, settings, gastos, carro, auditHistory) {
+  const gensen = (() => { try { return JSON.parse(localStorage.getItem("jst_gensen")||"null"); } catch { return null; } })();
+  const taxVehicles = (() => { try { return JSON.parse(localStorage.getItem("jst_tax_vehicles")||"null"); } catch { return null; } })();
   const data = {
-    version: 3,
+    version: 4,
     exportedAt: new Date().toISOString(),
     entries,
     settings,
     gastos: gastos || null,
     carro: carro || null,
     auditHistory: auditHistory || [],
+    gensen: gensen || null,
+    taxVehicles: taxVehicles || null,
   };
-  const json = JSON.stringify(data, null, 2);
-  const now = new Date();
-  const dd = String(now.getDate()).padStart(2, "0");
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const yy = String(now.getFullYear()).slice(-2);
-  const uri = "data:application/json;charset=utf-8," + encodeURIComponent(json);
-  const a = document.createElement("a");
-  a.href = uri;
-  a.download = `${dd}-${mm}-${yy}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  return json; // return so we can show copy fallback if download fails
+  return JSON.stringify(data, null, 2);
 }
 
 function parseBackup(jsonText) {
@@ -3403,10 +3395,6 @@ function BackupModal({ entries, settings, gastos, carro, auditHistory, onRestore
               <>
                 <div className="bg-zinc-900 rounded-xl p-3 text-xs space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-zinc-500">Lançamentos no backup</span>
-                    <span className="font-mono text-zinc-200 font-semibold">{preview.entries.length}</span>
-                  </div>
-                  <div className="flex justify-between">
                     <span className="text-zinc-500">Data do backup</span>
                     <span className="text-zinc-300">{new Date(preview.exportedAt).toLocaleString("pt-BR")}</span>
                   </div>
@@ -3416,6 +3404,30 @@ function BackupModal({ entries, settings, gastos, carro, auditHistory, onRestore
                       <span className="text-zinc-300">{preview.settings.name}</span>
                     </div>
                   )}
+                  <div className="border-t border-zinc-800 pt-2 space-y-1.5">
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Jornada (lançamentos)</span>
+                      <span className="font-mono text-zinc-200">{preview.entries.length}</span>
+                    </div>
+                    {preview.gensen && (
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">Gensen (源泉徴収票)</span>
+                        <span className="font-mono text-zinc-200">{Array.isArray(preview.gensen) ? preview.gensen.length : 1} registro(s)</span>
+                      </div>
+                    )}
+                    {preview.taxVehicles && preview.taxVehicles.length > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">Veículos (自動車税)</span>
+                        <span className="font-mono text-zinc-200">{preview.taxVehicles.length} veículo(s)</span>
+                      </div>
+                    )}
+                    {preview.gastos && (
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">Gastos</span>
+                        <span className="font-mono text-zinc-200">incluídos</span>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex justify-between pt-1.5 border-t border-zinc-800">
                     <span className="text-zinc-500">Lançamentos atuais (serão perdidos)</span>
                     <span className="font-mono text-red-400">{entries.length}</span>
@@ -4618,6 +4630,8 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
     if (data.gastos) setGastos(data.gastos);
     if (data.carro) setCarro(data.carro);
     if (data.auditHistory) setAuditHistory(data.auditHistory);
+    if (data.gensen != null) localStorage.setItem("jst_gensen", JSON.stringify(data.gensen));
+    if (data.taxVehicles != null) localStorage.setItem("jst_tax_vehicles", JSON.stringify(data.taxVehicles));
     showToast("Backup restaurado com sucesso!", "blue");
   };
 
