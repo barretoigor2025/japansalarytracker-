@@ -2425,7 +2425,7 @@ function VehicleForm({ onSave, onCancel, initial }) {
         )}
         <div>
           <label className="text-xs text-zinc-400 mb-1 block">Ano de registro (初度登録)</label>
-          <input type="number" className={inCls} value={v.registrationYear} onChange={e=>f("registrationYear",Number(e.target.value))} placeholder="2018" />
+          <input type="number" className={inCls} value={v.registrationYear || ""} onChange={e=>f("registrationYear",Number(e.target.value))} placeholder="2018" />
         </div>
         <div>
           <label className="text-xs text-zinc-400 mb-1 block">車検 validade (ano/mês)</label>
@@ -2470,16 +2470,36 @@ const CC_LOJAS = [
 
 function defaultCartao() {
   return {
-    setup: { name: "Meu Cartão", closingDay: 0, dueDay: 0, limit: 0 },
-    lancamentos: [],
+    setup: { name: "au PAY Gold", closingDay: 15, dueDay: 10, limit: 0 },
+    lancamentos: [
+      { id:"s1", date:"2026-04-10", desc:"ジョウテン (loja)", amount:3240, cat:"mercado", loja:"loja" },
+      { id:"s2", date:"2026-04-10", desc:"Compra a identificar", amount:2138, cat:"outro", loja:"loja" },
+      { id:"s3", date:"2026-04-11", desc:"Compra pequena", amount:644, cat:"outro", loja:"outro" },
+      { id:"s4", date:"2026-04-11", desc:"Compra pequena", amount:620, cat:"outro", loja:"outro" },
+      { id:"s5", date:"2026-04-13", desc:"ウェルシア (farmácia/drogaria)", amount:1786, cat:"saude", loja:"farmacia" },
+      { id:"s6", date:"2026-04-14", desc:"JA-SS (posto de gasolina)", amount:1000, cat:"carro", loja:"posto" },
+      { id:"s7", date:"2026-04-14", desc:"ファミリーマート (konbini)", amount:500, cat:"mercado", loja:"mercado" },
+    ],
     parcelas: [],
-    conferencias: [], // [{ ym: "2025-05", boletado: 45000 }]
+    conferencias: [
+      { ym:"2026-04", boletado:154961, pago:false, dataPagamento:null },
+    ],
   };
 }
 
 function loadCartaoData() {
-  try { return JSON.parse(localStorage.getItem(CARTAO_KEY)) || defaultCartao(); }
-  catch { return defaultCartao(); }
+  try {
+    const raw = localStorage.getItem(CARTAO_KEY);
+    if (!raw) return defaultCartao();
+    const d = JSON.parse(raw);
+    if (!d.conferencias) d.conferencias = [];
+    // seed lancamentos if user never added any
+    if (!d.lancamentos || d.lancamentos.length === 0) {
+      const def = defaultCartao();
+      return { ...d, lancamentos: def.lancamentos, conferencias: d.conferencias.length ? d.conferencias : def.conferencias };
+    }
+    return d;
+  } catch { return defaultCartao(); }
 }
 
 function saveCartaoData(data) {
@@ -2518,6 +2538,14 @@ function fmtYM(year, month) {
   return `${year}-${String(month + 1).padStart(2, "0")}`;
 }
 
+function lancamentoBillingYM(dateStr, closingDay) {
+  if (!closingDay) return dateStr.slice(0, 7);
+  const [ys, ms, ds] = dateStr.split("-");
+  const y = parseInt(ys), m = parseInt(ms) - 1, d = parseInt(ds);
+  if (d <= closingDay) return fmtYM(y, m);
+  return fmtYM(m === 11 ? y + 1 : y, (m + 1) % 12);
+}
+
 function CartaoSetupModal({ setup, onSave, onClose }) {
   const [form, setForm] = React.useState({ ...setup });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -2549,7 +2577,7 @@ function CartaoSetupModal({ setup, onSave, onClose }) {
           </div>
           <div className="col-span-2">
             <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Limite (¥, 0 = sem limite)</label>
-            <input type="number" min={0} value={form.limit} onChange={e => set("limit", +e.target.value)}
+            <input type="number" min={0} value={form.limit || ""} onChange={e => set("limit", +e.target.value)} placeholder="0"
               className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
           </div>
         </div>
@@ -2667,7 +2695,7 @@ function AddParcelaModal({ onSave, onClose }) {
           </div>
           <div>
             <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Parcelas pagas</label>
-            <input type="number" min={0} value={form.paidInstallments} onChange={e => set("paidInstallments", +e.target.value)} placeholder="0"
+            <input type="number" min={0} value={form.paidInstallments || ""} onChange={e => set("paidInstallments", +e.target.value)} placeholder="0"
               className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
           </div>
           <div>
@@ -2720,7 +2748,7 @@ function CartaoScreen() {
   const faturaYM = currentFaturaYM(setup.closingDay);
   const faturaKey = fmtYM(faturaYM.year, faturaYM.month);
 
-  const faturaLanc = lancamentos.filter(l => l.date.slice(0, 7) === faturaKey);
+  const faturaLanc = lancamentos.filter(l => lancamentoBillingYM(l.date, setup.closingDay) === faturaKey);
 
   const parcelasNaFatura = parcelas.filter(p => {
     const start = new Date(p.startYearMonth + "-01");
@@ -2736,7 +2764,7 @@ function CartaoScreen() {
 
   // conferência do mês selecionado
   const confObj = conferencias.find(c => c.ym === conferirYM);
-  const lancConferirYM = lancamentos.filter(l => l.date.slice(0,7) === conferirYM);
+  const lancConferirYM = lancamentos.filter(l => lancamentoBillingYM(l.date, setup.closingDay) === conferirYM);
   const parcelasConferirYM = parcelas.filter(p => {
     const [cy, cm] = conferirYM.split("-").map(Number);
     const start = new Date(p.startYearMonth + "-01");
@@ -2751,10 +2779,24 @@ function CartaoScreen() {
   const salvarConferencia = () => {
     const val = +boletadoInput;
     if (!val) return;
+    const prev = conferencias.find(c => c.ym === conferirYM);
     const next = conferencias.filter(c => c.ym !== conferirYM);
-    next.push({ ym: conferirYM, boletado: val });
+    next.push({ ym: conferirYM, boletado: val, pago: prev?.pago || false, dataPagamento: prev?.dataPagamento || null });
     save({ ...data, conferencias: next });
     setBoletadoInput("");
+  };
+
+  const togglePago = (ym, checked) => {
+    const today = new Date().toISOString().slice(0,10);
+    const next = conferencias.map(c => c.ym === ym
+      ? { ...c, pago: checked, dataPagamento: checked ? (c.dataPagamento || today) : null }
+      : c);
+    save({ ...data, conferencias: next });
+  };
+
+  const setDataPagamento = (ym, date) => {
+    const next = conferencias.map(c => c.ym === ym ? { ...c, dataPagamento: date } : c);
+    save({ ...data, conferencias: next });
   };
 
   const removerConferencia = (ym) => save({ ...data, conferencias: conferencias.filter(c => c.ym !== ym) });
@@ -2985,25 +3027,48 @@ function CartaoScreen() {
               const isOver = diff > 0;
               const isMatch = diff === 0;
               return (
-                <div className="rounded-xl p-3 flex flex-col gap-2" style={{ background: "var(--bg)", border: `1px solid ${isMatch ? "var(--accent)" : isOver ? "#ef4444" : "var(--border)"}` }}>
-                  <div className="flex justify-between text-xs font-semibold" style={{ color: "var(--text)" }}>
-                    <span>Lançado</span>
-                    <span>¥{totalLancadoConferir.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-xs font-semibold" style={{ color: "var(--text)" }}>
-                    <span>Boleto</span>
-                    <span>¥{confObj.boletado.toLocaleString()}</span>
-                  </div>
-                  <div className="h-px" style={{ background: "var(--border)" }} />
-                  <div className="flex justify-between text-xs font-bold" style={{ color: isMatch ? "var(--accent)" : isOver ? "#ef4444" : "#22c55e" }}>
-                    <span>{isMatch ? "✓ Tudo confere!" : isOver ? "⚠ Boleto maior — faltou lançar" : "✓ Boleto menor que o lançado"}</span>
-                    <span>{isMatch ? "—" : `${isOver ? "+" : ""}¥${Math.abs(diff).toLocaleString()}`}</span>
-                  </div>
-                  {isOver && (
-                    <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      ¥{diff.toLocaleString()} foram cobrados mas não foram lançados aqui.
+                <div className="flex flex-col gap-2">
+                  <div className="rounded-xl p-3 flex flex-col gap-2" style={{ background: "var(--bg)", border: `1px solid ${isMatch ? "var(--accent)" : isOver ? "#ef4444" : "var(--border)"}` }}>
+                    <div className="flex justify-between text-xs font-semibold" style={{ color: "var(--text)" }}>
+                      <span>Lançado</span>
+                      <span>¥{totalLancadoConferir.toLocaleString()}</span>
                     </div>
-                  )}
+                    <div className="flex justify-between text-xs font-semibold" style={{ color: "var(--text)" }}>
+                      <span>Boleto</span>
+                      <span>¥{confObj.boletado.toLocaleString()}</span>
+                    </div>
+                    <div className="h-px" style={{ background: "var(--border)" }} />
+                    <div className="flex justify-between text-xs font-bold" style={{ color: isMatch ? "var(--accent)" : isOver ? "#ef4444" : "#22c55e" }}>
+                      <span>{isMatch ? "✓ Tudo confere!" : isOver ? "⚠ Boleto maior — faltou lançar" : "✓ Boleto menor que o lançado"}</span>
+                      <span>{isMatch ? "—" : `${isOver ? "+" : ""}¥${Math.abs(diff).toLocaleString()}`}</span>
+                    </div>
+                    {isOver && (
+                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                        ¥{diff.toLocaleString()} foram cobrados mas não foram lançados aqui.
+                      </div>
+                    )}
+                  </div>
+                  {/* Payment check */}
+                  <div className="rounded-xl p-3 flex flex-col gap-2" style={{ background: "var(--bg)", border: "1px solid var(--border)" }}>
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => togglePago(confObj.ym, !confObj.pago)}
+                        className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 transition-all"
+                        style={{ background: confObj.pago ? "var(--accent)" : "var(--border)", border: `2px solid ${confObj.pago ? "var(--accent)" : "var(--border)"}` }}>
+                        {confObj.pago && <span className="text-xs font-bold" style={{ color: "var(--bg)" }}>✓</span>}
+                      </button>
+                      <span className="text-xs font-semibold" style={{ color: confObj.pago ? "var(--text)" : "var(--text-muted)" }}>
+                        {confObj.pago ? "Boleto pago" : "Marcar como pago"}
+                      </span>
+                    </div>
+                    {confObj.pago && (
+                      <div>
+                        <label className="text-xs mb-1 block" style={{ color: "var(--text-muted)" }}>Data do pagamento</label>
+                        <input type="date" value={confObj.dataPagamento || ""}
+                          onChange={e => setDataPagamento(confObj.ym, e.target.value)}
+                          className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg-card)", color: "var(--text)", border: "1px solid var(--border)" }} />
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })()}
@@ -3012,16 +3077,19 @@ function CartaoScreen() {
           {/* History */}
           {conferencias.length > 0 && (
             <div className="rounded-2xl p-3 flex flex-col gap-2" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <div className="text-xs font-semibold" style={{ color: "var(--text-sub)" }}>Histórico de conferências</div>
+              <div className="text-xs font-semibold" style={{ color: "var(--text-sub)" }}>Histórico de boletos</div>
               {[...conferencias].sort((a,b) => b.ym.localeCompare(a.ym)).map(c => {
-                const lancMes = lancamentos.filter(l => l.date.slice(0,7) === c.ym).reduce((s,l) => s+l.amount, 0);
+                const lancMes = lancamentos.filter(l => lancamentoBillingYM(l.date, setup.closingDay) === c.ym).reduce((s,l) => s+l.amount, 0);
                 const diff = c.boletado - lancMes;
                 return (
-                  <div key={c.ym} className="flex items-center gap-2 text-xs" style={{ color: "var(--text-sub)" }}>
+                  <div key={c.ym} className="flex items-center gap-2 text-xs py-1" style={{ color: "var(--text-sub)", borderBottom: "1px solid var(--border)" }}>
                     <span className="font-mono">{c.ym}</span>
                     <span style={{ color: "var(--text)" }}>¥{c.boletado.toLocaleString()}</span>
                     <span style={{ color: diff === 0 ? "var(--accent)" : diff > 0 ? "#ef4444" : "#22c55e" }}>
                       {diff === 0 ? "✓" : diff > 0 ? `+¥${diff.toLocaleString()}` : `-¥${Math.abs(diff).toLocaleString()}`}
+                    </span>
+                    <span className="ml-1" style={{ color: c.pago ? "#22c55e" : "#f59e0b" }}>
+                      {c.pago ? `✓ pago${c.dataPagamento ? " "+c.dataPagamento.slice(5) : ""}` : "⏳ pendente"}
                     </span>
                     <button onClick={() => removerConferencia(c.ym)} className="ml-auto" style={{ color: "var(--text-muted)" }}>✕</button>
                   </div>
@@ -5193,8 +5261,8 @@ function CarroScreen({ carro, onSave }) {
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Valor total</label>
-                <input type="number" inputMode="numeric" value={newFinanc.valorTotal}
-                  onChange={e => setNewFinanc(f => ({...f, valorTotal: parseInt(e.target.value)||0}))}
+                <input type="number" inputMode="numeric" value={newFinanc.valorTotal || ""}
+                  onChange={e => setNewFinanc(f => ({...f, valorTotal: parseInt(e.target.value)||0}))} placeholder="0"
                   className="rounded-xl px-4 py-3 text-xl font-bold font-mono text-right border focus:outline-none focus:border-amber-500"
                   style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
               </div>
