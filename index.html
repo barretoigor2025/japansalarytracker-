@@ -2444,16 +2444,16 @@ function VehicleForm({ onSave, onCancel, initial }) {
 const CARTAO_KEY = "jst_cartao";
 
 const CC_CATS = [
-  { id:"carro",      label:"Carro",       emoji:"🚗" },
-  { id:"casa",       label:"Casa",        emoji:"🏠" },
-  { id:"konbini",    label:"Konbini",     emoji:"🏪" },
-  { id:"alim",       label:"Alimentação", emoji:"🍽️" },
-  { id:"mercado",    label:"Mercado",     emoji:"🛒" },
-  { id:"vest",       label:"Vestuário",   emoji:"👔" },
-  { id:"saude",      label:"Saúde",       emoji:"💊" },
-  { id:"lazer",      label:"Lazer",       emoji:"🎮" },
-  { id:"tech",       label:"Tecnologia",  emoji:"📱" },
-  { id:"outro",      label:"Outro…",      emoji:"💰", custom: true },
+  { id:"posto",       label:"Posto de Gasolina",  emoji:"⛽" },
+  { id:"mercado_jp",  label:"Mercado Japonês",    emoji:"🛒" },
+  { id:"mercado_br",  label:"Mercado Brasileiro", emoji:"🇧🇷" },
+  { id:"farmacia",    label:"Farmácia",           emoji:"💊" },
+  { id:"konbini",     label:"Konbini",            emoji:"🏪" },
+  { id:"online",      label:"Compra Online",      emoji:"📦" },
+  { id:"restaurante", label:"Restaurante",        emoji:"🍽️" },
+  { id:"homecenter",  label:"Home Center",        emoji:"🏗️" },
+  { id:"oficina",     label:"Oficina",            emoji:"🔧" },
+  { id:"outro",       label:"Outro",              emoji:"💰", custom: true },
 ];
 
 const CC_LOJAS = [
@@ -2478,47 +2478,47 @@ function ccEmoji(items, id) {
   return (items.find(x => x.id === id) || items[items.length - 1]).emoji;
 }
 
-const CARTAO_SEED_V = 6;
+const CARTAO_SEED_V = 7;
 
 function defaultCartao() {
   return {
     setup: { name: "au PAY Gold", closingDay: 15, dueDay: 11, limit: 0 },
     seedV: CARTAO_SEED_V,
     lancamentos: [
-      { id:"m01", date:"2026-03-16", desc:"FamilyMart Toyota Kaichicho", amount:360,   cat:"konbini", loja:"konbini",    customCat:"", customLoja:"" },
-      { id:"m02", date:"2026-03-17", desc:"FamilyMart Toyota Kaichicho", amount:790,   cat:"konbini", loja:"konbini",    customCat:"", customLoja:"" },
-      { id:"m03", date:"2026-03-18", desc:"Amazon.co.jp",               amount:3940,  cat:"casa",    loja:"amazon",     customCat:"", customLoja:"" },
-      { id:"m04", date:"2026-03-18", desc:"FamilyMart Toyota Kaichicho", amount:786,   cat:"konbini", loja:"konbini",    customCat:"", customLoja:"" },
-      { id:"m05", date:"2026-03-19", desc:"FamilyMart Toyota Kaichicho", amount:874,   cat:"konbini", loja:"konbini",    customCat:"", customLoja:"" },
-      { id:"m06", date:"2026-03-21", desc:"Felna (スーパー)",            amount:16172, cat:"mercado", loja:"mercado",    customCat:"", customLoja:"" },
-      { id:"m07", date:"2026-03-21", desc:"DCM (home center)",           amount:2713,  cat:"casa",    loja:"loja",       customCat:"", customLoja:"" },
-      { id:"m08", date:"2026-03-21", desc:"Genky",                       amount:9070,  cat:"mercado", loja:"farmacia",   customCat:"", customLoja:"" },
-      { id:"m09", date:"2026-03-22", desc:"DCM (home center)",           amount:1958,  cat:"casa",    loja:"loja",       customCat:"", customLoja:"" },
-      { id:"m10", date:"2026-03-24", desc:"Apollo Station",              amount:6852,  cat:"carro",   loja:"posto",      customCat:"", customLoja:"" },
-      { id:"m11", date:"2026-03-27", desc:"FamilyMart Miyoshi",          amount:408,   cat:"konbini", loja:"konbini",    customCat:"", customLoja:"" },
-      { id:"m12", date:"2026-03-28", desc:"Felna (スーパー)",            amount:14959, cat:"mercado", loja:"mercado",    customCat:"", customLoja:"" },
-      { id:"m13", date:"2026-03-29", desc:"Burger King",                 amount:6420,  cat:"alim",    loja:"restaurante",customCat:"", customLoja:"" },
-      { id:"m14", date:"2026-03-29", desc:"Genky",                       amount:9000,  cat:"mercado", loja:"farmacia",   customCat:"", customLoja:"" },
-      { id:"m15", date:"2026-03-29", desc:"Takara Kura Toyota",          amount:480,   cat:"outro",   loja:"loja",       customCat:"Armazenagem", customLoja:"" },
-      { id:"m16", date:"2026-03-30", desc:"FamilyMart Toyota Kaichicho", amount:601,   cat:"konbini", loja:"konbini",    customCat:"", customLoja:"" },
-      { id:"m17", date:"2026-03-31", desc:"ENEOS SS",                    amount:5000,  cat:"carro",   loja:"posto",      customCat:"", customLoja:"" },
-      { id:"m18", date:"2026-03-31", desc:"Taxa envio fatura",           amount:143,   cat:"outro",   loja:"outro",      customCat:"Tarifa", customLoja:"au PAY" },
-      { id:"m19", date:"2026-04-02", desc:"FamilyMart Toyota Kaichicho", amount:888,   cat:"konbini", loja:"konbini",    customCat:"", customLoja:"" },
-      { id:"m20", date:"2026-04-02", desc:"Lawson",                      amount:329,   cat:"konbini", loja:"konbini",    customCat:"", customLoja:"" },
-      { id:"m21", date:"2026-04-03", desc:"DCM (home center)",           amount:3992,  cat:"casa",    loja:"loja",       customCat:"", customLoja:"" },
-      { id:"m22", date:"2026-04-04", desc:"Daily Yamazaki",              amount:1095,  cat:"konbini", loja:"konbini",    customCat:"", customLoja:"" },
-      { id:"m23", date:"2026-04-04", desc:"Genky",                       amount:23496, cat:"mercado", loja:"farmacia",   customCat:"", customLoja:"" },
-      { id:"m24", date:"2026-04-04", desc:"JA-SS",                       amount:2569,  cat:"carro",   loja:"posto",      customCat:"", customLoja:"" },
-      { id:"m25", date:"2026-04-05", desc:"Daily Yamazaki",              amount:557,   cat:"konbini", loja:"konbini",    customCat:"", customLoja:"" },
-      { id:"m26", date:"2026-04-05", desc:"KOKO Toyota",                 amount:2940,  cat:"alim",    loja:"restaurante",customCat:"", customLoja:"" },
-      { id:"m27", date:"2026-04-09", desc:"Châteraisé",                  amount:3240,  cat:"alim",    loja:"loja",       customCat:"", customLoja:"" },
-      { id:"m28", date:"2026-04-10", desc:"Genky",                       amount:2138,  cat:"mercado", loja:"farmacia",   customCat:"", customLoja:"" },
-      { id:"m29", date:"2026-04-10", desc:"JA-SS",                       amount:6644,  cat:"carro",   loja:"posto",      customCat:"", customLoja:"" },
-      { id:"m30", date:"2026-04-11", desc:"Daily Yamazaki",              amount:620,   cat:"konbini", loja:"konbini",    customCat:"", customLoja:"" },
-      { id:"m31", date:"2026-04-11", desc:"Genky",                       amount:22641, cat:"mercado", loja:"farmacia",   customCat:"", customLoja:"" },
-      { id:"m32", date:"2026-04-12", desc:"Felna (スーパー)",            amount:1786,  cat:"mercado", loja:"mercado",    customCat:"", customLoja:"" },
-      { id:"m33", date:"2026-04-13", desc:"JA-SS",                       amount:1000,  cat:"carro",   loja:"posto",      customCat:"", customLoja:"" },
-      { id:"m34", date:"2026-04-14", desc:"FamilyMart Toyota Kaichicho", amount:500,   cat:"konbini", loja:"konbini",    customCat:"", customLoja:"" },
+      { id:"m01", date:"2026-03-16", desc:"FamilyMart Toyota Kaichicho", amount:360,   cat:"konbini",    customCat:"" },
+      { id:"m02", date:"2026-03-17", desc:"FamilyMart Toyota Kaichicho", amount:790,   cat:"konbini",    customCat:"" },
+      { id:"m03", date:"2026-03-18", desc:"Amazon.co.jp",               amount:3940,  cat:"online",     customCat:"" },
+      { id:"m04", date:"2026-03-18", desc:"FamilyMart Toyota Kaichicho", amount:786,   cat:"konbini",    customCat:"" },
+      { id:"m05", date:"2026-03-19", desc:"FamilyMart Toyota Kaichicho", amount:874,   cat:"konbini",    customCat:"" },
+      { id:"m06", date:"2026-03-21", desc:"Felna (スーパー)",            amount:16172, cat:"mercado_jp", customCat:"" },
+      { id:"m07", date:"2026-03-21", desc:"DCM (home center)",           amount:2713,  cat:"homecenter", customCat:"" },
+      { id:"m08", date:"2026-03-21", desc:"Genky",                       amount:9070,  cat:"farmacia",   customCat:"" },
+      { id:"m09", date:"2026-03-22", desc:"DCM (home center)",           amount:1958,  cat:"homecenter", customCat:"" },
+      { id:"m10", date:"2026-03-24", desc:"Apollo Station",              amount:6852,  cat:"posto",      customCat:"" },
+      { id:"m11", date:"2026-03-27", desc:"FamilyMart Miyoshi",          amount:408,   cat:"konbini",    customCat:"" },
+      { id:"m12", date:"2026-03-28", desc:"Felna (スーパー)",            amount:14959, cat:"mercado_jp", customCat:"" },
+      { id:"m13", date:"2026-03-29", desc:"Burger King",                 amount:6420,  cat:"restaurante",customCat:"" },
+      { id:"m14", date:"2026-03-29", desc:"Genky",                       amount:9000,  cat:"farmacia",   customCat:"" },
+      { id:"m15", date:"2026-03-29", desc:"Takara Kura Toyota",          amount:480,   cat:"outro",      customCat:"Armazenagem" },
+      { id:"m16", date:"2026-03-30", desc:"FamilyMart Toyota Kaichicho", amount:601,   cat:"konbini",    customCat:"" },
+      { id:"m17", date:"2026-03-31", desc:"ENEOS SS",                    amount:5000,  cat:"posto",      customCat:"" },
+      { id:"m18", date:"2026-03-31", desc:"Taxa envio fatura",           amount:143,   cat:"outro",      customCat:"Tarifa" },
+      { id:"m19", date:"2026-04-02", desc:"FamilyMart Toyota Kaichicho", amount:888,   cat:"konbini",    customCat:"" },
+      { id:"m20", date:"2026-04-02", desc:"Lawson",                      amount:329,   cat:"konbini",    customCat:"" },
+      { id:"m21", date:"2026-04-03", desc:"DCM (home center)",           amount:3992,  cat:"homecenter", customCat:"" },
+      { id:"m22", date:"2026-04-04", desc:"Daily Yamazaki",              amount:1095,  cat:"konbini",    customCat:"" },
+      { id:"m23", date:"2026-04-04", desc:"Genky",                       amount:23496, cat:"farmacia",   customCat:"" },
+      { id:"m24", date:"2026-04-04", desc:"JA-SS",                       amount:2569,  cat:"posto",      customCat:"" },
+      { id:"m25", date:"2026-04-05", desc:"Daily Yamazaki",              amount:557,   cat:"konbini",    customCat:"" },
+      { id:"m26", date:"2026-04-05", desc:"KOKO Toyota",                 amount:2940,  cat:"restaurante",customCat:"" },
+      { id:"m27", date:"2026-04-09", desc:"Châteraisé",                  amount:3240,  cat:"restaurante",customCat:"" },
+      { id:"m28", date:"2026-04-10", desc:"Genky",                       amount:2138,  cat:"farmacia",   customCat:"" },
+      { id:"m29", date:"2026-04-10", desc:"JA-SS",                       amount:6644,  cat:"posto",      customCat:"" },
+      { id:"m30", date:"2026-04-11", desc:"Daily Yamazaki",              amount:620,   cat:"konbini",    customCat:"" },
+      { id:"m31", date:"2026-04-11", desc:"Genky",                       amount:22641, cat:"farmacia",   customCat:"" },
+      { id:"m32", date:"2026-04-12", desc:"Felna (スーパー)",            amount:1786,  cat:"mercado_jp", customCat:"" },
+      { id:"m33", date:"2026-04-13", desc:"JA-SS",                       amount:1000,  cat:"posto",      customCat:"" },
+      { id:"m34", date:"2026-04-14", desc:"FamilyMart Toyota Kaichicho", amount:500,   cat:"konbini",    customCat:"" },
     ],
     parcelas: [],
     conferencias: [
@@ -2636,7 +2636,7 @@ function AddLancamentoModal({ onSave, onClose, defaultDate, initialData }) {
   const today = defaultDate || new Date().toISOString().slice(0, 10);
   const [form, setForm] = React.useState(isEdit
     ? { ...initialData, amount: String(initialData.amount) }
-    : { date: today, desc: "", amount: "", cat: "outro", loja: "outro", customCat: "", customLoja: "" });
+    : { date: today, desc: "", amount: "", cat: "konbini", customCat: "" });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const inCls = "w-full rounded-lg px-2 py-1.5 text-xs";
   const inStyle = { background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" };
@@ -2660,30 +2660,17 @@ function AddLancamentoModal({ onSave, onClose, defaultDate, initialData }) {
             <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Descrição</label>
             <input value={form.desc} onChange={e => set("desc", e.target.value)} placeholder="ex: café, gasolina, supermercado..." className={inCls} style={inStyle} />
           </div>
-          <div>
+          <div className="col-span-2">
             <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Categoria</label>
             <select value={form.cat} onChange={e => set("cat", e.target.value)} className={inCls} style={inStyle}>
               {CC_CATS.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
             </select>
           </div>
-          <div>
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Onde comprou</label>
-            <select value={form.loja} onChange={e => set("loja", e.target.value)} className={inCls} style={inStyle}>
-              {CC_LOJAS.map(l => <option key={l.id} value={l.id}>{l.emoji} {l.label}</option>)}
-            </select>
-          </div>
           {form.cat === "outro" && (
             <div className="col-span-2">
-              <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Especificar categoria</label>
+              <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Especificar</label>
               <input value={form.customCat || ""} onChange={e => set("customCat", e.target.value)}
                 placeholder="ex: Transporte, Pet, Papelaria..." className={inCls} style={inStyle} />
-            </div>
-          )}
-          {form.loja === "outro" && (
-            <div className="col-span-2">
-              <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Especificar local</label>
-              <input value={form.customLoja || ""} onChange={e => set("customLoja", e.target.value)}
-                placeholder="ex: Konbini, Mercado local, Quiosque..." className={inCls} style={inStyle} />
             </div>
           )}
         </div>
@@ -2691,9 +2678,8 @@ function AddLancamentoModal({ onSave, onClose, defaultDate, initialData }) {
           <button onClick={() => {
             if (!form.amount || +form.amount <= 0) return;
             onSave({ date: form.date, desc: form.desc, amount: +form.amount,
-              cat: form.cat, loja: form.loja,
+              cat: form.cat,
               customCat: form.cat === "outro" ? (form.customCat || "") : "",
-              customLoja: form.loja === "outro" ? (form.customLoja || "") : "",
             });
             onClose();
           }} className="flex-1 py-2 rounded-xl text-sm font-semibold" style={{ background: "var(--accent)", color: "var(--bg)" }}>
@@ -2708,7 +2694,7 @@ function AddLancamentoModal({ onSave, onClose, defaultDate, initialData }) {
 
 function AddParcelaModal({ onSave, onClose }) {
   const [form, setForm] = React.useState({
-    desc: "", cat: "outro", loja: "outro",
+    desc: "", cat: "online",
     totalAmount: "", numInstallments: "", paidInstallments: 0,
     startYearMonth: new Date().toISOString().slice(0, 7),
   });
@@ -2728,18 +2714,11 @@ function AddParcelaModal({ onSave, onClose }) {
             <input value={form.desc} onChange={e => set("desc", e.target.value)} placeholder="ex: iPhone, notebook..."
               className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
           </div>
-          <div>
+          <div className="col-span-2">
             <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Categoria</label>
             <select value={form.cat} onChange={e => set("cat", e.target.value)}
               className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }}>
               {CC_CATS.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Onde comprou</label>
-            <select value={form.loja} onChange={e => set("loja", e.target.value)}
-              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }}>
-              {CC_LOJAS.map(l => <option key={l.id} value={l.id}>{l.emoji} {l.label}</option>)}
             </select>
           </div>
           <div>
@@ -2772,7 +2751,7 @@ function AddParcelaModal({ onSave, onClose }) {
           <button onClick={() => {
             if (!form.desc || !form.totalAmount || !form.numInstallments) return;
             onSave({
-              id: Date.now().toString(), desc: form.desc, cat: form.cat, loja: form.loja,
+              id: Date.now().toString(), desc: form.desc, cat: form.cat,
               totalAmount: +form.totalAmount, numInstallments: +form.numInstallments,
               paidInstallments: +form.paidInstallments,
               monthlyAmount: monthly, startYearMonth: form.startYearMonth,
@@ -3011,7 +2990,7 @@ function CartaoScreen() {
               <span className="text-base">{ccEmoji(CC_CATS, l.cat)}</span>
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-medium truncate" style={{ color: "var(--text)" }}>{l.desc || ccLabel(CC_CATS, l.cat, l.customCat)}</div>
-                <div className="text-xs" style={{ color: "var(--text-muted)" }}>{l.date} · {ccEmoji(CC_LOJAS, l.loja)} {ccLabel(CC_LOJAS, l.loja, l.customLoja)}</div>
+                <div className="text-xs" style={{ color: "var(--text-muted)" }}>{l.date} · {ccLabel(CC_CATS, l.cat, l.customCat)}</div>
               </div>
               <div className="text-sm font-bold flex-shrink-0" style={{ color: "var(--text)" }}>¥{l.amount.toLocaleString()}</div>
               <button onClick={() => setEditLancId(l.id)} className="text-xs flex-shrink-0" style={{ color: "var(--text-muted)" }} title="Editar">✏</button>
@@ -3225,24 +3204,6 @@ function CartaoScreen() {
                   </div>
                   <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
                     <div className="h-full rounded-full" style={{ width: `${(c.total / maxCat) * 100}%`, background: "var(--accent)" }} />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="rounded-2xl p-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-            <div className="text-xs font-semibold mb-2" style={{ color: "var(--text-sub)" }}>Por local de compra</div>
-            {byLoja.length === 0 && <div className="text-xs" style={{ color: "var(--text-muted)" }}>Sem dados ainda</div>}
-            {byLoja.map(l => (
-              <div key={l.id} className="flex items-center gap-2 mb-1.5">
-                <span className="text-sm w-5 text-center">{l.emoji}</span>
-                <div className="flex-1">
-                  <div className="flex justify-between text-xs mb-0.5" style={{ color: "var(--text-sub)" }}>
-                    <span>{l.label}</span>
-                    <span>¥{l.total.toLocaleString()}</span>
-                  </div>
-                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
-                    <div className="h-full rounded-full" style={{ width: `${(l.total / maxLoja) * 100}%`, background: "var(--accent)" }} />
                   </div>
                 </div>
               </div>
