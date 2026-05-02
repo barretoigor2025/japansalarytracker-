@@ -2875,16 +2875,10 @@ function CartaoScreen() {
   // insights: by category and by loja (all lancamentos)
   const byCat = CC_CATS.map(c => ({
     ...c,
-    total: lancamentos.filter(l => l.cat === c.id).reduce((s, l) => s + l.amount, 0),
+    total: viewLanc.filter(l => l.cat === c.id).reduce((s, l) => s + l.amount, 0),
   })).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
 
-  const byLoja = CC_LOJAS.map(l => ({
-    ...l,
-    total: lancamentos.filter(x => x.loja === l.id).reduce((s, x) => s + x.amount, 0),
-  })).filter(l => l.total > 0).sort((a, b) => b.total - a.total);
-
   const maxCat = byCat.length > 0 ? byCat[0].total : 1;
-  const maxLoja = byLoja.length > 0 ? byLoja[0].total : 1;
 
   const addLancamento = (l) => save({ ...data, lancamentos: [{ ...l, id: Date.now().toString() }, ...lancamentos] });
   const updateLancamento = (id, l) => save({ ...data, lancamentos: lancamentos.map(x => x.id === id ? { ...l, id } : x) });
@@ -3193,7 +3187,7 @@ function CartaoScreen() {
       {subTab === "insights" && (
         <div className="flex flex-col gap-3">
           <div className="rounded-2xl p-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-            <div className="text-xs font-semibold mb-2" style={{ color: "var(--text-sub)" }}>Por categoria (todos os lançamentos)</div>
+            <div className="text-xs font-semibold mb-2" style={{ color: "var(--text-sub)" }}>Por categoria · {activeViewYM}</div>
             {byCat.length === 0 && <div className="text-xs" style={{ color: "var(--text-muted)" }}>Sem dados ainda</div>}
             {byCat.map(c => (
               <div key={c.id} className="flex items-center gap-2 mb-1.5">
