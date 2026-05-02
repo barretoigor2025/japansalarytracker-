@@ -2477,17 +2477,47 @@ function ccEmoji(items, id) {
   return (items.find(x => x.id === id) || items[items.length - 1]).emoji;
 }
 
+const CARTAO_SEED_V = 3;
+
 function defaultCartao() {
   return {
     setup: { name: "au PAY Gold", closingDay: 15, dueDay: 10, limit: 0 },
+    seedV: CARTAO_SEED_V,
     lancamentos: [
-      { id:"s1", date:"2026-04-10", desc:"ジョウテン (loja)", amount:3240, cat:"mercado", loja:"loja" },
-      { id:"s2", date:"2026-04-10", desc:"Compra a identificar", amount:2138, cat:"outro", loja:"loja" },
-      { id:"s3", date:"2026-04-11", desc:"Compra pequena", amount:644, cat:"outro", loja:"outro" },
-      { id:"s4", date:"2026-04-11", desc:"Compra pequena", amount:620, cat:"outro", loja:"outro" },
-      { id:"s5", date:"2026-04-13", desc:"ウェルシア (farmácia/drogaria)", amount:1786, cat:"saude", loja:"farmacia" },
-      { id:"s6", date:"2026-04-14", desc:"JA-SS (posto de gasolina)", amount:1000, cat:"carro", loja:"posto" },
-      { id:"s7", date:"2026-04-14", desc:"ファミリーマート (konbini)", amount:500, cat:"mercado", loja:"mercado" },
+      { id:"m01", date:"2026-03-16", desc:"FamilyMart Toyota Kaichicho", amount:360,   cat:"alim",    loja:"konbini",    customCat:"", customLoja:"" },
+      { id:"m02", date:"2026-03-17", desc:"FamilyMart Toyota Kaichicho", amount:790,   cat:"alim",    loja:"konbini",    customCat:"", customLoja:"" },
+      { id:"m03", date:"2026-03-18", desc:"Amazon.co.jp",               amount:3940,  cat:"casa",    loja:"amazon",     customCat:"", customLoja:"" },
+      { id:"m04", date:"2026-03-18", desc:"FamilyMart Toyota Kaichicho", amount:786,   cat:"alim",    loja:"konbini",    customCat:"", customLoja:"" },
+      { id:"m05", date:"2026-03-19", desc:"FamilyMart Toyota Kaichicho", amount:874,   cat:"alim",    loja:"konbini",    customCat:"", customLoja:"" },
+      { id:"m06", date:"2026-03-21", desc:"Felna (スーパー)",            amount:1672,  cat:"mercado", loja:"mercado",    customCat:"", customLoja:"" },
+      { id:"m07", date:"2026-03-21", desc:"DCM (home center)",           amount:2713,  cat:"casa",    loja:"loja",       customCat:"", customLoja:"" },
+      { id:"m08", date:"2026-03-21", desc:"Genky (farmácia)",            amount:9070,  cat:"saude",   loja:"farmacia",   customCat:"", customLoja:"" },
+      { id:"m09", date:"2026-03-22", desc:"DCM (home center)",           amount:1958,  cat:"casa",    loja:"loja",       customCat:"", customLoja:"" },
+      { id:"m10", date:"2026-03-24", desc:"Apollo Station (posto)",      amount:6852,  cat:"carro",   loja:"posto",      customCat:"", customLoja:"" },
+      { id:"m11", date:"2026-03-27", desc:"FamilyMart Miyoshi",          amount:408,   cat:"alim",    loja:"konbini",    customCat:"", customLoja:"" },
+      { id:"m12", date:"2026-03-28", desc:"Felna (スーパー)",            amount:14959, cat:"mercado", loja:"mercado",    customCat:"", customLoja:"" },
+      { id:"m13", date:"2026-03-29", desc:"Burger King",                 amount:6420,  cat:"alim",    loja:"restaurante",customCat:"", customLoja:"" },
+      { id:"m14", date:"2026-03-29", desc:"Genky (farmácia)",            amount:9000,  cat:"saude",   loja:"farmacia",   customCat:"", customLoja:"" },
+      { id:"m15", date:"2026-03-29", desc:"Takara Kura Toyota",          amount:480,   cat:"outro",   loja:"loja",       customCat:"Armazenagem", customLoja:"" },
+      { id:"m16", date:"2026-03-30", desc:"FamilyMart Toyota Kaichicho", amount:601,   cat:"alim",    loja:"konbini",    customCat:"", customLoja:"" },
+      { id:"m17", date:"2026-03-31", desc:"ENEOS SS (posto)",            amount:5000,  cat:"carro",   loja:"posto",      customCat:"", customLoja:"" },
+      { id:"m18", date:"2026-03-31", desc:"Taxa envio fatura",           amount:143,   cat:"outro",   loja:"outro",      customCat:"Tarifa", customLoja:"au PAY" },
+      { id:"m19", date:"2026-04-02", desc:"FamilyMart Toyota Kaichicho", amount:888,   cat:"alim",    loja:"konbini",    customCat:"", customLoja:"" },
+      { id:"m20", date:"2026-04-02", desc:"Lawson",                      amount:329,   cat:"alim",    loja:"konbini",    customCat:"", customLoja:"" },
+      { id:"m21", date:"2026-04-03", desc:"DCM (home center)",           amount:3992,  cat:"casa",    loja:"loja",       customCat:"", customLoja:"" },
+      { id:"m22", date:"2026-04-04", desc:"Daily Yamazaki",              amount:1095,  cat:"alim",    loja:"konbini",    customCat:"", customLoja:"" },
+      { id:"m23", date:"2026-04-04", desc:"Genky (farmácia)",            amount:23496, cat:"saude",   loja:"farmacia",   customCat:"", customLoja:"" },
+      { id:"m24", date:"2026-04-04", desc:"JA-SS (posto)",               amount:2569,  cat:"carro",   loja:"posto",      customCat:"", customLoja:"" },
+      { id:"m25", date:"2026-04-05", desc:"Daily Yamazaki",              amount:557,   cat:"alim",    loja:"konbini",    customCat:"", customLoja:"" },
+      { id:"m26", date:"2026-04-05", desc:"KOKO Toyota",                 amount:2940,  cat:"alim",    loja:"restaurante",customCat:"", customLoja:"" },
+      { id:"m27", date:"2026-04-09", desc:"Châteraisé",                  amount:3240,  cat:"alim",    loja:"loja",       customCat:"", customLoja:"" },
+      { id:"m28", date:"2026-04-10", desc:"Genky (farmácia)",            amount:2138,  cat:"saude",   loja:"farmacia",   customCat:"", customLoja:"" },
+      { id:"m29", date:"2026-04-10", desc:"JA-SS (posto)",               amount:6644,  cat:"carro",   loja:"posto",      customCat:"", customLoja:"" },
+      { id:"m30", date:"2026-04-11", desc:"Daily Yamazaki",              amount:620,   cat:"alim",    loja:"konbini",    customCat:"", customLoja:"" },
+      { id:"m31", date:"2026-04-11", desc:"Genky (farmácia)",            amount:22641, cat:"saude",   loja:"farmacia",   customCat:"", customLoja:"" },
+      { id:"m32", date:"2026-04-12", desc:"Felna (スーパー)",            amount:1786,  cat:"mercado", loja:"mercado",    customCat:"", customLoja:"" },
+      { id:"m33", date:"2026-04-13", desc:"JA-SS (posto)",               amount:1000,  cat:"carro",   loja:"posto",      customCat:"", customLoja:"" },
+      { id:"m34", date:"2026-04-14", desc:"FamilyMart Toyota Kaichicho", amount:500,   cat:"alim",    loja:"konbini",    customCat:"", customLoja:"" },
     ],
     parcelas: [],
     conferencias: [
@@ -2502,10 +2532,10 @@ function loadCartaoData() {
     if (!raw) return defaultCartao();
     const d = JSON.parse(raw);
     if (!d.conferencias) d.conferencias = [];
-    // seed lancamentos if user never added any
-    if (!d.lancamentos || d.lancamentos.length === 0) {
+    // Force-update seed data when version is outdated
+    if (!d.seedV || d.seedV < CARTAO_SEED_V) {
       const def = defaultCartao();
-      return { ...d, lancamentos: def.lancamentos, conferencias: d.conferencias.length ? d.conferencias : def.conferencias };
+      return { ...d, lancamentos: def.lancamentos, parcelas: d.parcelas || [], conferencias: def.conferencias, seedV: CARTAO_SEED_V };
     }
     return d;
   } catch { return defaultCartao(); }
@@ -2599,9 +2629,12 @@ function CartaoSetupModal({ setup, onSave, onClose }) {
   );
 }
 
-function AddLancamentoModal({ onSave, onClose, defaultDate }) {
+function AddLancamentoModal({ onSave, onClose, defaultDate, initialData }) {
+  const isEdit = !!initialData;
   const today = defaultDate || new Date().toISOString().slice(0, 10);
-  const [form, setForm] = React.useState({ date: today, desc: "", amount: "", cat: "outro", loja: "outro", customCat: "", customLoja: "" });
+  const [form, setForm] = React.useState(isEdit
+    ? { ...initialData, amount: String(initialData.amount) }
+    : { date: today, desc: "", amount: "", cat: "outro", loja: "outro", customCat: "", customLoja: "" });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const inCls = "w-full rounded-lg px-2 py-1.5 text-xs";
   const inStyle = { background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" };
@@ -2609,7 +2642,7 @@ function AddLancamentoModal({ onSave, onClose, defaultDate }) {
     <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
       <div className="rounded-t-3xl p-5 flex flex-col gap-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Lançamento</span>
+          <span className="text-sm font-bold" style={{ color: "var(--text)" }}>{isEdit ? "Editar lançamento" : "Novo lançamento"}</span>
           <button onClick={onClose} className="text-xl" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -2640,14 +2673,14 @@ function AddLancamentoModal({ onSave, onClose, defaultDate }) {
           {form.cat === "outro" && (
             <div className="col-span-2">
               <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Especificar categoria</label>
-              <input value={form.customCat} onChange={e => set("customCat", e.target.value)}
+              <input value={form.customCat || ""} onChange={e => set("customCat", e.target.value)}
                 placeholder="ex: Transporte, Pet, Papelaria..." className={inCls} style={inStyle} />
             </div>
           )}
           {form.loja === "outro" && (
             <div className="col-span-2">
               <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Especificar local</label>
-              <input value={form.customLoja} onChange={e => set("customLoja", e.target.value)}
+              <input value={form.customLoja || ""} onChange={e => set("customLoja", e.target.value)}
                 placeholder="ex: Konbini, Mercado local, Quiosque..." className={inCls} style={inStyle} />
             </div>
           )}
@@ -2655,13 +2688,15 @@ function AddLancamentoModal({ onSave, onClose, defaultDate }) {
         <div className="flex gap-2 mt-1">
           <button onClick={() => {
             if (!form.amount || +form.amount <= 0) return;
-            onSave({ id: Date.now().toString(), date: form.date, desc: form.desc, amount: +form.amount,
+            onSave({ date: form.date, desc: form.desc, amount: +form.amount,
               cat: form.cat, loja: form.loja,
-              customCat: form.cat === "outro" ? form.customCat : "",
-              customLoja: form.loja === "outro" ? form.customLoja : "",
+              customCat: form.cat === "outro" ? (form.customCat || "") : "",
+              customLoja: form.loja === "outro" ? (form.customLoja || "") : "",
             });
             onClose();
-          }} className="flex-1 py-2 rounded-xl text-sm font-semibold" style={{ background: "var(--accent)", color: "var(--bg)" }}>Adicionar</button>
+          }} className="flex-1 py-2 rounded-xl text-sm font-semibold" style={{ background: "var(--accent)", color: "var(--bg)" }}>
+            {isEdit ? "Salvar" : "Adicionar"}
+          </button>
           <button onClick={onClose} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>Cancelar</button>
         </div>
       </div>
@@ -2759,6 +2794,7 @@ function CartaoScreen() {
   const [showSetup, setShowSetup] = React.useState(false);
   const [showAddLanc, setShowAddLanc] = React.useState(false);
   const [showAddParcela, setShowAddParcela] = React.useState(false);
+  const [editLancId, setEditLancId] = React.useState(null);
   const [deleteConfirm, setDeleteConfirm] = React.useState(null);
   const [boletadoInput, setBoletadoInput] = React.useState("");
   const [conferirYM, setConferirYM] = React.useState(() => new Date().toISOString().slice(0,7));
@@ -2861,7 +2897,8 @@ function CartaoScreen() {
   const maxCat = byCat.length > 0 ? byCat[0].total : 1;
   const maxLoja = byLoja.length > 0 ? byLoja[0].total : 1;
 
-  const addLancamento = (l) => save({ ...data, lancamentos: [l, ...lancamentos] });
+  const addLancamento = (l) => save({ ...data, lancamentos: [{ ...l, id: Date.now().toString() }, ...lancamentos] });
+  const updateLancamento = (id, l) => save({ ...data, lancamentos: lancamentos.map(x => x.id === id ? { ...l, id } : x) });
   const deleteLancamento = (id) => save({ ...data, lancamentos: lancamentos.filter(l => l.id !== id) });
   const addParcela = (p) => save({ ...data, parcelas: [p, ...parcelas] });
   const deleteParcela = (id) => save({ ...data, parcelas: parcelas.filter(p => p.id !== id) });
@@ -2963,8 +3000,9 @@ function CartaoScreen() {
                 <div className="text-xs font-medium truncate" style={{ color: "var(--text)" }}>{l.desc || ccLabel(CC_CATS, l.cat, l.customCat)}</div>
                 <div className="text-xs" style={{ color: "var(--text-muted)" }}>{l.date} · {ccEmoji(CC_LOJAS, l.loja)} {ccLabel(CC_LOJAS, l.loja, l.customLoja)}</div>
               </div>
-              <div className="text-sm font-bold" style={{ color: "var(--text)" }}>¥{l.amount.toLocaleString()}</div>
-              <button onClick={() => setDeleteConfirm({ type: "lanc", id: l.id })} className="text-xs ml-1" style={{ color: "var(--text-muted)" }}>✕</button>
+              <div className="text-sm font-bold flex-shrink-0" style={{ color: "var(--text)" }}>¥{l.amount.toLocaleString()}</div>
+              <button onClick={() => setEditLancId(l.id)} className="text-xs flex-shrink-0" style={{ color: "var(--text-muted)" }} title="Editar">✏</button>
+              <button onClick={() => setDeleteConfirm({ type: "lanc", id: l.id })} className="text-xs flex-shrink-0" style={{ color: "var(--text-muted)" }}>✕</button>
             </div>
           ))}
           {parcelasViewFatura.length > 0 && (
@@ -3203,6 +3241,16 @@ function CartaoScreen() {
       {/* Modals */}
       {showSetup && <CartaoSetupModal setup={setup} onSave={saveSetup} onClose={() => setShowSetup(false)} />}
       {showAddLanc && <AddLancamentoModal onSave={addLancamento} onClose={() => setShowAddLanc(false)} defaultDate={defaultLancDate} />}
+      {editLancId && (() => {
+        const l = lancamentos.find(x => x.id === editLancId);
+        return l ? (
+          <AddLancamentoModal
+            initialData={l}
+            onSave={updated => { updateLancamento(editLancId, updated); setEditLancId(null); }}
+            onClose={() => setEditLancId(null)}
+          />
+        ) : null;
+      })()}
       {showAddParcela && <AddParcelaModal onSave={addParcela} onClose={() => setShowAddParcela(false)} />}
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)" }}>
