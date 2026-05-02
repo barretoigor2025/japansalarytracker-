@@ -2452,21 +2452,30 @@ const CC_CATS = [
   { id:"lazer",      label:"Lazer",       emoji:"🎮" },
   { id:"tech",       label:"Tecnologia",  emoji:"📱" },
   { id:"mercado",    label:"Mercado",     emoji:"🛒" },
-  { id:"outro",      label:"Outro",       emoji:"💰" },
+  { id:"outro",      label:"Outro…",      emoji:"💰", custom: true },
 ];
 
 const CC_LOJAS = [
   { id:"mercado",    label:"Mercado",     emoji:"🛒" },
   { id:"amazon",     label:"Amazon",      emoji:"📦" },
   { id:"posto",      label:"Posto",       emoji:"⛽" },
-  { id:"loja",       label:"Loja física", emoji:"🏪" },
+  { id:"konbini",    label:"Konbini",     emoji:"🏪" },
+  { id:"loja",       label:"Loja física", emoji:"🏬" },
   { id:"restaurante",label:"Restaurante", emoji:"🍽️" },
   { id:"farmacia",   label:"Farmácia",    emoji:"💊" },
   { id:"online",     label:"Online",      emoji:"🌐" },
   { id:"oficina",    label:"Oficina",     emoji:"🔧" },
   { id:"shopping",   label:"Shopping",    emoji:"🛍️" },
-  { id:"outro",      label:"Outro",       emoji:"❓" },
+  { id:"outro",      label:"Outro…",      emoji:"❓", custom: true },
 ];
+
+function ccLabel(items, id, custom) {
+  if (id === "outro" && custom) return custom;
+  return (items.find(x => x.id === id) || items[items.length - 1]).label;
+}
+function ccEmoji(items, id) {
+  return (items.find(x => x.id === id) || items[items.length - 1]).emoji;
+}
 
 function defaultCartao() {
   return {
@@ -2590,54 +2599,67 @@ function CartaoSetupModal({ setup, onSave, onClose }) {
   );
 }
 
-function AddLancamentoModal({ onSave, onClose }) {
-  const today = new Date().toISOString().slice(0, 10);
-  const [form, setForm] = React.useState({ date: today, desc: "", amount: "", cat: "outro", loja: "outro" });
+function AddLancamentoModal({ onSave, onClose, defaultDate }) {
+  const today = defaultDate || new Date().toISOString().slice(0, 10);
+  const [form, setForm] = React.useState({ date: today, desc: "", amount: "", cat: "outro", loja: "outro", customCat: "", customLoja: "" });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const catObj = CC_CATS.find(c => c.id === form.cat) || CC_CATS[8];
-  const lojaObj = CC_LOJAS.find(l => l.id === form.loja) || CC_LOJAS[9];
+  const inCls = "w-full rounded-lg px-2 py-1.5 text-xs";
+  const inStyle = { background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" };
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
       <div className="rounded-t-3xl p-5 flex flex-col gap-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Lançamento diário</span>
+          <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Lançamento</span>
           <button onClick={onClose} className="text-xl" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Data</label>
-            <input type="date" value={form.date} onChange={e => set("date", e.target.value)}
-              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
+            <input type="date" value={form.date} onChange={e => set("date", e.target.value)} className={inCls} style={inStyle} />
           </div>
           <div>
             <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Valor (¥)</label>
-            <input type="number" min={0} value={form.amount} onChange={e => set("amount", e.target.value)} placeholder="0"
-              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
+            <input type="number" min={0} value={form.amount} onChange={e => set("amount", e.target.value)} placeholder="0" className={inCls} style={inStyle} />
           </div>
           <div className="col-span-2">
             <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Descrição</label>
-            <input value={form.desc} onChange={e => set("desc", e.target.value)} placeholder="ex: supermercado, gasolina..."
-              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
+            <input value={form.desc} onChange={e => set("desc", e.target.value)} placeholder="ex: café, gasolina, supermercado..." className={inCls} style={inStyle} />
           </div>
           <div>
             <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Categoria</label>
-            <select value={form.cat} onChange={e => set("cat", e.target.value)}
-              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }}>
+            <select value={form.cat} onChange={e => set("cat", e.target.value)} className={inCls} style={inStyle}>
               {CC_CATS.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
             </select>
           </div>
           <div>
             <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Onde comprou</label>
-            <select value={form.loja} onChange={e => set("loja", e.target.value)}
-              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }}>
+            <select value={form.loja} onChange={e => set("loja", e.target.value)} className={inCls} style={inStyle}>
               {CC_LOJAS.map(l => <option key={l.id} value={l.id}>{l.emoji} {l.label}</option>)}
             </select>
           </div>
+          {form.cat === "outro" && (
+            <div className="col-span-2">
+              <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Especificar categoria</label>
+              <input value={form.customCat} onChange={e => set("customCat", e.target.value)}
+                placeholder="ex: Transporte, Pet, Papelaria..." className={inCls} style={inStyle} />
+            </div>
+          )}
+          {form.loja === "outro" && (
+            <div className="col-span-2">
+              <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Especificar local</label>
+              <input value={form.customLoja} onChange={e => set("customLoja", e.target.value)}
+                placeholder="ex: Konbini, Mercado local, Quiosque..." className={inCls} style={inStyle} />
+            </div>
+          )}
         </div>
         <div className="flex gap-2 mt-1">
           <button onClick={() => {
             if (!form.amount || +form.amount <= 0) return;
-            onSave({ id: Date.now().toString(), date: form.date, desc: form.desc, amount: +form.amount, cat: form.cat, loja: form.loja });
+            onSave({ id: Date.now().toString(), date: form.date, desc: form.desc, amount: +form.amount,
+              cat: form.cat, loja: form.loja,
+              customCat: form.cat === "outro" ? form.customCat : "",
+              customLoja: form.loja === "outro" ? form.customLoja : "",
+            });
             onClose();
           }} className="flex-1 py-2 rounded-xl text-sm font-semibold" style={{ background: "var(--accent)", color: "var(--bg)" }}>Adicionar</button>
           <button onClick={onClose} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>Cancelar</button>
@@ -2740,6 +2762,7 @@ function CartaoScreen() {
   const [deleteConfirm, setDeleteConfirm] = React.useState(null);
   const [boletadoInput, setBoletadoInput] = React.useState("");
   const [conferirYM, setConferirYM] = React.useState(() => new Date().toISOString().slice(0,7));
+  const [viewFaturaYM, setViewFaturaYM] = React.useState(null); // null = current
 
   const save = (next) => { setData(next); saveCartaoData(next); };
 
@@ -2748,17 +2771,40 @@ function CartaoScreen() {
   const faturaYM = currentFaturaYM(setup.closingDay);
   const faturaKey = fmtYM(faturaYM.year, faturaYM.month);
 
+  // current fatura totals (for header card)
   const faturaLanc = lancamentos.filter(l => lancamentoBillingYM(l.date, setup.closingDay) === faturaKey);
-
   const parcelasNaFatura = parcelas.filter(p => {
     const start = new Date(p.startYearMonth + "-01");
     const fatDate = new Date(faturaYM.year, faturaYM.month, 1);
     const paidMs = new Date(start.getFullYear(), start.getMonth() + p.paidInstallments, 1);
     return fatDate >= paidMs && p.paidInstallments < p.numInstallments;
   });
-
   const totalLanc = faturaLanc.reduce((s, l) => s + l.amount, 0);
   const totalParcelas = parcelasNaFatura.reduce((s, p) => s + p.monthlyAmount, 0);
+
+  // navigable view (for Fatura tab list)
+  const activeViewYM = viewFaturaYM || faturaKey;
+  const isCurrentFatura = activeViewYM === faturaKey;
+  const shiftViewMonth = (delta) => {
+    const base = activeViewYM;
+    const [y, m] = base.split("-").map(Number);
+    let nm = m + delta, ny = y;
+    if (nm < 1) { nm = 12; ny--; }
+    if (nm > 12) { nm = 1; ny++; }
+    setViewFaturaYM(`${ny}-${String(nm).padStart(2,"0")}`);
+  };
+  const viewLanc = lancamentos.filter(l => lancamentoBillingYM(l.date, setup.closingDay) === activeViewYM);
+  const [viewY, viewM] = activeViewYM.split("-").map(Number);
+  const parcelasViewFatura = parcelas.filter(p => {
+    const start = new Date(p.startYearMonth + "-01");
+    const fatDate = new Date(viewY, viewM - 1, 1);
+    const paidMs = new Date(start.getFullYear(), start.getMonth() + p.paidInstallments, 1);
+    return fatDate >= paidMs && p.paidInstallments < p.numInstallments;
+  });
+  // default date for AddLancamentoModal when navigating to a past/future month
+  const defaultLancDate = isCurrentFatura
+    ? new Date().toISOString().slice(0,10)
+    : `${activeViewYM}-05`;
   const totalFatura = totalLanc + totalParcelas;
   const limitPct = setup.limit > 0 ? Math.min(100, (totalFatura / setup.limit) * 100) : 0;
 
@@ -2885,41 +2931,53 @@ function CartaoScreen() {
       {/* FATURA tab */}
       {subTab === "fatura" && (
         <div className="flex flex-col gap-2">
-          <div className="flex justify-between items-center">
-            <span className="text-xs font-semibold" style={{ color: "var(--text-sub)" }}>Lançamentos — {faturaKey}</span>
-            <button onClick={() => setShowAddLanc(true)} className="text-xs px-3 py-1 rounded-lg font-semibold" style={{ background: "var(--accent)", color: "var(--bg)" }}>+ Lançamento</button>
+          {/* Month navigator */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <button onClick={() => shiftViewMonth(-1)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-base font-bold"
+                style={{ background: "var(--bg-card)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>‹</button>
+              <div className="text-center px-1">
+                <div className="text-xs font-semibold" style={{ color: "var(--text)" }}>{activeViewYM}</div>
+                {isCurrentFatura && <div className="text-xs" style={{ color: "var(--accent)", fontSize:"10px" }}>atual</div>}
+              </div>
+              <button onClick={() => shiftViewMonth(+1)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-base font-bold"
+                style={{ background: "var(--bg-card)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>›</button>
+              {!isCurrentFatura && (
+                <button onClick={() => setViewFaturaYM(null)}
+                  className="text-xs px-2 py-0.5 rounded-lg ml-1"
+                  style={{ background: "var(--bg)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>hoje</button>
+              )}
+            </div>
+            <button onClick={() => setShowAddLanc(true)} className="text-xs px-3 py-1 rounded-lg font-semibold"
+              style={{ background: "var(--accent)", color: "var(--bg)" }}>+ Lançamento</button>
           </div>
-          {faturaLanc.length === 0 && (
+          {viewLanc.length === 0 && parcelasViewFatura.length === 0 && (
             <div className="text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>Nenhum lançamento nesta fatura</div>
           )}
-          {faturaLanc.map(l => {
-            const catObj = CC_CATS.find(c => c.id === l.cat) || CC_CATS[8];
-            const lojaObj = CC_LOJAS.find(x => x.id === l.loja) || CC_LOJAS[9];
-            return (
-              <div key={l.id} className="rounded-xl px-3 py-2 flex items-center gap-2" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-                <span className="text-base">{catObj.emoji}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium truncate" style={{ color: "var(--text)" }}>{l.desc || catObj.label}</div>
-                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>{l.date} · {lojaObj.emoji} {lojaObj.label}</div>
-                </div>
-                <div className="text-sm font-bold" style={{ color: "var(--text)" }}>¥{l.amount.toLocaleString()}</div>
-                <button onClick={() => setDeleteConfirm({ type: "lanc", id: l.id })} className="text-xs ml-1" style={{ color: "var(--text-muted)" }}>✕</button>
+          {viewLanc.map(l => (
+            <div key={l.id} className="rounded-xl px-3 py-2 flex items-center gap-2" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+              <span className="text-base">{ccEmoji(CC_CATS, l.cat)}</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium truncate" style={{ color: "var(--text)" }}>{l.desc || ccLabel(CC_CATS, l.cat, l.customCat)}</div>
+                <div className="text-xs" style={{ color: "var(--text-muted)" }}>{l.date} · {ccEmoji(CC_LOJAS, l.loja)} {ccLabel(CC_LOJAS, l.loja, l.customLoja)}</div>
               </div>
-            );
-          })}
-          {parcelasNaFatura.length > 0 && (
+              <div className="text-sm font-bold" style={{ color: "var(--text)" }}>¥{l.amount.toLocaleString()}</div>
+              <button onClick={() => setDeleteConfirm({ type: "lanc", id: l.id })} className="text-xs ml-1" style={{ color: "var(--text-muted)" }}>✕</button>
+            </div>
+          ))}
+          {parcelasViewFatura.length > 0 && (
             <>
               <div className="text-xs font-semibold mt-1" style={{ color: "var(--text-sub)" }}>Parcelas nesta fatura</div>
-              {parcelasNaFatura.map(p => {
-                const catObj = CC_CATS.find(c => c.id === p.cat) || CC_CATS[8];
-                const lojaObj = CC_LOJAS.find(x => x.id === p.loja) || CC_LOJAS[9];
+              {parcelasViewFatura.map(p => {
                 const rem = p.numInstallments - p.paidInstallments;
                 return (
                   <div key={p.id} className="rounded-xl px-3 py-2 flex items-center gap-2" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-                    <span className="text-base">{catObj.emoji}</span>
+                    <span className="text-base">{ccEmoji(CC_CATS, p.cat)}</span>
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-medium truncate" style={{ color: "var(--text)" }}>{p.desc}</div>
-                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>{lojaObj.emoji} · {p.paidInstallments}/{p.numInstallments}x restam {rem}x</div>
+                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>{ccEmoji(CC_LOJAS, p.loja)} · {p.paidInstallments}/{p.numInstallments}x restam {rem}x</div>
                     </div>
                     <div className="text-sm font-bold" style={{ color: "var(--text)" }}>¥{p.monthlyAmount.toLocaleString()}</div>
                   </div>
@@ -3144,7 +3202,7 @@ function CartaoScreen() {
 
       {/* Modals */}
       {showSetup && <CartaoSetupModal setup={setup} onSave={saveSetup} onClose={() => setShowSetup(false)} />}
-      {showAddLanc && <AddLancamentoModal onSave={addLancamento} onClose={() => setShowAddLanc(false)} />}
+      {showAddLanc && <AddLancamentoModal onSave={addLancamento} onClose={() => setShowAddLanc(false)} defaultDate={defaultLancDate} />}
       {showAddParcela && <AddParcelaModal onSave={addParcela} onClose={() => setShowAddParcela(false)} />}
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)" }}>
