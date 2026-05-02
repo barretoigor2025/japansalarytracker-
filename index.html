@@ -2533,11 +2533,12 @@ function loadCartaoData() {
     if (!raw) return defaultCartao();
     const d = JSON.parse(raw);
     if (!d.conferencias) d.conferencias = [];
-    // Force-update seed data when version is outdated
     if (!d.seedV || d.seedV < CARTAO_SEED_V) {
       const def = defaultCartao();
-      // Reset setup, lancamentos and conferencias; keep only user's parcelas
-      return { ...def, parcelas: d.parcelas || [] };
+      // Preserve user-added entries (IDs not in seed) across seed updates
+      const seedIds = new Set(def.lancamentos.map(l => l.id));
+      const userAdded = (d.lancamentos || []).filter(l => !seedIds.has(l.id));
+      return { ...def, parcelas: d.parcelas || [], lancamentos: [...def.lancamentos, ...userAdded] };
     }
     return d;
   } catch { return defaultCartao(); }
