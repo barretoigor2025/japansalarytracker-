@@ -2781,7 +2781,10 @@ function CartaoScreen() {
   const [deleteConfirm, setDeleteConfirm] = React.useState(null);
   const [boletadoInput, setBoletadoInput] = React.useState("");
   const [conferirYM, setConferirYM] = React.useState(() => new Date().toISOString().slice(0,7));
-  const [viewFaturaYM, setViewFaturaYM] = React.useState(null); // null = current
+  const [viewFaturaYM, setViewFaturaYM] = React.useState(null);
+  const [showReport, setShowReport] = React.useState(false);
+  const [reportText, setReportText] = React.useState("");
+  const [reportCopied, setReportCopied] = React.useState(false);
 
   const save = (next) => { setData(next); saveCartaoData(next); };
 
@@ -3188,7 +3191,37 @@ function CartaoScreen() {
       {subTab === "insights" && (
         <div className="flex flex-col gap-3">
           <div className="rounded-2xl p-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-            <div className="text-xs font-semibold mb-2" style={{ color: "var(--text-sub)" }}>Por categoria · {activeViewYM}</div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs font-semibold" style={{ color: "var(--text-sub)" }}>Por categoria · {activeViewYM}</div>
+              <button
+                onClick={() => {
+                  const fmt = v => "¥" + v.toLocaleString("ja-JP");
+                  const ls = [];
+                  ls.push("💳 *" + (setup.name || "Cartão") + " — Fatura " + activeViewYM + "*");
+                  if (setup.closingDay) {
+                    const [y, m] = activeViewYM.split("-").map(Number);
+                    const prevM = m === 1 ? 12 : m - 1;
+                    const prevY = m === 1 ? y - 1 : y;
+                    ls.push("📅 " + String(setup.closingDay + 1).padStart(2,"0") + "/" + String(prevM).padStart(2,"0") + "/" + prevY + " → " + String(setup.closingDay).padStart(2,"0") + "/" + String(m).padStart(2,"0") + "/" + y);
+                  }
+                  ls.push("");
+                  ls.push("📊 *Gastos por Categoria*");
+                  byCat.forEach(c => {
+                    const pct = totalViewLanc > 0 ? Math.round((c.total / totalViewLanc) * 100) : 0;
+                    ls.push(c.emoji + " " + (c.id === "outro" && c.customCat ? c.customCat : c.label) + ": " + fmt(c.total) + " (" + pct + "%)");
+                  });
+                  ls.push("");
+                  ls.push("─────────────────");
+                  ls.push("💴 *Total fatura: " + fmt(totalViewLanc) + "*");
+                  if (totalViewParcelas > 0) ls.push("📦 Parcelas: " + fmt(totalViewParcelas));
+                  if (totalViewFatura !== totalViewLanc) ls.push("💳 *Total geral: " + fmt(totalViewFatura) + "*");
+                  setReportText(ls.join("\n"));
+                  setShowReport(true);
+                }}
+                className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg"
+                style={{ background: "var(--bg)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
+              >📋 Relatório</button>
+            </div>
             {byCat.length === 0 && <div className="text-xs" style={{ color: "var(--text-muted)" }}>Sem dados ainda</div>}
             {byCat.map(c => {
               const pct = totalViewLanc > 0 ? Math.round((c.total / totalViewLanc) * 100) : 0;
@@ -3262,6 +3295,44 @@ function CartaoScreen() {
               <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>Cancelar</button>
             </div>
           </div>
+        </div>
+      )}
+      {/* Relatório WhatsApp */}
+      {showReport && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-start pt-6 px-4" style={{ background: "rgba(0,0,0,0.85)" }} onClick={() => setShowReport(false)}>
+          <div className="w-full max-w-lg mx-auto rounded-2xl overflow-hidden shadow-2xl border" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--border)" }}>
+              <div>
+                <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>📋 Relatório para WhatsApp</div>
+                <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>Toque na caixa → segure → Copiar tudo</div>
+              </div>
+              <button onClick={() => setShowReport(false)} className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+            </div>
+            <div className="p-4">
+              <textarea readOnly value={reportText} rows={12}
+                onClick={e => e.target.select()}
+                className="w-full rounded-xl p-3 text-xs font-mono border focus:outline-none resize-none"
+                style={{ background: "var(--bg)", borderColor: "var(--border)", color: "var(--text)", lineHeight: "1.7" }}
+              />
+            </div>
+            <div className="px-4 pb-4 flex gap-3">
+              <button onClick={() => {
+                try {
+                  navigator.clipboard.writeText(reportText).then(() => {
+                    setReportCopied(true);
+                    setTimeout(() => { setReportCopied(false); setShowReport(false); }, 1500);
+                  });
+                } catch(e) {}
+              }} className="flex-1 py-2.5 rounded-xl border text-sm font-medium transition-colors"
+                style={{ borderColor: "var(--border)", color: reportCopied ? "#22c55e" : "var(--text-muted)" }}>
+                {reportCopied ? "✓ Copiado!" : "📋 Copiar"}
+              </button>
+              <button onClick={() => setShowReport(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                style={{ background: "var(--accent)", color: "var(--bg)" }}>Fechar</button>
+            </div>
+          </div>
+          <div className="flex-1" onClick={() => setShowReport(false)} />
         </div>
       )}
     </div>
