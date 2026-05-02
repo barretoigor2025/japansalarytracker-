@@ -2470,9 +2470,10 @@ const CC_LOJAS = [
 
 function defaultCartao() {
   return {
-    setup: { name: "Meu Cartão", closingDay: 10, dueDay: 17, limit: 0 },
+    setup: { name: "Meu Cartão", closingDay: 0, dueDay: 0, limit: 0 },
     lancamentos: [],
     parcelas: [],
+    conferencias: [], // [{ ym: "2025-05", boletado: 45000 }]
   };
 }
 
@@ -2486,22 +2487,21 @@ function saveCartaoData(data) {
 }
 
 function nextDueInfo(closingDay, dueDay) {
+  if (!closingDay || !dueDay) return { dueDate: null, diffDays: null };
   const today = new Date();
   const d = today.getDate();
   const m = today.getMonth();
   const y = today.getFullYear();
-  let closingDate, dueDate;
+  let dueDate;
   if (d <= closingDay) {
-    closingDate = new Date(y, m, closingDay);
     const dm = dueDay > closingDay ? m : m + 1;
     dueDate = new Date(y, dm, dueDay);
   } else {
-    closingDate = new Date(y, m + 1, closingDay);
     const dm = dueDay > closingDay ? m + 1 : m + 2;
     dueDate = new Date(y, dm, dueDay);
   }
   const diffDays = Math.ceil((dueDate - today) / 86400000);
-  return { closingDate, dueDate, diffDays };
+  return { dueDate, diffDays };
 }
 
 function currentFaturaYM(closingDay) {
@@ -2509,6 +2509,7 @@ function currentFaturaYM(closingDay) {
   const d = today.getDate();
   const m = today.getMonth();
   const y = today.getFullYear();
+  if (!closingDay) return { year: y, month: m };
   if (d <= closingDay) return { year: y, month: m };
   return { year: m === 11 ? y + 1 : y, month: (m + 1) % 12 };
 }
@@ -2534,14 +2535,17 @@ function CartaoSetupModal({ setup, onSave, onClose }) {
               className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
           </div>
           <div>
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Fechamento (dia)</label>
-            <input type="number" min={1} max={28} value={form.closingDay} onChange={e => set("closingDay", +e.target.value)}
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Fechamento (dia) <span style={{ color: "var(--text-muted)" }}>opcional</span></label>
+            <input type="number" min={0} max={28} value={form.closingDay || ""} onChange={e => set("closingDay", +e.target.value || 0)} placeholder="ex: 10"
               className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
           </div>
           <div>
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Vencimento (dia)</label>
-            <input type="number" min={1} max={28} value={form.dueDay} onChange={e => set("dueDay", +e.target.value)}
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Vencimento (dia) <span style={{ color: "var(--text-muted)" }}>opcional</span></label>
+            <input type="number" min={0} max={28} value={form.dueDay || ""} onChange={e => set("dueDay", +e.target.value || 0)} placeholder="ex: 17"
               className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
+          </div>
+          <div className="col-span-2 text-xs px-1" style={{ color: "var(--text-muted)" }}>
+            Não sabe as datas? Deixe em branco e descubra depois conferindo o boleto 👇
           </div>
           <div className="col-span-2">
             <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Limite (¥, 0 = sem limite)</label>
@@ -2696,24 +2700,27 @@ function AddParcelaModal({ onSave, onClose }) {
 }
 
 function CartaoScreen() {
-  const [data, setData] = React.useState(() => loadCartaoData());
-  const [subTab, setSubTab] = React.useState("fatura"); // fatura | parcelas | insights
+  const [data, setData] = React.useState(() => {
+    const d = loadCartaoData();
+    if (!d.conferencias) d.conferencias = [];
+    return d;
+  });
+  const [subTab, setSubTab] = React.useState("fatura");
   const [showSetup, setShowSetup] = React.useState(false);
   const [showAddLanc, setShowAddLanc] = React.useState(false);
   const [showAddParcela, setShowAddParcela] = React.useState(false);
   const [deleteConfirm, setDeleteConfirm] = React.useState(null);
+  const [boletadoInput, setBoletadoInput] = React.useState("");
+  const [conferirYM, setConferirYM] = React.useState(() => new Date().toISOString().slice(0,7));
 
   const save = (next) => { setData(next); saveCartaoData(next); };
 
-  const { setup, lancamentos, parcelas } = data;
-  const { closingDate, dueDate, diffDays } = nextDueInfo(setup.closingDay, setup.dueDay);
+  const { setup, lancamentos, parcelas, conferencias } = data;
+  const { dueDate, diffDays } = nextDueInfo(setup.closingDay, setup.dueDay);
   const faturaYM = currentFaturaYM(setup.closingDay);
   const faturaKey = fmtYM(faturaYM.year, faturaYM.month);
 
-  const faturaLanc = lancamentos.filter(l => {
-    const lym = l.date.slice(0, 7);
-    return lym === faturaKey;
-  });
+  const faturaLanc = lancamentos.filter(l => l.date.slice(0, 7) === faturaKey);
 
   const parcelasNaFatura = parcelas.filter(p => {
     const start = new Date(p.startYearMonth + "-01");
@@ -2726,6 +2733,31 @@ function CartaoScreen() {
   const totalParcelas = parcelasNaFatura.reduce((s, p) => s + p.monthlyAmount, 0);
   const totalFatura = totalLanc + totalParcelas;
   const limitPct = setup.limit > 0 ? Math.min(100, (totalFatura / setup.limit) * 100) : 0;
+
+  // conferência do mês selecionado
+  const confObj = conferencias.find(c => c.ym === conferirYM);
+  const lancConferirYM = lancamentos.filter(l => l.date.slice(0,7) === conferirYM);
+  const parcelasConferirYM = parcelas.filter(p => {
+    const [cy, cm] = conferirYM.split("-").map(Number);
+    const start = new Date(p.startYearMonth + "-01");
+    const fatDate = new Date(cy, cm - 1, 1);
+    const paidMs = new Date(start.getFullYear(), start.getMonth() + p.paidInstallments, 1);
+    return fatDate >= paidMs && p.paidInstallments < p.numInstallments;
+  });
+  const totalLancConferir = lancConferirYM.reduce((s, l) => s + l.amount, 0);
+  const totalParcelasConferir = parcelasConferirYM.reduce((s, p) => s + p.monthlyAmount, 0);
+  const totalLancadoConferir = totalLancConferir + totalParcelasConferir;
+
+  const salvarConferencia = () => {
+    const val = +boletadoInput;
+    if (!val) return;
+    const next = conferencias.filter(c => c.ym !== conferirYM);
+    next.push({ ym: conferirYM, boletado: val });
+    save({ ...data, conferencias: next });
+    setBoletadoInput("");
+  };
+
+  const removerConferencia = (ym) => save({ ...data, conferencias: conferencias.filter(c => c.ym !== ym) });
 
   // insights: by category and by loja (all lancamentos)
   const byCat = CC_CATS.map(c => ({
@@ -2746,12 +2778,9 @@ function CartaoScreen() {
   const addParcela = (p) => save({ ...data, parcelas: [p, ...parcelas] });
   const deleteParcela = (id) => save({ ...data, parcelas: parcelas.filter(p => p.id !== id) });
   const payInstallment = (id) => {
-    const next = parcelas.map(p => p.id === id ? { ...p, paidInstallments: Math.min(p.paidInstallments + 1, p.numInstallments) } : p);
-    save({ ...data, parcelas: next });
+    save({ ...data, parcelas: parcelas.map(p => p.id === id ? { ...p, paidInstallments: Math.min(p.paidInstallments + 1, p.numInstallments) } : p) });
   };
   const saveSetup = (s) => save({ ...data, setup: s });
-
-  const duePct = diffDays <= 0 ? 100 : Math.max(0, 100 - (diffDays / 30) * 100);
 
   return (
     <div className="flex flex-col gap-3 pb-4">
@@ -2761,13 +2790,20 @@ function CartaoScreen() {
           <div>
             <div className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>💳 {setup.name}</div>
             <div className="text-2xl font-bold mt-0.5" style={{ color: "var(--text)" }}>¥{totalFatura.toLocaleString()}</div>
-            <div className="text-xs mt-0.5" style={{ color: "var(--text-sub)" }}>fatura {faturaKey}</div>
+            <div className="text-xs mt-0.5" style={{ color: "var(--text-sub)" }}>
+              {setup.closingDay ? `fecha dia ${setup.closingDay} · ` : ""}fatura {faturaKey}
+            </div>
           </div>
           <div className="flex flex-col items-end gap-1">
             <button onClick={() => setShowSetup(true)} className="text-xs px-2 py-1 rounded-lg" style={{ background: "var(--bg)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>⚙️ config</button>
-            <div className="text-xs mt-1" style={{ color: diffDays <= 5 ? "#ef4444" : "var(--text-sub)" }}>
-              vence em {diffDays}d · dia {setup.dueDay}
-            </div>
+            {diffDays !== null && (
+              <div className="text-xs mt-1" style={{ color: diffDays <= 5 ? "#ef4444" : "var(--text-sub)" }}>
+                vence em {diffDays}d · dia {setup.dueDay}
+              </div>
+            )}
+            {!setup.dueDay && (
+              <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>vencimento a definir</div>
+            )}
           </div>
         </div>
         {setup.limit > 0 && (
@@ -2795,7 +2831,7 @@ function CartaoScreen() {
 
       {/* Sub-tabs */}
       <div className="flex gap-1 p-1 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-        {[["fatura","Fatura"],["parcelas","Parcelas"],["insights","Insights"]].map(([id, label]) => (
+        {[["fatura","Fatura"],["parcelas","Parcelas"],["conferir","Conferir"],["insights","Insights"]].map(([id, label]) => (
           <button key={id} onClick={() => setSubTab(id)}
             className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all"
             style={subTab === id ? { background: "var(--accent)", color: "var(--bg)" } : { color: "var(--text-sub)" }}>
@@ -2898,12 +2934,110 @@ function CartaoScreen() {
         </div>
       )}
 
+      {/* CONFERIR tab */}
+      {subTab === "conferir" && (
+        <div className="flex flex-col gap-3">
+          {/* Month picker + input */}
+          <div className="rounded-2xl p-4 flex flex-col gap-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+            <div className="text-xs font-semibold" style={{ color: "var(--text-sub)" }}>Conferir boleto</div>
+            <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Lançou as compras durante o mês? Quando o boleto chegar, compare aqui o que foi registrado com o valor cobrado.
+            </div>
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Mês de referência</label>
+                <input type="month" value={conferirYM} onChange={e => { setConferirYM(e.target.value); setBoletadoInput(""); }}
+                  className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
+              </div>
+            </div>
+            {/* Summary of what was logged */}
+            <div className="rounded-xl p-3 flex flex-col gap-1" style={{ background: "var(--bg)" }}>
+              <div className="flex justify-between text-xs" style={{ color: "var(--text-sub)" }}>
+                <span>Gastos lançados</span>
+                <span>¥{totalLancConferir.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-xs" style={{ color: "var(--text-muted)" }}>
+                <span>· compras diretas</span>
+                <span>¥{totalLancConferir.toLocaleString()}</span>
+              </div>
+              {totalParcelasConferir > 0 && (
+                <div className="flex justify-between text-xs" style={{ color: "var(--text-muted)" }}>
+                  <span>· parcelas neste mês</span>
+                  <span>¥{totalParcelasConferir.toLocaleString()}</span>
+                </div>
+              )}
+            </div>
+            {/* Boleto input */}
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>
+                Valor real do boleto (¥) {confObj && <span style={{ color: "var(--accent)" }}>· já confirmado</span>}
+              </label>
+              <div className="flex gap-2">
+                <input type="number" min={0} value={boletadoInput || (confObj ? confObj.boletado : "")}
+                  onChange={e => setBoletadoInput(e.target.value)} placeholder="0"
+                  className="flex-1 rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
+                <button onClick={salvarConferencia} className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: "var(--accent)", color: "var(--bg)" }}>Salvar</button>
+              </div>
+            </div>
+            {/* Comparison */}
+            {confObj && (() => {
+              const diff = confObj.boletado - totalLancadoConferir;
+              const isOver = diff > 0;
+              const isMatch = diff === 0;
+              return (
+                <div className="rounded-xl p-3 flex flex-col gap-2" style={{ background: "var(--bg)", border: `1px solid ${isMatch ? "var(--accent)" : isOver ? "#ef4444" : "var(--border)"}` }}>
+                  <div className="flex justify-between text-xs font-semibold" style={{ color: "var(--text)" }}>
+                    <span>Lançado</span>
+                    <span>¥{totalLancadoConferir.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-xs font-semibold" style={{ color: "var(--text)" }}>
+                    <span>Boleto</span>
+                    <span>¥{confObj.boletado.toLocaleString()}</span>
+                  </div>
+                  <div className="h-px" style={{ background: "var(--border)" }} />
+                  <div className="flex justify-between text-xs font-bold" style={{ color: isMatch ? "var(--accent)" : isOver ? "#ef4444" : "#22c55e" }}>
+                    <span>{isMatch ? "✓ Tudo confere!" : isOver ? "⚠ Boleto maior — faltou lançar" : "✓ Boleto menor que o lançado"}</span>
+                    <span>{isMatch ? "—" : `${isOver ? "+" : ""}¥${Math.abs(diff).toLocaleString()}`}</span>
+                  </div>
+                  {isOver && (
+                    <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                      ¥{diff.toLocaleString()} foram cobrados mas não foram lançados aqui.
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* History */}
+          {conferencias.length > 0 && (
+            <div className="rounded-2xl p-3 flex flex-col gap-2" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+              <div className="text-xs font-semibold" style={{ color: "var(--text-sub)" }}>Histórico de conferências</div>
+              {[...conferencias].sort((a,b) => b.ym.localeCompare(a.ym)).map(c => {
+                const lancMes = lancamentos.filter(l => l.date.slice(0,7) === c.ym).reduce((s,l) => s+l.amount, 0);
+                const diff = c.boletado - lancMes;
+                return (
+                  <div key={c.ym} className="flex items-center gap-2 text-xs" style={{ color: "var(--text-sub)" }}>
+                    <span className="font-mono">{c.ym}</span>
+                    <span style={{ color: "var(--text)" }}>¥{c.boletado.toLocaleString()}</span>
+                    <span style={{ color: diff === 0 ? "var(--accent)" : diff > 0 ? "#ef4444" : "#22c55e" }}>
+                      {diff === 0 ? "✓" : diff > 0 ? `+¥${diff.toLocaleString()}` : `-¥${Math.abs(diff).toLocaleString()}`}
+                    </span>
+                    <button onClick={() => removerConferencia(c.ym)} className="ml-auto" style={{ color: "var(--text-muted)" }}>✕</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* INSIGHTS tab */}
       {subTab === "insights" && (
         <div className="flex flex-col gap-3">
           <div className="rounded-2xl p-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
             <div className="text-xs font-semibold mb-2" style={{ color: "var(--text-sub)" }}>Por categoria (todos os lançamentos)</div>
-            {byCat.length === 0 && <div className="text-xs" style={{ color: "var(--text-muted)" }}>Sem dados</div>}
+            {byCat.length === 0 && <div className="text-xs" style={{ color: "var(--text-muted)" }}>Sem dados ainda</div>}
             {byCat.map(c => (
               <div key={c.id} className="flex items-center gap-2 mb-1.5">
                 <span className="text-sm w-5 text-center">{c.emoji}</span>
@@ -2921,7 +3055,7 @@ function CartaoScreen() {
           </div>
           <div className="rounded-2xl p-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
             <div className="text-xs font-semibold mb-2" style={{ color: "var(--text-sub)" }}>Por local de compra</div>
-            {byLoja.length === 0 && <div className="text-xs" style={{ color: "var(--text-muted)" }}>Sem dados</div>}
+            {byLoja.length === 0 && <div className="text-xs" style={{ color: "var(--text-muted)" }}>Sem dados ainda</div>}
             {byLoja.map(l => (
               <div key={l.id} className="flex items-center gap-2 mb-1.5">
                 <span className="text-sm w-5 text-center">{l.emoji}</span>
