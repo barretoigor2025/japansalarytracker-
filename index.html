@@ -2478,11 +2478,11 @@ function ccEmoji(items, id) {
   return (items.find(x => x.id === id) || items[items.length - 1]).emoji;
 }
 
-const CARTAO_SEED_V = 4;
+const CARTAO_SEED_V = 5;
 
 function defaultCartao() {
   return {
-    setup: { name: "au PAY Gold", closingDay: 15, dueDay: 10, limit: 0 },
+    setup: { name: "au PAY Gold", closingDay: 15, dueDay: 11, limit: 0 },
     seedV: CARTAO_SEED_V,
     lancamentos: [
       { id:"m01", date:"2026-03-16", desc:"FamilyMart Toyota Kaichicho", amount:360,   cat:"konbini", loja:"konbini",    customCat:"", customLoja:"" },
@@ -2536,7 +2536,8 @@ function loadCartaoData() {
     // Force-update seed data when version is outdated
     if (!d.seedV || d.seedV < CARTAO_SEED_V) {
       const def = defaultCartao();
-      return { ...d, lancamentos: def.lancamentos, parcelas: d.parcelas || [], conferencias: def.conferencias, seedV: CARTAO_SEED_V };
+      // Reset setup, lancamentos and conferencias; keep only user's parcelas
+      return { ...def, parcelas: d.parcelas || [] };
     }
     return d;
   } catch { return defaultCartao(); }
