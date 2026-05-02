@@ -2777,6 +2777,7 @@ function CartaoScreen() {
   const [showAddLanc, setShowAddLanc] = React.useState(false);
   const [showAddParcela, setShowAddParcela] = React.useState(false);
   const [editLancId, setEditLancId] = React.useState(null);
+  const [editConfirm, setEditConfirm] = React.useState(null);
   const [deleteConfirm, setDeleteConfirm] = React.useState(null);
   const [boletadoInput, setBoletadoInput] = React.useState("");
   const [conferirYM, setConferirYM] = React.useState(() => new Date().toISOString().slice(0,7));
@@ -2988,8 +2989,8 @@ function CartaoScreen() {
                 <div className="text-xs" style={{ color: "var(--text-muted)" }}>{l.date} · {ccLabel(CC_CATS, l.cat, l.customCat)}</div>
               </div>
               <div className="text-sm font-bold flex-shrink-0" style={{ color: "var(--text)" }}>¥{l.amount.toLocaleString()}</div>
-              <button onClick={() => setEditLancId(l.id)} className="text-xs flex-shrink-0" style={{ color: "var(--text-muted)" }} title="Editar">✏</button>
-              <button onClick={() => setDeleteConfirm({ type: "lanc", id: l.id })} className="text-xs flex-shrink-0" style={{ color: "var(--text-muted)" }}>✕</button>
+              <button onClick={() => setEditConfirm(l)} className="text-xs flex-shrink-0" style={{ color: "var(--text-muted)" }} title="Editar">✏</button>
+              <button onClick={() => setDeleteConfirm({ type: "lanc", id: l.id, desc: l.desc || ccLabel(CC_CATS, l.cat, l.customCat), amount: l.amount })} className="text-xs flex-shrink-0" style={{ color: "var(--text-muted)" }}>✕</button>
             </div>
           ))}
           {parcelasViewFatura.length > 0 && (
@@ -3043,7 +3044,7 @@ function CartaoScreen() {
                     {rem > 0 && (
                       <button onClick={() => payInstallment(p.id)} className="text-xs px-2 py-0.5 rounded-lg" style={{ background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>+1</button>
                     )}
-                    <button onClick={() => setDeleteConfirm({ type: "parcela", id: p.id })} className="text-xs" style={{ color: "var(--text-muted)" }}>✕</button>
+                    <button onClick={() => setDeleteConfirm({ type: "parcela", id: p.id, desc: p.desc, amount: p.monthlyAmount })} className="text-xs" style={{ color: "var(--text-muted)" }}>✕</button>
                   </div>
                 </div>
                 <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
@@ -3189,20 +3190,26 @@ function CartaoScreen() {
           <div className="rounded-2xl p-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
             <div className="text-xs font-semibold mb-2" style={{ color: "var(--text-sub)" }}>Por categoria · {activeViewYM}</div>
             {byCat.length === 0 && <div className="text-xs" style={{ color: "var(--text-muted)" }}>Sem dados ainda</div>}
-            {byCat.map(c => (
-              <div key={c.id} className="flex items-center gap-2 mb-1.5">
-                <span className="text-sm w-5 text-center">{c.emoji}</span>
-                <div className="flex-1">
-                  <div className="flex justify-between text-xs mb-0.5" style={{ color: "var(--text-sub)" }}>
-                    <span>{c.label}</span>
-                    <span>¥{c.total.toLocaleString()}</span>
-                  </div>
-                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
-                    <div className="h-full rounded-full" style={{ width: `${(c.total / maxCat) * 100}%`, background: "var(--accent)" }} />
+            {byCat.map(c => {
+              const pct = totalViewLanc > 0 ? Math.round((c.total / totalViewLanc) * 100) : 0;
+              return (
+                <div key={c.id} className="flex items-center gap-2 mb-2">
+                  <span className="text-sm w-5 text-center flex-shrink-0">{c.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between text-xs mb-0.5">
+                      <span className="font-medium" style={{ color: "var(--text)" }}>{c.label}</span>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <span style={{ color: "var(--text-muted)" }}>{pct}%</span>
+                        <span className="font-semibold" style={{ color: "var(--text)" }}>¥{c.total.toLocaleString()}</span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
+                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: "var(--accent)" }} />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -3221,16 +3228,37 @@ function CartaoScreen() {
         ) : null;
       })()}
       {showAddParcela && <AddParcelaModal onSave={addParcela} onClose={() => setShowAddParcela(false)} />}
+      {editConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)" }} onClick={() => setEditConfirm(null)}>
+          <div className="rounded-2xl p-5 mx-4 flex flex-col gap-3 w-full max-w-xs" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }} onClick={e => e.stopPropagation()}>
+            <div className="text-sm font-semibold text-center" style={{ color: "var(--text)" }}>Editar lançamento?</div>
+            <div className="rounded-xl px-3 py-2 text-center" style={{ background: "var(--bg)" }}>
+              <div className="text-xs font-medium" style={{ color: "var(--text)" }}>{editConfirm.desc || ccLabel(CC_CATS, editConfirm.cat, editConfirm.customCat)}</div>
+              <div className="text-sm font-bold mt-0.5" style={{ color: "var(--accent)" }}>¥{editConfirm.amount.toLocaleString()}</div>
+              <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{editConfirm.date}</div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => { setEditLancId(editConfirm.id); setEditConfirm(null); }}
+                className="flex-1 py-2 rounded-xl text-sm font-semibold" style={{ background: "var(--accent)", color: "var(--bg)" }}>Editar</button>
+              <button onClick={() => setEditConfirm(null)} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)" }}>
-          <div className="rounded-2xl p-5 mx-4 flex flex-col gap-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-            <div className="text-sm font-semibold text-center" style={{ color: "var(--text)" }}>Remover item?</div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)" }} onClick={() => setDeleteConfirm(null)}>
+          <div className="rounded-2xl p-5 mx-4 flex flex-col gap-3 w-full max-w-xs" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }} onClick={e => e.stopPropagation()}>
+            <div className="text-sm font-semibold text-center" style={{ color: "var(--text)" }}>Excluir lançamento?</div>
+            <div className="rounded-xl px-3 py-2 text-center" style={{ background: "var(--bg)" }}>
+              <div className="text-xs font-medium" style={{ color: "var(--text)" }}>{deleteConfirm.desc}</div>
+              <div className="text-sm font-bold mt-0.5" style={{ color: "#ef4444" }}>¥{(deleteConfirm.amount||0).toLocaleString()}</div>
+            </div>
             <div className="flex gap-2">
               <button onClick={() => {
                 if (deleteConfirm.type === "lanc") deleteLancamento(deleteConfirm.id);
                 else deleteParcela(deleteConfirm.id);
                 setDeleteConfirm(null);
-              }} className="flex-1 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "#ef4444" }}>Remover</button>
+              }} className="flex-1 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "#ef4444" }}>Excluir</button>
               <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>Cancelar</button>
             </div>
           </div>
