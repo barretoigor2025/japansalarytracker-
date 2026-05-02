@@ -4636,7 +4636,10 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
   };
 
   const bodyBg = theme === "dark" ? "#09090b" : theme === "graphite" ? "#141414" : "#f9f9f9";
-  const rootCls = `min-h-screen font-sans theme-${theme} ` + (theme === "light" ? "text-neutral-900" : "bg-zinc-950 text-zinc-100");
+  const rootCls = `min-h-screen font-sans theme-${theme} ` +
+    (theme === "light" ? "text-neutral-900" :
+     theme === "graphite" ? "text-zinc-200" :
+     "bg-zinc-950 text-zinc-100");
 
   const staticCss = `
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -4708,7 +4711,7 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
       `;
 
   return (
-    <div className={rootCls}>
+    <div className={rootCls} style={{ background: bodyBg, minHeight: "100vh" }}>
       <style>{staticCss}</style>
 
       {/* Top bar */}
@@ -4727,13 +4730,21 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
             </button>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => { const next = theme === "dark" ? "graphite" : theme === "graphite" ? "light" : "dark"; setTheme(next); }}
-              className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${theme === "light" ? "border-neutral-300 hover:border-neutral-500" : "border-zinc-700 hover:border-zinc-500"}`}
-              title={theme === "dark" ? "Mudar para Grafite" : theme === "graphite" ? "Mudar para Claro" : "Mudar para Escuro"}
-            >
-              {theme === "dark" ? "🌑" : theme === "graphite" ? "☀️" : "🌙"}
-            </button>
+            <div className="flex items-center gap-1.5" title="Tema de cores">
+              {[
+                { id: "dark",     bg: "#09090b", border: "#52525b", label: "Escuro"  },
+                { id: "graphite", bg: "#2a2a2a", border: "#6a6a6a", label: "Grafite" },
+                { id: "light",    bg: "#f0f0f0", border: "#c0c0c0", label: "Claro"   },
+              ].map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setTheme(t.id)}
+                  title={t.label}
+                  style={{ background: t.bg, borderColor: theme === t.id ? "#f59e0b" : t.border }}
+                  className={`w-5 h-5 rounded-full border-2 transition-all ${theme === t.id ? "scale-125" : "opacity-60 hover:opacity-90"}`}
+                />
+              ))}
+            </div>
             {showInstall && (
               <button onClick={handleInstall}
                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-medium transition-colors"
