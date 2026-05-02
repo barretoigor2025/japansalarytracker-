@@ -857,7 +857,7 @@ function EntryForm({ initial, settings, onSave, onClose, entries = [] }) {
           <div className="px-4 pb-3">
             <div className="bg-green-900/20 border border-green-800/30 rounded-xl p-3 text-center">
               <div className="text-lg mb-1">🌿</div>
-              <div className="text-sm font-semibold text-green-400">有給休暇</div>
+              <div className="text-sm font-semibold text-green-400">有給休暇 <span className="text-green-800 text-xs font-normal">· folga remunerada</span></div>
               <div className="text-xs text-zinc-500 mt-1">8h remuneradas · sem hora extra · sem noturno</div>
               <div className="font-mono font-bold text-green-400 mt-2">{YEN(8 * settings.hourlyRate)}</div>
             </div>
@@ -1109,7 +1109,7 @@ function SettingsScreen({ settings, onSave }) {
                   <>
                     {/* ── Lotes de 有給 ── */}
                     <div className="space-y-2">
-                      <div className="text-xs text-zinc-500 uppercase tracking-widest">Lotes de 有給休暇</div>
+                      <div className="text-xs text-zinc-500 uppercase tracking-widest">Lotes de 有給休暇 <span className="normal-case text-zinc-700">· folgas remun.</span></div>
                       {ent.availableGrants.map((g, i) => {
                         const daysLeft = Math.ceil((new Date(g.expiry) - new Date()) / 86400000);
                         const urgency = daysLeft <= 90 ? "red" : daysLeft <= 180 ? "yellow" : "green";
@@ -1338,7 +1338,7 @@ function SettingsScreen({ settings, onSave }) {
                   </div>
                 </div>
               ))}
-              {isCustom && <div className="text-xs text-zinc-700 pt-1">介護保険 sempre ativo · 雇用保険 sobre salário tributável</div>}
+              {isCustom && <div className="text-xs text-zinc-700 pt-1">介護保険 <span className="text-zinc-800">(cuidados)</span> sempre ativo · 雇用保険 <span className="text-zinc-800">(desemprego)</span> sobre salário tributável</div>}
             </div>
           );
         })()}
@@ -2246,7 +2246,7 @@ function Art26Card({ month, storagePrefix, auditHistory = [] }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-zinc-500 text-xs">
           <span>⏸️</span>
-          <span className="uppercase tracking-widest font-medium">Art. 26 LSA · 休業手当</span>
+          <span className="uppercase tracking-widest font-medium">Art. 26 LSA · 休業手当 <span className="text-zinc-600 normal-case tracking-normal text-xs">aviso prévio</span></span>
         </div>
         <div className="flex rounded-lg overflow-hidden border border-zinc-800">
           {["mensalista","horista"].map(t => (
@@ -2492,8 +2492,8 @@ function ImpostosScreen({ entries, settings, onTabSwitch }) {
               <div className="text-2xl font-bold font-mono text-red-400">{YEN(totalAnual)}</div>
             </div>
             <div className="text-right space-y-1">
-              {jz && <div className="text-xs text-zinc-500">住民税 <span className="font-mono text-orange-400">{YEN(jz.total)}</span></div>}
-              {vData.length > 0 && <div className="text-xs text-zinc-500">自動車税 <span className="font-mono text-blue-400">{YEN(totalJidousha)}</span></div>}
+              {jz && <div className="text-xs text-zinc-500">住民税 <span className="text-zinc-700">· mun.</span> <span className="font-mono text-orange-400">{YEN(jz.total)}</span></div>}
+              {vData.length > 0 && <div className="text-xs text-zinc-500">自動車税 <span className="text-zinc-700">· veic.</span> <span className="font-mono text-blue-400">{YEN(totalJidousha)}</span></div>}
             </div>
           </div>
         </Card>
@@ -2504,7 +2504,7 @@ function ImpostosScreen({ entries, settings, onTabSwitch }) {
         <div className="flex items-center justify-between mb-3">
           <div>
             <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-widest">住民税 · Imposto Municipal</h3>
-            <div className="text-xs text-zinc-500 mt-0.5">普通徴収 — 4 boletos (Jun · Ago · Out · Jan)</div>
+            <div className="text-xs text-zinc-500 mt-0.5">普通徴収 <span className="text-zinc-700">· pgto direto</span> — 4 boletos (Jun · Ago · Out · Jan)</div>
           </div>
           {jz ? (
             <div className="text-right">
@@ -2572,7 +2572,7 @@ function ImpostosScreen({ entries, settings, onTabSwitch }) {
             </div>
           )}
           <div className="text-xs text-zinc-600 border-t border-zinc-800 pt-2">
-            確定申告 — deduções extras (医療費, ふるさと納税): prazo <span className="text-zinc-400">16/Fev – 15/Mar</span>, restitui em ~2 meses
+            確定申告 <span className="text-zinc-700">(decl. autônoma)</span> — deduções extras: 医療費 <span className="text-zinc-700">(gastos méd.)</span>, ふるさと納税 <span className="text-zinc-700">(doação municipal)</span>: prazo <span className="text-zinc-400">16/Fev – 15/Mar</span>, restitui em ~2 meses
           </div>
         </Card>
       )}
@@ -2744,7 +2744,7 @@ function GensenModal({ initial, onSave, onClose }) {
         </div>
 
         <div className={secCls}>Deduções adicionais (opcional)</div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2 items-end">
           <div>
             <label className={lCls}>生命保険料控除額 · Seg. de vida (¥)</label>
             <input type="number" inputMode="numeric" value={d.seimeiHoken||""} onChange={e=>f("seimeiHoken",e.target.value)} className={iCls} placeholder="0" />
@@ -2807,14 +2807,14 @@ function GensenScreen({ settings }) {
             </div>
             <div className="text-right">
               <div className="text-xl font-bold font-mono text-amber-400">{YEN(latest.shiharaiGaku)}</div>
-              <div className="text-xs text-zinc-500">支払金額</div>
+              <div className="text-xs text-zinc-500">支払金額 <span className="text-zinc-700">· renda bruta</span></div>
             </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-            {latest.shakaiHoken > 0 && <div className="bg-zinc-800/60 rounded-xl p-2"><div className="text-zinc-500 mb-0.5">社会保険料</div><div className="font-mono font-semibold text-zinc-300">{YEN(latest.shakaiHoken)}</div></div>}
-            {latest.gensenZei > 0 && <div className="bg-zinc-800/60 rounded-xl p-2"><div className="text-zinc-500 mb-0.5">源泉徴収税額</div><div className="font-mono font-semibold text-zinc-300">{YEN(latest.gensenZei)}</div></div>}
-            {latest.kyuyoShotokuGo > 0 && <div className="bg-zinc-800/60 rounded-xl p-2"><div className="text-zinc-500 mb-0.5">給与所得控除後</div><div className="font-mono font-semibold text-zinc-300">{YEN(latest.kyuyoShotokuGo)}</div></div>}
-            {latest.shotokuKojo > 0 && <div className="bg-zinc-800/60 rounded-xl p-2"><div className="text-zinc-500 mb-0.5">所得控除合計</div><div className="font-mono font-semibold text-zinc-300">{YEN(latest.shotokuKojo)}</div></div>}
+            {latest.shakaiHoken > 0 && <div className="bg-zinc-800/60 rounded-xl p-2"><div className="text-zinc-500 mb-0.5 leading-tight">社会保険料<span className="block text-zinc-700 text-xs">Previdência social</span></div><div className="font-mono font-semibold text-zinc-300">{YEN(latest.shakaiHoken)}</div></div>}
+            {latest.gensenZei > 0 && <div className="bg-zinc-800/60 rounded-xl p-2"><div className="text-zinc-500 mb-0.5 leading-tight">源泉徴収税額<span className="block text-zinc-700 text-xs">IR retido na fonte</span></div><div className="font-mono font-semibold text-zinc-300">{YEN(latest.gensenZei)}</div></div>}
+            {latest.kyuyoShotokuGo > 0 && <div className="bg-zinc-800/60 rounded-xl p-2"><div className="text-zinc-500 mb-0.5 leading-tight">給与所得控除後<span className="block text-zinc-700 text-xs">Após ded. empregatória</span></div><div className="font-mono font-semibold text-zinc-300">{YEN(latest.kyuyoShotokuGo)}</div></div>}
+            {latest.shotokuKojo > 0 && <div className="bg-zinc-800/60 rounded-xl p-2"><div className="text-zinc-500 mb-0.5 leading-tight">所得控除合計<span className="block text-zinc-700 text-xs">Total de deduções</span></div><div className="font-mono font-semibold text-zinc-300">{YEN(latest.shotokuKojo)}</div></div>}
           </div>
         </Card>
       )}
@@ -2827,7 +2827,7 @@ function GensenScreen({ settings }) {
         {gensenList.length === 0 ? (
           <div className="py-6 text-center space-y-2">
             <div className="text-zinc-500 text-sm">Nenhum Gensen cadastrado</div>
-            <div className="text-xs text-zinc-700">Adicione o comprovante anual para calcular 住民税 com precisão e estimar restituição</div>
+            <div className="text-xs text-zinc-700">Adicione o comprovante anual para calcular 住民税 (imp. municipal) com precisão e estimar restituição</div>
           </div>
         ) : (
           <div className="space-y-2">
@@ -2860,7 +2860,7 @@ function GensenScreen({ settings }) {
       </Card>
 
       <div className="text-center text-xs text-zinc-700 py-1">
-        Os cálculos de 住民税 e restituição ficam centralizados na aba Impostos
+        Os cálculos de 住民税 (imp. municipal) e restituição ficam centralizados na aba Impostos
       </div>
 
       {modal && <GensenModal initial={modal === "add" ? null : modal} onSave={handleSave} onClose={()=>setModal(null)} />}
@@ -3105,28 +3105,20 @@ function ExampleCalc({ settings }) {
 // ─────────────────────────────────────────────
 
 function exportBackup(entries, settings, gastos, carro, auditHistory) {
+  const gensen = (() => { try { return JSON.parse(localStorage.getItem("jst_gensen")||"null"); } catch { return null; } })();
+  const taxVehicles = (() => { try { return JSON.parse(localStorage.getItem("jst_tax_vehicles")||"null"); } catch { return null; } })();
   const data = {
-    version: 3,
+    version: 4,
     exportedAt: new Date().toISOString(),
     entries,
     settings,
     gastos: gastos || null,
     carro: carro || null,
     auditHistory: auditHistory || [],
+    gensen: gensen || null,
+    taxVehicles: taxVehicles || null,
   };
-  const json = JSON.stringify(data, null, 2);
-  const now = new Date();
-  const dd = String(now.getDate()).padStart(2, "0");
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const yy = String(now.getFullYear()).slice(-2);
-  const uri = "data:application/json;charset=utf-8," + encodeURIComponent(json);
-  const a = document.createElement("a");
-  a.href = uri;
-  a.download = `${dd}-${mm}-${yy}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  return json; // return so we can show copy fallback if download fails
+  return JSON.stringify(data, null, 2);
 }
 
 function parseBackup(jsonText) {
@@ -3137,24 +3129,32 @@ function parseBackup(jsonText) {
 
 // ─── Modal de Backup ───
 function BackupModal({ entries, settings, gastos, carro, auditHistory, onRestore, onClose }) {
-  const [tab, setTab] = useState("export");
   const [dragOver, setDragOver] = useState(false);
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState(null);
-  const [driveStatus, setDriveStatus] = useState(null); // null | "saving" | "saved" | "loading" | "error"
+  const [driveStatus, setDriveStatus] = useState(null);
   const [driveMsg, setDriveMsg] = useState("");
+  const [showDownloadConfirm, setShowDownloadConfirm] = useState(false);
+  const [downloadDone, setDownloadDone] = useState(false);
+  const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
+
+  const lastBackupKey = "jst_last_backup";
+  const lastBackup = localStorage.getItem(lastBackupKey);
+  const daysSinceBackup = lastBackup
+    ? Math.floor((Date.now() - new Date(lastBackup)) / 86400000)
+    : null;
 
   function handleFile(file) {
     if (!file) return;
+    setError(null);
+    setPreview(null);
+    setShowRestoreConfirm(false);
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const data = parseBackup(e.target.result);
-        setPreview(data);
-        setError(null);
+        setPreview(parseBackup(e.target.result));
       } catch {
         setError("Arquivo inválido. Use um backup gerado por este app.");
-        setPreview(null);
       }
     };
     reader.readAsText(file);
@@ -3166,11 +3166,18 @@ function BackupModal({ entries, settings, gastos, carro, auditHistory, onRestore
     handleFile(e.dataTransfer.files[0]);
   }
 
-  const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
-
-  function confirmRestore() {
-    if (!preview) return;
-    setShowRestoreConfirm(true);
+  function doDownload() {
+    const json = exportBackup(entries, settings, gastos, carro, auditHistory);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "jst-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+    a.click();
+    URL.revokeObjectURL(url);
+    localStorage.setItem(lastBackupKey, new Date().toISOString());
+    setShowDownloadConfirm(false);
+    setDownloadDone(true);
   }
 
   function doRestore() {
@@ -3178,26 +3185,12 @@ function BackupModal({ entries, settings, gastos, carro, auditHistory, onRestore
     onClose();
   }
 
-  const lastBackupKey = "jst_last_backup";
-  const lastBackup = localStorage.getItem(lastBackupKey);
-  const daysSinceBackup = lastBackup
-    ? Math.floor((Date.now() - new Date(lastBackup)) / 86400000)
-    : null;
-
-  const [backupJson, setBackupJson] = useState(null);
-
-  function doExport() {
-    const json = exportBackup(entries, settings, gastos, carro, auditHistory);
-    localStorage.setItem(lastBackupKey, new Date().toISOString());
-    setBackupJson(json);
-  }
-
   async function saveToGoogleDrive() {
     setDriveStatus("saving");
     setDriveMsg("Conectando ao Google Drive...");
     try {
       const backupData = exportBackup(entries, settings, gastos, carro, auditHistory);
-      const filename = "japan-salary-backup-" + new Date().toISOString().slice(0,10) + ".json";
+      const filename = "jst-backup-" + new Date().toISOString().slice(0,10) + ".json";
 
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -3208,11 +3201,7 @@ function BackupModal({ entries, settings, gastos, carro, auditHistory, onRestore
           mcp_servers: [{ type: "url", url: "https://drive.mcp.claude.com/mcp", name: "gdrive" }],
           messages: [{
             role: "user",
-            content: `Save this JSON backup to Google Drive as a file named "${filename}" in the root folder. The file content is:
-
-${backupData}
-
-After saving, confirm with: SAVED_OK:[filename]`
+            content: `Save this JSON backup to Google Drive as a file named "${filename}" in the root folder. The file content is:\n\n${backupData}\n\nAfter saving, confirm with: SAVED_OK:[filename]`
           }]
         })
       });
@@ -3227,7 +3216,6 @@ After saving, confirm with: SAVED_OK:[filename]`
       } else {
         setDriveStatus("error");
         setDriveMsg("⚠️ Resposta inesperada. Verifique o Drive manualmente.");
-        console.log("Drive response:", text);
       }
     } catch (e) {
       setDriveStatus("error");
@@ -3248,7 +3236,7 @@ After saving, confirm with: SAVED_OK:[filename]`
           mcp_servers: [{ type: "url", url: "https://drive.mcp.claude.com/mcp", name: "gdrive" }],
           messages: [{
             role: "user",
-            content: "Find the most recent file named japan-salary-backup-*.json in Google Drive. Return ONLY the raw JSON content of that file, nothing else, no explanation."
+            content: "Find the most recent file named jst-backup-*.json in Google Drive. Return ONLY the raw JSON content of that file, nothing else, no explanation."
           }]
         })
       });
@@ -3277,196 +3265,220 @@ After saving, confirm with: SAVED_OK:[filename]`
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.8)" }}>
-      <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
-          <h2 className="text-base font-semibold text-zinc-100">💾 Backup & Restauração</h2>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 text-xl">×</button>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style={{ background: "rgba(0,0,0,0.82)" }}>
+      <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[92vh]">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800 shrink-0">
+          <div>
+            <h2 className="text-base font-semibold text-zinc-100">Backup & Restauração</h2>
+            <div className="text-xs text-zinc-500 mt-0.5">
+              {entries.length} lançamentos ·{" "}
+              {daysSinceBackup === null
+                ? <span className="text-red-400">sem backup ainda</span>
+                : daysSinceBackup === 0
+                  ? <span className="text-green-400">backup hoje</span>
+                  : <span className={daysSinceBackup > 7 ? "text-yellow-400" : "text-zinc-400"}>último backup há {daysSinceBackup} dias</span>
+              }
+            </div>
+          </div>
+          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 text-2xl leading-none px-1">×</button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-zinc-800">
-          {[{ id: "export", label: "⬇ Exportar" }, { id: "import", label: "⬆ Importar" }].map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex-1 py-2.5 text-sm font-medium transition-colors ${tab === t.id ? "text-amber-400 border-b-2 border-amber-500" : "text-zinc-500"}`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <div className="overflow-y-auto p-4 space-y-5">
 
-        <div className="p-5">
-          {tab === "export" && (
-            <div className="space-y-2">
-              <div className="bg-zinc-900 rounded-xl p-4 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-zinc-400">Lançamentos</span>
-                  <span className="font-mono font-bold text-zinc-200">{entries.length}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-zinc-400">Último backup</span>
-                  <span className={`font-mono text-sm ${daysSinceBackup === null ? "text-red-400" : daysSinceBackup > 7 ? "text-yellow-400" : "text-green-400"}`}>
-                    {daysSinceBackup === null ? "nunca feito ⚠️" : daysSinceBackup === 0 ? "hoje ✓" : `há ${daysSinceBackup} dias`}
-                  </span>
-                </div>
-              </div>
+          {/* Alerta de backup atrasado */}
+          {daysSinceBackup === null && (
+            <div className="bg-red-900/20 border border-red-800/40 rounded-xl p-3 text-xs text-red-300">
+              ⚠️ Você ainda não fez backup. Se o browser limpar o cache, todos os dados são perdidos.
+            </div>
+          )}
+          {daysSinceBackup !== null && daysSinceBackup > 7 && (
+            <div className="bg-yellow-900/20 border border-yellow-800/40 rounded-xl p-3 text-xs text-yellow-300">
+              ⚠️ Último backup há {daysSinceBackup} dias — recomendamos backup semanal.
+            </div>
+          )}
 
-              {daysSinceBackup === null && (
-                <div className="bg-red-900/20 border border-red-800/40 rounded-xl p-3 text-xs text-red-300">
-                  ⚠️ Você ainda não fez backup! Se o browser limpar os dados, você perde tudo. Faça agora.
-                </div>
-              )}
-              {daysSinceBackup !== null && daysSinceBackup > 7 && (
-                <div className="bg-yellow-900/20 border border-yellow-800/40 rounded-xl p-3 text-xs text-yellow-300">
-                  ⚠️ Seu último backup foi há {daysSinceBackup} dias. Recomendamos backup semanal.
-                </div>
-              )}
+          {/* ── SEÇÃO SALVAR ── */}
+          <div className="space-y-2">
+            <div className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Salvar backup</div>
 
-              <div className="bg-zinc-900/50 rounded-xl p-3 text-xs text-zinc-500 space-y-1">
-                <div>• Gera um arquivo <code className="text-zinc-400">.json</code> com todos os lançamentos e configurações</div>
-                <div>• Salve no Google Drive, WhatsApp pra você mesmo, ou onde preferir</div>
-                <div>• Para restaurar depois: use a aba "Importar"</div>
-              </div>
-
+            {!showDownloadConfirm ? (
               <button
-                onClick={doExport}
-                className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm transition-colors"
+                onClick={() => { setShowDownloadConfirm(true); setDownloadDone(false); }}
+                className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-black font-semibold text-sm transition-colors"
               >
-                ⬇ Baixar Backup Agora
+                Baixar arquivo .json
               </button>
+            ) : (
+              <div className="border border-amber-700/40 bg-amber-900/10 rounded-xl p-4 space-y-3">
+                <div className="text-sm font-semibold text-zinc-200">Confirmar download?</div>
+                <div className="text-xs text-zinc-400 space-y-1">
+                  <div>• <span className="text-zinc-200 font-medium">{entries.length} lançamentos</span> serão incluídos</div>
+                  <div>• Configurações, dados de Carro e Gastos</div>
+                  <div>• O arquivo será salvo em <span className="text-zinc-300">Downloads</span></div>
+                  <div className="text-zinc-600 pt-1">Depois guarde no Google Drive, WhatsApp ou onde preferir.</div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setShowDownloadConfirm(false)} className="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm">Cancelar</button>
+                  <button onClick={doDownload} className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm">Baixar agora</button>
+                </div>
+              </div>
+            )}
 
-              {/* Google Drive Save/Load */}
-              <div className="border border-zinc-800 rounded-xl overflow-hidden">
-                <div className="flex items-center gap-2 px-3 py-2 bg-zinc-900/50">
-                  <span className="text-base">📁</span>
-                  <span className="text-xs font-semibold text-zinc-300">Google Drive</span>
-                  <span className="text-xs text-zinc-600 ml-auto">via Claude MCP</span>
-                </div>
-                <div className="flex gap-2 p-3">
-                  <button
-                    onClick={saveToGoogleDrive}
-                    disabled={driveStatus === "saving"}
-                    className="flex-1 py-2.5 rounded-xl text-xs font-medium transition-colors bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white"
-                  >
-                    {driveStatus === "saving" ? "💾 Salvando..." : "💾 Salvar no Drive"}
-                  </button>
-                  <button
-                    onClick={loadFromGoogleDrive}
-                    disabled={driveStatus === "loading"}
-                    className="flex-1 py-2.5 rounded-xl text-xs font-medium transition-colors bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-white"
-                  >
-                    {driveStatus === "loading" ? "📂 Carregando..." : "📂 Carregar Drive"}
-                  </button>
-                </div>
-                {driveMsg && (
-                  <div className={`px-3 pb-3 text-xs text-center font-medium ${driveStatus === "error" ? "text-red-400" : driveStatus === "saved" ? "text-green-400" : "text-blue-400"}`}>
+            {downloadDone && (
+              <div className="text-xs text-green-400 text-center font-medium py-1">
+                ✓ Download iniciado! Salve o arquivo em lugar seguro.
+              </div>
+            )}
+
+            {/* Google Drive — salvar */}
+            <div className="border border-zinc-800 rounded-xl overflow-hidden">
+              <div className="flex items-center gap-2 px-3 py-2 bg-zinc-900/60 border-b border-zinc-800">
+                <span className="text-sm">📁</span>
+                <span className="text-xs font-medium text-zinc-400">Google Drive</span>
+                <span className="text-xs text-zinc-700 ml-auto">via Claude MCP</span>
+              </div>
+              <div className="p-3 space-y-2">
+                <button
+                  onClick={saveToGoogleDrive}
+                  disabled={driveStatus === "saving"}
+                  className="w-full py-2.5 rounded-xl text-xs font-medium bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-300 transition-colors"
+                >
+                  {driveStatus === "saving" ? "Enviando..." : "Enviar para o Drive"}
+                </button>
+                {driveMsg && driveStatus !== "loaded" && driveStatus !== "loading" && (
+                  <div className={`text-xs text-center ${driveStatus === "error" ? "text-red-400" : driveStatus === "saved" ? "text-green-400" : "text-blue-400"}`}>
                     {driveMsg}
                   </div>
                 )}
               </div>
-
-              {backupJson && (
-                <div className="space-y-2">
-                  <div className="text-xs text-green-400 font-semibold">✓ Backup gerado! Se o download não abriu automaticamente, copie o texto abaixo e salve como .json:</div>
-                  <div className="relative">
-                    <textarea
-                      readOnly
-                      value={backupJson}
-                      rows={5}
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-300 font-mono resize-none focus:outline-none"
-                      onClick={(e) => e.target.select()}
-                    />
-                    <button
-                      onClick={() => { navigator.clipboard.writeText(backupJson); }}
-                      className="absolute top-2 right-2 px-2 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs text-zinc-300 transition-colors"
-                    >
-                      Copiar
-                    </button>
-                  </div>
-                  <div className="text-xs text-zinc-500">Cole no bloco de notas, salve como <code className="text-zinc-400">backup.json</code> e guarde no Google Drive.</div>
-                </div>
-              )}
             </div>
-          )}
+          </div>
 
-          {tab === "import" && (
-            <div className="space-y-2">
-              {/* Drop zone / file picker */}
-              <label
-                htmlFor="backup-file-input"
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={handleDrop}
-                className={`block border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${
-                  dragOver ? "border-amber-500 bg-amber-500/10" : "border-zinc-700 hover:border-zinc-600"
-                }`}
-              >
-                <div className="text-3xl mb-2">📂</div>
-                <div className="text-sm text-zinc-400">Toque aqui para escolher o arquivo</div>
-                <div className="text-xs text-zinc-500 mt-1">Celular, Google Drive, iCloud…</div>
-                <div className="text-xs text-zinc-600 mt-0.5">Aceita: jst-backup-XXXX-XX-XX.json</div>
-                <input
-                  id="backup-file-input"
-                  type="file"
-                  accept=".json,application/json"
-                  className="hidden"
-                  onChange={(e) => handleFile(e.target.files[0])}
-                />
-              </label>
+          {/* Divisor */}
+          <div className="border-t border-zinc-800" />
 
-              {error && (
-                <div className="bg-red-900/20 border border-red-800/40 rounded-xl p-3 text-xs text-red-300">{error}</div>
-              )}
+          {/* ── SEÇÃO RESTAURAR ── */}
+          <div className="space-y-2">
+            <div className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">Restaurar backup</div>
+            <div className="text-xs text-zinc-600">Os dados atuais ({entries.length} lançamentos) serão substituídos pelo backup.</div>
 
-              {preview && (
-                <div className="bg-zinc-900 rounded-xl p-4 space-y-2">
-                  <div className="text-xs text-green-400 font-semibold mb-2">✓ Arquivo válido — Preview do backup:</div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-zinc-400">Lançamentos</span>
-                    <span className="font-mono font-bold text-zinc-200">{preview.entries.length}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-zinc-400">Data do backup</span>
-                    <span className="font-mono text-zinc-300 text-xs">{new Date(preview.exportedAt).toLocaleString("pt-BR")}</span>
+            {/* Drop zone */}
+            <label
+              htmlFor="backup-file-input"
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              className={`flex flex-col items-center justify-center gap-1.5 border-2 border-dashed rounded-xl py-6 text-center cursor-pointer transition-all ${
+                dragOver ? "border-amber-500 bg-amber-500/10" :
+                preview ? "border-green-700/50 bg-green-900/10" :
+                "border-zinc-700 hover:border-zinc-500"
+              }`}
+            >
+              <div className="text-2xl">{preview ? "✅" : "📄"}</div>
+              <div className="text-sm text-zinc-400">
+                {preview
+                  ? <><span className="text-green-400 font-medium">{preview.entries.length} lançamentos</span> · {new Date(preview.exportedAt).toLocaleDateString("pt-BR")}</>
+                  : "Toque para escolher o arquivo .json"}
+              </div>
+              {!preview && <div className="text-xs text-zinc-600">Ou arraste e solte aqui · aceita jst-backup-*.json</div>}
+              {preview && <div className="text-xs text-zinc-600">Toque para trocar o arquivo</div>}
+              <input id="backup-file-input" type="file" accept=".json,application/json" className="hidden" onChange={(e) => handleFile(e.target.files[0])} />
+            </label>
+
+            {error && (
+              <div className="bg-red-900/20 border border-red-800/40 rounded-xl p-3 text-xs text-red-300">{error}</div>
+            )}
+
+            {preview && !showRestoreConfirm && (
+              <>
+                <div className="bg-zinc-900 rounded-xl p-3 text-xs space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-zinc-500">Data do backup</span>
+                    <span className="text-zinc-300">{new Date(preview.exportedAt).toLocaleString("pt-BR")}</span>
                   </div>
                   {preview.settings?.name && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-zinc-400">Trabalhador</span>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Trabalhador</span>
                       <span className="text-zinc-300">{preview.settings.name}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-sm">
-                    <span className="text-zinc-400">Dados atuais serão substituídos</span>
-                    <span className="text-red-400 font-mono">{entries.length} → {preview.entries.length}</span>
+                  <div className="border-t border-zinc-800 pt-2 space-y-1.5">
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">Jornada (lançamentos)</span>
+                      <span className="font-mono text-zinc-200">{preview.entries.length}</span>
+                    </div>
+                    {preview.gensen && (
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">Gensen (源泉徴収票)</span>
+                        <span className="font-mono text-zinc-200">{Array.isArray(preview.gensen) ? preview.gensen.length : 1} registro(s)</span>
+                      </div>
+                    )}
+                    {preview.taxVehicles && preview.taxVehicles.length > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">Veículos (自動車税)</span>
+                        <span className="font-mono text-zinc-200">{preview.taxVehicles.length} veículo(s)</span>
+                      </div>
+                    )}
+                    {preview.gastos && (
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">Gastos</span>
+                        <span className="font-mono text-zinc-200">incluídos</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex justify-between pt-1.5 border-t border-zinc-800">
+                    <span className="text-zinc-500">Lançamentos atuais (serão perdidos)</span>
+                    <span className="font-mono text-red-400">{entries.length}</span>
                   </div>
                 </div>
-              )}
+                <button
+                  onClick={() => setShowRestoreConfirm(true)}
+                  className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition-colors"
+                >
+                  Restaurar este backup
+                </button>
+              </>
+            )}
 
-              <button
-                onClick={confirmRestore}
-                disabled={!preview}
-                className="w-full py-3 rounded-xl font-semibold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-blue-600 hover:bg-blue-500 text-white"
-              >
-                ⬆ Restaurar este Backup
-              </button>
-
-              {showRestoreConfirm && (
-                <div className="bg-red-900/20 border border-red-700/50 rounded-xl p-4 text-center space-y-3">
-                  <div className="text-sm font-semibold text-red-300">Tem certeza? Isso substitui todos os dados atuais ({entries.length} lançamentos).</div>
-                  <div className="flex gap-3">
-                    <button onClick={() => setShowRestoreConfirm(false)} className="flex-1 py-2 rounded-lg border border-zinc-700 text-xs text-zinc-400 hover:text-zinc-200">Cancelar</button>
-                    <button onClick={doRestore} className="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-medium text-xs">Sim, restaurar</button>
-                  </div>
+            {showRestoreConfirm && (
+              <div className="border border-red-700/50 bg-red-900/10 rounded-xl p-4 space-y-3">
+                <div className="text-sm font-semibold text-red-300 text-center">Tem certeza?</div>
+                <div className="text-xs text-zinc-400 space-y-1">
+                  <div>• Os <span className="text-red-400 font-medium">{entries.length} lançamentos atuais</span> serão apagados</div>
+                  <div>• <span className="text-zinc-200 font-medium">{preview.entries.length} lançamentos</span> do backup serão carregados</div>
+                  <div>• Esta ação <span className="text-red-400">não pode ser desfeita</span></div>
                 </div>
-              )}
+                <div className="flex gap-2">
+                  <button onClick={() => setShowRestoreConfirm(false)} className="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm">Cancelar</button>
+                  <button onClick={doRestore} className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold text-sm">Sim, restaurar</button>
+                </div>
+              </div>
+            )}
 
-              <div className="bg-zinc-900/50 rounded-xl p-3 text-xs text-zinc-500">
-                ⚠️ A restauração substitui todos os dados atuais. Faça um export antes se quiser preservar o que tem.
+            {/* Google Drive — restaurar */}
+            <div className="border border-zinc-800 rounded-xl overflow-hidden">
+              <div className="flex items-center gap-2 px-3 py-2 bg-zinc-900/60 border-b border-zinc-800">
+                <span className="text-sm">📁</span>
+                <span className="text-xs font-medium text-zinc-400">Google Drive</span>
+                <span className="text-xs text-zinc-700 ml-auto">via Claude MCP</span>
+              </div>
+              <div className="p-3 space-y-2">
+                <button
+                  onClick={loadFromGoogleDrive}
+                  disabled={driveStatus === "loading"}
+                  className="w-full py-2.5 rounded-xl text-xs font-medium bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-zinc-300 transition-colors"
+                >
+                  {driveStatus === "loading" ? "Buscando no Drive..." : "Buscar backup do Drive"}
+                </button>
+                {driveStatus === "error" && driveMsg && (
+                  <div className="text-xs text-center text-red-400">{driveMsg}</div>
+                )}
               </div>
             </div>
-          )}
+          </div>
+
         </div>
       </div>
     </div>
@@ -4203,14 +4215,14 @@ function VehicleTaxSection() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-sm font-semibold text-zinc-100 truncate">{v.name||"Veículo"}</span>
-                      {v.calc.isJuka && <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-900/50 text-red-400">重課 +15%</span>}
+                      {v.calc.isJuka && <span className="text-xs px-1.5 py-0.5 rounded-full bg-red-900/50 text-red-400">重課 +15% <span className="text-red-700">· alíq.ant.</span></span>}
                     </div>
                     <div className="text-xs text-zinc-500 space-y-0.5">
-                      <div>{v.type==="kei" ? "軽自動車" : ({1000:"≤1.000cc",1500:"1.001–1.500cc",2000:"1.501–2.000cc",2500:"2.001–2.500cc",3000:"2.501–3.000cc",3500:"3.001–3.500cc",4000:"3.501–4.000cc",4500:"4.001–4.500cc",6000:"4.501–6.000cc",6001:"＞6.000cc"}[v.displacement]||"")} · {fuelLabel[v.fuel]||v.fuel} · {v.registrationYear} ({v.calc.age} anos)</div>
-                      {v.calc.juryoZei2yr > 0 && <div className="text-zinc-600">重量税 {YEN(v.calc.juryoZei2yr)} por vistoria (2 anos)</div>}
+                      <div>{v.type==="kei" ? "軽自動車 · kei" : ({1000:"≤1.000cc",1500:"1.001–1.500cc",2000:"1.501–2.000cc",2500:"2.001–2.500cc",3000:"2.501–3.000cc",3500:"3.001–3.500cc",4000:"3.501–4.000cc",4500:"4.001–4.500cc",6000:"4.501–6.000cc",6001:"＞6.000cc"}[v.displacement]||"")} · {fuelLabel[v.fuel]||v.fuel} · {v.registrationYear} ({v.calc.age} anos)</div>
+                      {v.calc.juryoZei2yr > 0 && <div className="text-zinc-600">重量税 <span className="text-zinc-700">· imp.peso</span> {YEN(v.calc.juryoZei2yr)} por vistoria (2 anos)</div>}
                       {sk && (
                         <div className={sk.expired ? "text-red-400 font-semibold" : sk.urgent ? "text-yellow-400" : "text-zinc-500"}>
-                          車検 {v.shakenExpiry} · {sk.expired ? "VENCIDA!" : sk.months < 1 ? `${sk.days} dias restantes` : `${sk.months} meses restantes`}
+                          車検 <span className="opacity-60 text-xs">· vistoria</span> {v.shakenExpiry} · {sk.expired ? "VENCIDA!" : sk.months < 1 ? `${sk.days} dias restantes` : `${sk.months} meses restantes`}
                         </div>
                       )}
                     </div>
@@ -4243,7 +4255,7 @@ function VehicleTaxSection() {
           <span className="font-mono font-bold text-blue-400">{YEN(vData.reduce((a,v)=>a+v.calc.annualTax,0))}</span>
         </div>
       )}
-      <div className="mt-2 text-xs text-zinc-700">重量税 e 自賠責 incidem na 車検 a cada 2 anos.</div>
+      <div className="mt-2 text-xs text-zinc-700">重量税 <span className="text-zinc-800">(imp.peso)</span> e 自賠責 <span className="text-zinc-800">(seg.obrigatório)</span> incidem na 車検 <span className="text-zinc-800">(vistoria)</span> a cada 2 anos.</div>
     </Card>
   );
 }
@@ -4618,11 +4630,16 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
     if (data.gastos) setGastos(data.gastos);
     if (data.carro) setCarro(data.carro);
     if (data.auditHistory) setAuditHistory(data.auditHistory);
+    if (data.gensen != null) localStorage.setItem("jst_gensen", JSON.stringify(data.gensen));
+    if (data.taxVehicles != null) localStorage.setItem("jst_tax_vehicles", JSON.stringify(data.taxVehicles));
     showToast("Backup restaurado com sucesso!", "blue");
   };
 
-  const bodyBg = theme === "dark" ? "#09090b" : "#f9f9f9";
-  const rootCls = `min-h-screen font-sans theme-${theme} ` + (theme === "dark" ? "bg-zinc-950 text-zinc-100" : "text-neutral-900");
+  const bodyBg = theme === "dark" ? "#09090b" : theme === "graphite" ? "#141414" : "#f9f9f9";
+  const rootCls = `min-h-screen font-sans theme-${theme} ` +
+    (theme === "light" ? "text-neutral-900" :
+     theme === "graphite" ? "text-zinc-200" :
+     "bg-zinc-950 text-zinc-100");
 
   const staticCss = `
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -4644,11 +4661,12 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
         .safe-top    { padding-top:    max(12px, env(safe-area-inset-top)); }
         .safe-bottom { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
         button:active { opacity: 0.75; transform: scale(0.97); }
-        input[type="time"] { -webkit-appearance: none; color-scheme: ${theme === "dark" ? "dark" : "light"}; }
-        input[type="date"], input[type="month"] { color-scheme: ${theme === "dark" ? "dark" : "light"}; }
+        input[type="time"] { -webkit-appearance: none; color-scheme: ${theme === "light" ? "light" : "dark"}; }
+        input[type="date"], input[type="month"] { color-scheme: ${theme === "light" ? "light" : "dark"}; }
         input, select, textarea { font-size: 16px; }
-        .theme-light { --bg: #f9f9f9; --bg-card: #ffffff; --border: #e0e0e0; --text: #111111; --text-sub: #444444; --text-muted: #909090; --accent: #b91c1c; }
-        .theme-dark  { --bg: #09090b; --bg-card: rgba(24,24,27,0.8); --border: #27272a; --text: #f4f4f5; --text-sub: #a1a1aa; --text-muted: #52525b; --accent: #f59e0b; }
+        .theme-light    { --bg: #f9f9f9; --bg-card: #ffffff; --border: #e0e0e0; --text: #111111; --text-sub: #444444; --text-muted: #909090; --accent: #b91c1c; }
+        .theme-dark     { --bg: #09090b; --bg-card: rgba(24,24,27,0.8); --border: #27272a; --text: #f4f4f5; --text-sub: #a1a1aa; --text-muted: #52525b; --accent: #f59e0b; }
+        .theme-graphite { --bg: #141414; --bg-card: rgba(28,28,28,0.9); --border: #2c2c2c; --text: #d0d0d0; --text-sub: #888888; --text-muted: #4e4e4e; --accent: #a1a1aa; }
 
         /* Light mode: forçar todos os backgrounds dark para claro */
         .theme-light [class*="bg-zinc-9"],
@@ -4656,18 +4674,32 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
         .theme-light [class*="bg-zinc-7"] { background-color: #ececec !important; }
         .theme-light [class*="border-zinc-8"],
         .theme-light [class*="border-zinc-7"] { border-color: #d4d4d4 !important; }
-        .theme-light input,
-        .theme-light select,
-        .theme-light textarea {
-          background: #ffffff !important;
-          color: #111111 !important;
-          border-color: #d4d4d4 !important;
+        .theme-light input, .theme-light select, .theme-light textarea {
+          background: #ffffff !important; color: #111111 !important; border-color: #d4d4d4 !important;
         }
         .theme-light [class*="text-zinc-2"],
         .theme-light [class*="text-zinc-1"] { color: #222222 !important; }
         .theme-light [class*="text-zinc-4"],
         .theme-light [class*="text-zinc-5"],
         .theme-light [class*="text-zinc-6"] { color: #666666 !important; }
+
+        /* Graphite mode: zinc blue-black → cinza neutro */
+        .theme-graphite [class*="bg-zinc-950"] { background-color: #141414 !important; }
+        .theme-graphite [class*="bg-zinc-900"] { background-color: #1e1e1e !important; }
+        .theme-graphite [class*="bg-zinc-800"] { background-color: #2a2a2a !important; }
+        .theme-graphite [class*="bg-zinc-700"] { background-color: #363636 !important; }
+        .theme-graphite [class*="border-zinc-800"] { border-color: #2c2c2c !important; }
+        .theme-graphite [class*="border-zinc-700"] { border-color: #383838 !important; }
+        .theme-graphite [class*="text-zinc-100"] { color: #d8d8d8 !important; }
+        .theme-graphite [class*="text-zinc-200"] { color: #cccccc !important; }
+        .theme-graphite [class*="text-zinc-300"] { color: #b8b8b8 !important; }
+        .theme-graphite [class*="text-zinc-400"] { color: #909090 !important; }
+        .theme-graphite [class*="text-zinc-500"] { color: #6a6a6a !important; }
+        .theme-graphite [class*="text-zinc-600"] { color: #505050 !important; }
+        .theme-graphite [class*="text-zinc-700"] { color: #404040 !important; }
+        .theme-graphite input, .theme-graphite select, .theme-graphite textarea {
+          background: #1e1e1e !important; color: #d0d0d0 !important; border-color: #2c2c2c !important;
+        }
 
         @keyframes pulse-border { 0%,100% { border-color: #f59e0b; } 50% { border-color: #ef4444; } }
         .edit-mode-active { animation: pulse-border 1.5s ease-in-out infinite; }
@@ -4679,11 +4711,11 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
       `;
 
   return (
-    <div className={rootCls}>
+    <div className={rootCls} style={{ background: bodyBg, minHeight: "100vh" }}>
       <style>{staticCss}</style>
 
       {/* Top bar */}
-      <div className={`sticky top-0 z-40 backdrop-blur border-b px-4 py-2 ${theme === "dark" ? "bg-zinc-950/90 border-zinc-800/50" : "bg-white/95 border-neutral-200"}`}>
+      <div className={`sticky top-0 z-40 backdrop-blur border-b px-4 py-2 ${theme === "light" ? "bg-white/95 border-neutral-200" : theme === "graphite" ? "bg-zinc-950/90 border-zinc-800/50" : "bg-zinc-950/90 border-zinc-800/50"}`} style={theme === "graphite" ? {background:"rgba(20,20,20,0.92)", borderColor:"#2c2c2c"} : {}}>
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-lg">⛩️</span>
@@ -4698,13 +4730,21 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
             </button>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors ${theme === "dark" ? "border-zinc-700 hover:border-amber-600" : "border-neutral-300 hover:border-neutral-500"}`}
-              title={theme === "dark" ? "Modo claro" : "Modo escuro"}
-            >
-              {theme === "dark" ? "☀️" : "🌙"}
-            </button>
+            <div className="flex items-center gap-1.5" title="Tema de cores">
+              {[
+                { id: "dark",     bg: "#09090b", border: "#52525b", label: "Escuro"  },
+                { id: "graphite", bg: "#2a2a2a", border: "#6a6a6a", label: "Grafite" },
+                { id: "light",    bg: "#f0f0f0", border: "#c0c0c0", label: "Claro"   },
+              ].map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setTheme(t.id)}
+                  title={t.label}
+                  style={{ background: t.bg, borderColor: theme === t.id ? "#f59e0b" : t.border }}
+                  className={`w-5 h-5 rounded-full border-2 transition-all ${theme === t.id ? "scale-125" : "opacity-60 hover:opacity-90"}`}
+                />
+              ))}
+            </div>
             {showInstall && (
               <button onClick={handleInstall}
                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-medium transition-colors"
@@ -4771,7 +4811,7 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
       </div>
 
       {/* Bottom nav */}
-      <div className={`fixed bottom-0 inset-x-0 z-40 backdrop-blur border-t ${theme === "dark" ? "bg-zinc-950/95 border-zinc-800/50" : "bg-white/95 border-neutral-200"}`}
+      <div className={`fixed bottom-0 inset-x-0 z-40 backdrop-blur border-t ${theme === "light" ? "bg-white/95 border-neutral-200" : "bg-zinc-950/95 border-zinc-800/50"}`} style={theme === "graphite" ? {background:"rgba(20,20,20,0.96)", borderColor:"#2c2c2c"} : {}}
         style={{paddingBottom: "env(safe-area-inset-bottom, 0px)"}}>
         <div className="max-w-2xl mx-auto flex">
           {TABS.map((t) => (
