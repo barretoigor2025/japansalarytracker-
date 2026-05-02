@@ -534,6 +534,7 @@ const TABS = [
   { id: "gastos",    label: "Gastos",    icon: "💸" },
   { id: "carro",     label: "Carro",     icon: "🚗" },
   { id: "gensen",    label: "Gensen",    icon: "📄" },
+  { id: "cartao",    label: "Cartão",    icon: "💳" },
   { id: "impostos",  label: "Impostos",  icon: "🏛️" },
   { id: "settings",  label: "Config",    icon: "⚙️" },
 ];
@@ -2439,6 +2440,530 @@ function VehicleForm({ onSave, onCancel, initial }) {
   );
 }
 
+// ─── CARTÃO ────────────────────────────────────────────────────────────────
+const CARTAO_KEY = "jst_cartao";
+
+const CC_CATS = [
+  { id:"carro",      label:"Carro",       emoji:"🚗" },
+  { id:"casa",       label:"Casa",        emoji:"🏠" },
+  { id:"alim",       label:"Alimentação", emoji:"🍽️" },
+  { id:"vest",       label:"Vestuário",   emoji:"👔" },
+  { id:"saude",      label:"Saúde",       emoji:"💊" },
+  { id:"lazer",      label:"Lazer",       emoji:"🎮" },
+  { id:"tech",       label:"Tecnologia",  emoji:"📱" },
+  { id:"mercado",    label:"Mercado",     emoji:"🛒" },
+  { id:"outro",      label:"Outro",       emoji:"💰" },
+];
+
+const CC_LOJAS = [
+  { id:"mercado",    label:"Mercado",     emoji:"🛒" },
+  { id:"amazon",     label:"Amazon",      emoji:"📦" },
+  { id:"posto",      label:"Posto",       emoji:"⛽" },
+  { id:"loja",       label:"Loja física", emoji:"🏪" },
+  { id:"restaurante",label:"Restaurante", emoji:"🍽️" },
+  { id:"farmacia",   label:"Farmácia",    emoji:"💊" },
+  { id:"online",     label:"Online",      emoji:"🌐" },
+  { id:"oficina",    label:"Oficina",     emoji:"🔧" },
+  { id:"shopping",   label:"Shopping",    emoji:"🛍️" },
+  { id:"outro",      label:"Outro",       emoji:"❓" },
+];
+
+function defaultCartao() {
+  return {
+    setup: { name: "Meu Cartão", closingDay: 10, dueDay: 17, limit: 0 },
+    lancamentos: [],
+    parcelas: [],
+  };
+}
+
+function loadCartaoData() {
+  try { return JSON.parse(localStorage.getItem(CARTAO_KEY)) || defaultCartao(); }
+  catch { return defaultCartao(); }
+}
+
+function saveCartaoData(data) {
+  localStorage.setItem(CARTAO_KEY, JSON.stringify(data));
+}
+
+function nextDueInfo(closingDay, dueDay) {
+  const today = new Date();
+  const d = today.getDate();
+  const m = today.getMonth();
+  const y = today.getFullYear();
+  let closingDate, dueDate;
+  if (d <= closingDay) {
+    closingDate = new Date(y, m, closingDay);
+    const dm = dueDay > closingDay ? m : m + 1;
+    dueDate = new Date(y, dm, dueDay);
+  } else {
+    closingDate = new Date(y, m + 1, closingDay);
+    const dm = dueDay > closingDay ? m + 1 : m + 2;
+    dueDate = new Date(y, dm, dueDay);
+  }
+  const diffDays = Math.ceil((dueDate - today) / 86400000);
+  return { closingDate, dueDate, diffDays };
+}
+
+function currentFaturaYM(closingDay) {
+  const today = new Date();
+  const d = today.getDate();
+  const m = today.getMonth();
+  const y = today.getFullYear();
+  if (d <= closingDay) return { year: y, month: m };
+  return { year: m === 11 ? y + 1 : y, month: (m + 1) % 12 };
+}
+
+function fmtYM(year, month) {
+  return `${year}-${String(month + 1).padStart(2, "0")}`;
+}
+
+function CartaoSetupModal({ setup, onSave, onClose }) {
+  const [form, setForm] = React.useState({ ...setup });
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
+      <div className="rounded-t-3xl p-5 flex flex-col gap-4" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Configurar Cartão</span>
+          <button onClick={onClose} className="text-xl" style={{ color: "var(--text-muted)" }}>×</button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Nome do cartão</label>
+            <input value={form.name} onChange={e => set("name", e.target.value)}
+              className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
+          </div>
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Fechamento (dia)</label>
+            <input type="number" min={1} max={28} value={form.closingDay} onChange={e => set("closingDay", +e.target.value)}
+              className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
+          </div>
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Vencimento (dia)</label>
+            <input type="number" min={1} max={28} value={form.dueDay} onChange={e => set("dueDay", +e.target.value)}
+              className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
+          </div>
+          <div className="col-span-2">
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Limite (¥, 0 = sem limite)</label>
+            <input type="number" min={0} value={form.limit} onChange={e => set("limit", +e.target.value)}
+              className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
+          </div>
+        </div>
+        <div className="flex gap-2 mt-1">
+          <button onClick={() => { onSave(form); onClose(); }} className="flex-1 py-2 rounded-xl text-sm font-semibold" style={{ background: "var(--accent)", color: "var(--bg)" }}>Salvar</button>
+          <button onClick={onClose} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>Cancelar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddLancamentoModal({ onSave, onClose }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [form, setForm] = React.useState({ date: today, desc: "", amount: "", cat: "outro", loja: "outro" });
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const catObj = CC_CATS.find(c => c.id === form.cat) || CC_CATS[8];
+  const lojaObj = CC_LOJAS.find(l => l.id === form.loja) || CC_LOJAS[9];
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
+      <div className="rounded-t-3xl p-5 flex flex-col gap-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Lançamento diário</span>
+          <button onClick={onClose} className="text-xl" style={{ color: "var(--text-muted)" }}>×</button>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Data</label>
+            <input type="date" value={form.date} onChange={e => set("date", e.target.value)}
+              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
+          </div>
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Valor (¥)</label>
+            <input type="number" min={0} value={form.amount} onChange={e => set("amount", e.target.value)} placeholder="0"
+              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
+          </div>
+          <div className="col-span-2">
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Descrição</label>
+            <input value={form.desc} onChange={e => set("desc", e.target.value)} placeholder="ex: supermercado, gasolina..."
+              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
+          </div>
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Categoria</label>
+            <select value={form.cat} onChange={e => set("cat", e.target.value)}
+              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }}>
+              {CC_CATS.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Onde comprou</label>
+            <select value={form.loja} onChange={e => set("loja", e.target.value)}
+              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }}>
+              {CC_LOJAS.map(l => <option key={l.id} value={l.id}>{l.emoji} {l.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="flex gap-2 mt-1">
+          <button onClick={() => {
+            if (!form.amount || +form.amount <= 0) return;
+            onSave({ id: Date.now().toString(), date: form.date, desc: form.desc, amount: +form.amount, cat: form.cat, loja: form.loja });
+            onClose();
+          }} className="flex-1 py-2 rounded-xl text-sm font-semibold" style={{ background: "var(--accent)", color: "var(--bg)" }}>Adicionar</button>
+          <button onClick={onClose} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>Cancelar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddParcelaModal({ onSave, onClose }) {
+  const [form, setForm] = React.useState({
+    desc: "", cat: "outro", loja: "outro",
+    totalAmount: "", numInstallments: "", paidInstallments: 0,
+    startYearMonth: new Date().toISOString().slice(0, 7),
+  });
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const monthly = form.totalAmount && form.numInstallments && +form.numInstallments > 0
+    ? Math.round(+form.totalAmount / +form.numInstallments) : 0;
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
+      <div className="rounded-t-3xl p-5 flex flex-col gap-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Compra parcelada</span>
+          <button onClick={onClose} className="text-xl" style={{ color: "var(--text-muted)" }}>×</button>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="col-span-2">
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Descrição</label>
+            <input value={form.desc} onChange={e => set("desc", e.target.value)} placeholder="ex: iPhone, notebook..."
+              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
+          </div>
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Categoria</label>
+            <select value={form.cat} onChange={e => set("cat", e.target.value)}
+              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }}>
+              {CC_CATS.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Onde comprou</label>
+            <select value={form.loja} onChange={e => set("loja", e.target.value)}
+              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }}>
+              {CC_LOJAS.map(l => <option key={l.id} value={l.id}>{l.emoji} {l.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Valor total (¥)</label>
+            <input type="number" min={0} value={form.totalAmount} onChange={e => set("totalAmount", e.target.value)} placeholder="0"
+              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
+          </div>
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Nº de parcelas</label>
+            <input type="number" min={1} max={60} value={form.numInstallments} onChange={e => set("numInstallments", e.target.value)} placeholder="0"
+              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
+          </div>
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Parcelas pagas</label>
+            <input type="number" min={0} value={form.paidInstallments} onChange={e => set("paidInstallments", +e.target.value)} placeholder="0"
+              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
+          </div>
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Início (mês)</label>
+            <input type="month" value={form.startYearMonth} onChange={e => set("startYearMonth", e.target.value)}
+              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
+          </div>
+        </div>
+        {monthly > 0 && (
+          <div className="text-xs text-center py-1 rounded-lg" style={{ background: "var(--bg)", color: "var(--text-sub)" }}>
+            Parcela mensal: ¥{monthly.toLocaleString()}
+          </div>
+        )}
+        <div className="flex gap-2 mt-1">
+          <button onClick={() => {
+            if (!form.desc || !form.totalAmount || !form.numInstallments) return;
+            onSave({
+              id: Date.now().toString(), desc: form.desc, cat: form.cat, loja: form.loja,
+              totalAmount: +form.totalAmount, numInstallments: +form.numInstallments,
+              paidInstallments: +form.paidInstallments,
+              monthlyAmount: monthly, startYearMonth: form.startYearMonth,
+            });
+            onClose();
+          }} className="flex-1 py-2 rounded-xl text-sm font-semibold" style={{ background: "var(--accent)", color: "var(--bg)" }}>Adicionar</button>
+          <button onClick={onClose} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>Cancelar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CartaoScreen() {
+  const [data, setData] = React.useState(() => loadCartaoData());
+  const [subTab, setSubTab] = React.useState("fatura"); // fatura | parcelas | insights
+  const [showSetup, setShowSetup] = React.useState(false);
+  const [showAddLanc, setShowAddLanc] = React.useState(false);
+  const [showAddParcela, setShowAddParcela] = React.useState(false);
+  const [deleteConfirm, setDeleteConfirm] = React.useState(null);
+
+  const save = (next) => { setData(next); saveCartaoData(next); };
+
+  const { setup, lancamentos, parcelas } = data;
+  const { closingDate, dueDate, diffDays } = nextDueInfo(setup.closingDay, setup.dueDay);
+  const faturaYM = currentFaturaYM(setup.closingDay);
+  const faturaKey = fmtYM(faturaYM.year, faturaYM.month);
+
+  const faturaLanc = lancamentos.filter(l => {
+    const lym = l.date.slice(0, 7);
+    return lym === faturaKey;
+  });
+
+  const parcelasNaFatura = parcelas.filter(p => {
+    const start = new Date(p.startYearMonth + "-01");
+    const fatDate = new Date(faturaYM.year, faturaYM.month, 1);
+    const paidMs = new Date(start.getFullYear(), start.getMonth() + p.paidInstallments, 1);
+    return fatDate >= paidMs && p.paidInstallments < p.numInstallments;
+  });
+
+  const totalLanc = faturaLanc.reduce((s, l) => s + l.amount, 0);
+  const totalParcelas = parcelasNaFatura.reduce((s, p) => s + p.monthlyAmount, 0);
+  const totalFatura = totalLanc + totalParcelas;
+  const limitPct = setup.limit > 0 ? Math.min(100, (totalFatura / setup.limit) * 100) : 0;
+
+  // insights: by category and by loja (all lancamentos)
+  const byCat = CC_CATS.map(c => ({
+    ...c,
+    total: lancamentos.filter(l => l.cat === c.id).reduce((s, l) => s + l.amount, 0),
+  })).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
+
+  const byLoja = CC_LOJAS.map(l => ({
+    ...l,
+    total: lancamentos.filter(x => x.loja === l.id).reduce((s, x) => s + x.amount, 0),
+  })).filter(l => l.total > 0).sort((a, b) => b.total - a.total);
+
+  const maxCat = byCat.length > 0 ? byCat[0].total : 1;
+  const maxLoja = byLoja.length > 0 ? byLoja[0].total : 1;
+
+  const addLancamento = (l) => save({ ...data, lancamentos: [l, ...lancamentos] });
+  const deleteLancamento = (id) => save({ ...data, lancamentos: lancamentos.filter(l => l.id !== id) });
+  const addParcela = (p) => save({ ...data, parcelas: [p, ...parcelas] });
+  const deleteParcela = (id) => save({ ...data, parcelas: parcelas.filter(p => p.id !== id) });
+  const payInstallment = (id) => {
+    const next = parcelas.map(p => p.id === id ? { ...p, paidInstallments: Math.min(p.paidInstallments + 1, p.numInstallments) } : p);
+    save({ ...data, parcelas: next });
+  };
+  const saveSetup = (s) => save({ ...data, setup: s });
+
+  const duePct = diffDays <= 0 ? 100 : Math.max(0, 100 - (diffDays / 30) * 100);
+
+  return (
+    <div className="flex flex-col gap-3 pb-4">
+      {/* Header card */}
+      <div className="rounded-2xl p-4" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+        <div className="flex items-start justify-between mb-2">
+          <div>
+            <div className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>💳 {setup.name}</div>
+            <div className="text-2xl font-bold mt-0.5" style={{ color: "var(--text)" }}>¥{totalFatura.toLocaleString()}</div>
+            <div className="text-xs mt-0.5" style={{ color: "var(--text-sub)" }}>fatura {faturaKey}</div>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <button onClick={() => setShowSetup(true)} className="text-xs px-2 py-1 rounded-lg" style={{ background: "var(--bg)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>⚙️ config</button>
+            <div className="text-xs mt-1" style={{ color: diffDays <= 5 ? "#ef4444" : "var(--text-sub)" }}>
+              vence em {diffDays}d · dia {setup.dueDay}
+            </div>
+          </div>
+        </div>
+        {setup.limit > 0 && (
+          <div className="mt-2">
+            <div className="flex justify-between text-xs mb-1" style={{ color: "var(--text-muted)" }}>
+              <span>Limite usado</span>
+              <span>{limitPct.toFixed(0)}% de ¥{setup.limit.toLocaleString()}</span>
+            </div>
+            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
+              <div className="h-full rounded-full transition-all" style={{ width: `${limitPct}%`, background: limitPct > 80 ? "#ef4444" : "var(--accent)" }} />
+            </div>
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-2 mt-3">
+          <div className="rounded-xl p-2 text-center" style={{ background: "var(--bg)" }}>
+            <div className="text-xs" style={{ color: "var(--text-muted)" }}>Gastos</div>
+            <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>¥{totalLanc.toLocaleString()}</div>
+          </div>
+          <div className="rounded-xl p-2 text-center" style={{ background: "var(--bg)" }}>
+            <div className="text-xs" style={{ color: "var(--text-muted)" }}>Parcelas</div>
+            <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>¥{totalParcelas.toLocaleString()}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sub-tabs */}
+      <div className="flex gap-1 p-1 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+        {[["fatura","Fatura"],["parcelas","Parcelas"],["insights","Insights"]].map(([id, label]) => (
+          <button key={id} onClick={() => setSubTab(id)}
+            className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all"
+            style={subTab === id ? { background: "var(--accent)", color: "var(--bg)" } : { color: "var(--text-sub)" }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* FATURA tab */}
+      {subTab === "fatura" && (
+        <div className="flex flex-col gap-2">
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-semibold" style={{ color: "var(--text-sub)" }}>Lançamentos — {faturaKey}</span>
+            <button onClick={() => setShowAddLanc(true)} className="text-xs px-3 py-1 rounded-lg font-semibold" style={{ background: "var(--accent)", color: "var(--bg)" }}>+ Lançamento</button>
+          </div>
+          {faturaLanc.length === 0 && (
+            <div className="text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>Nenhum lançamento nesta fatura</div>
+          )}
+          {faturaLanc.map(l => {
+            const catObj = CC_CATS.find(c => c.id === l.cat) || CC_CATS[8];
+            const lojaObj = CC_LOJAS.find(x => x.id === l.loja) || CC_LOJAS[9];
+            return (
+              <div key={l.id} className="rounded-xl px-3 py-2 flex items-center gap-2" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+                <span className="text-base">{catObj.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium truncate" style={{ color: "var(--text)" }}>{l.desc || catObj.label}</div>
+                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>{l.date} · {lojaObj.emoji} {lojaObj.label}</div>
+                </div>
+                <div className="text-sm font-bold" style={{ color: "var(--text)" }}>¥{l.amount.toLocaleString()}</div>
+                <button onClick={() => setDeleteConfirm({ type: "lanc", id: l.id })} className="text-xs ml-1" style={{ color: "var(--text-muted)" }}>✕</button>
+              </div>
+            );
+          })}
+          {parcelasNaFatura.length > 0 && (
+            <>
+              <div className="text-xs font-semibold mt-1" style={{ color: "var(--text-sub)" }}>Parcelas nesta fatura</div>
+              {parcelasNaFatura.map(p => {
+                const catObj = CC_CATS.find(c => c.id === p.cat) || CC_CATS[8];
+                const lojaObj = CC_LOJAS.find(x => x.id === p.loja) || CC_LOJAS[9];
+                const rem = p.numInstallments - p.paidInstallments;
+                return (
+                  <div key={p.id} className="rounded-xl px-3 py-2 flex items-center gap-2" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+                    <span className="text-base">{catObj.emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium truncate" style={{ color: "var(--text)" }}>{p.desc}</div>
+                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>{lojaObj.emoji} · {p.paidInstallments}/{p.numInstallments}x restam {rem}x</div>
+                    </div>
+                    <div className="text-sm font-bold" style={{ color: "var(--text)" }}>¥{p.monthlyAmount.toLocaleString()}</div>
+                  </div>
+                );
+              })}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* PARCELAS tab */}
+      {subTab === "parcelas" && (
+        <div className="flex flex-col gap-2">
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-semibold" style={{ color: "var(--text-sub)" }}>Compras parceladas</span>
+            <button onClick={() => setShowAddParcela(true)} className="text-xs px-3 py-1 rounded-lg font-semibold" style={{ background: "var(--accent)", color: "var(--bg)" }}>+ Parcela</button>
+          </div>
+          {parcelas.length === 0 && (
+            <div className="text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>Nenhuma compra parcelada</div>
+          )}
+          {parcelas.map(p => {
+            const catObj = CC_CATS.find(c => c.id === p.cat) || CC_CATS[8];
+            const lojaObj = CC_LOJAS.find(x => x.id === p.loja) || CC_LOJAS[9];
+            const pct = Math.round((p.paidInstallments / p.numInstallments) * 100);
+            const rem = p.numInstallments - p.paidInstallments;
+            const remTotal = rem * p.monthlyAmount;
+            return (
+              <div key={p.id} className="rounded-xl p-3 flex flex-col gap-1.5" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span>{catObj.emoji}</span>
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold truncate" style={{ color: "var(--text)" }}>{p.desc}</div>
+                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>{lojaObj.emoji} {lojaObj.label} · ¥{p.monthlyAmount.toLocaleString()}/mês</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 ml-2">
+                    {rem > 0 && (
+                      <button onClick={() => payInstallment(p.id)} className="text-xs px-2 py-0.5 rounded-lg" style={{ background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>+1</button>
+                    )}
+                    <button onClick={() => setDeleteConfirm({ type: "parcela", id: p.id })} className="text-xs" style={{ color: "var(--text-muted)" }}>✕</button>
+                  </div>
+                </div>
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
+                  <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: "var(--accent)" }} />
+                </div>
+                <div className="flex justify-between text-xs" style={{ color: "var(--text-muted)" }}>
+                  <span>{p.paidInstallments}/{p.numInstallments} pagas · {pct}%</span>
+                  <span>Restam ¥{remTotal.toLocaleString()}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* INSIGHTS tab */}
+      {subTab === "insights" && (
+        <div className="flex flex-col gap-3">
+          <div className="rounded-2xl p-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+            <div className="text-xs font-semibold mb-2" style={{ color: "var(--text-sub)" }}>Por categoria (todos os lançamentos)</div>
+            {byCat.length === 0 && <div className="text-xs" style={{ color: "var(--text-muted)" }}>Sem dados</div>}
+            {byCat.map(c => (
+              <div key={c.id} className="flex items-center gap-2 mb-1.5">
+                <span className="text-sm w-5 text-center">{c.emoji}</span>
+                <div className="flex-1">
+                  <div className="flex justify-between text-xs mb-0.5" style={{ color: "var(--text-sub)" }}>
+                    <span>{c.label}</span>
+                    <span>¥{c.total.toLocaleString()}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
+                    <div className="h-full rounded-full" style={{ width: `${(c.total / maxCat) * 100}%`, background: "var(--accent)" }} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="rounded-2xl p-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+            <div className="text-xs font-semibold mb-2" style={{ color: "var(--text-sub)" }}>Por local de compra</div>
+            {byLoja.length === 0 && <div className="text-xs" style={{ color: "var(--text-muted)" }}>Sem dados</div>}
+            {byLoja.map(l => (
+              <div key={l.id} className="flex items-center gap-2 mb-1.5">
+                <span className="text-sm w-5 text-center">{l.emoji}</span>
+                <div className="flex-1">
+                  <div className="flex justify-between text-xs mb-0.5" style={{ color: "var(--text-sub)" }}>
+                    <span>{l.label}</span>
+                    <span>¥{l.total.toLocaleString()}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
+                    <div className="h-full rounded-full" style={{ width: `${(l.total / maxLoja) * 100}%`, background: "var(--accent)" }} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Modals */}
+      {showSetup && <CartaoSetupModal setup={setup} onSave={saveSetup} onClose={() => setShowSetup(false)} />}
+      {showAddLanc && <AddLancamentoModal onSave={addLancamento} onClose={() => setShowAddLanc(false)} />}
+      {showAddParcela && <AddParcelaModal onSave={addParcela} onClose={() => setShowAddParcela(false)} />}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)" }}>
+          <div className="rounded-2xl p-5 mx-4 flex flex-col gap-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+            <div className="text-sm font-semibold text-center" style={{ color: "var(--text)" }}>Remover item?</div>
+            <div className="flex gap-2">
+              <button onClick={() => {
+                if (deleteConfirm.type === "lanc") deleteLancamento(deleteConfirm.id);
+                else deleteParcela(deleteConfirm.id);
+                setDeleteConfirm(null);
+              }} className="flex-1 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "#ef4444" }}>Remover</button>
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+// ─── END CARTÃO ─────────────────────────────────────────────────────────────
+
 function ImpostosScreen({ entries, settings, onTabSwitch }) {
   // Leitura direta do localStorage (sempre atualizado ao navegar para esta aba)
   const vehicles = (() => { try { return JSON.parse(localStorage.getItem("jst_tax_vehicles")||"[]"); } catch { return []; } })();
@@ -3107,8 +3632,9 @@ function ExampleCalc({ settings }) {
 function exportBackup(entries, settings, gastos, carro, auditHistory) {
   const gensen = (() => { try { return JSON.parse(localStorage.getItem("jst_gensen")||"null"); } catch { return null; } })();
   const taxVehicles = (() => { try { return JSON.parse(localStorage.getItem("jst_tax_vehicles")||"null"); } catch { return null; } })();
+  const cartao = (() => { try { return JSON.parse(localStorage.getItem("jst_cartao")||"null"); } catch { return null; } })();
   const data = {
-    version: 4,
+    version: 5,
     exportedAt: new Date().toISOString(),
     entries,
     settings,
@@ -3117,6 +3643,7 @@ function exportBackup(entries, settings, gastos, carro, auditHistory) {
     auditHistory: auditHistory || [],
     gensen: gensen || null,
     taxVehicles: taxVehicles || null,
+    cartao: cartao || null,
   };
   return JSON.stringify(data, null, 2);
 }
@@ -4632,6 +5159,7 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
     if (data.auditHistory) setAuditHistory(data.auditHistory);
     if (data.gensen != null) localStorage.setItem("jst_gensen", JSON.stringify(data.gensen));
     if (data.taxVehicles != null) localStorage.setItem("jst_tax_vehicles", JSON.stringify(data.taxVehicles));
+    if (data.cartao != null) localStorage.setItem("jst_cartao", JSON.stringify(data.cartao));
     showToast("Backup restaurado com sucesso!", "blue");
   };
 
@@ -4841,6 +5369,9 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
         )}
         {tab === "gensen" && (
           <GensenScreen settings={settings} />
+        )}
+        {tab === "cartao" && (
+          <CartaoScreen />
         )}
         {tab === "impostos" && (
           <ImpostosScreen entries={entries} settings={settings} onTabSwitch={setTab} />
