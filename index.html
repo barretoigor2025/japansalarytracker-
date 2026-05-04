@@ -2580,6 +2580,14 @@ function fmtYM(year, month) {
   return `${year}-${String(month + 1).padStart(2, "0")}`;
 }
 
+function dateAddMonths(dateStr, months) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const total = m - 1 + months;
+  const ny = y + Math.floor(total / 12);
+  const nm = (total % 12) + 1;
+  return `${ny}-${String(nm).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+}
+
 function lancamentoBillingYM(dateStr, closingDay) {
   if (!closingDay) return dateStr.slice(0, 7);
   const [ys, ms, ds] = dateStr.split("-");
@@ -2636,11 +2644,38 @@ function AddLancamentoModal({ onSave, onClose, defaultDate, initialData }) {
   const isEdit = !!initialData;
   const today = defaultDate || new Date().toISOString().slice(0, 10);
   const [form, setForm] = React.useState(isEdit
-    ? { ...initialData, amount: String(initialData.amount) }
-    : { date: today, desc: "", amount: "", cat: "konbini", customCat: "" });
+    ? { ...initialData, amount: String(initialData.amount), pagamento: "avista", installments: 2, customInstallments: "" }
+    : { date: today, desc: "", amount: "", cat: "konbini", customCat: "", pagamento: "avista", installments: 2, customInstallments: "" });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const inCls = "w-full rounded-lg px-2 py-1.5 text-xs";
   const inStyle = { background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" };
+  const PARCELA_OPTIONS = [2, 3, 4, 6, 10, 12];
+  const numParcelas = form.installments === "outro"
+    ? (parseInt(form.customInstallments) || 0)
+    : form.installments;
+  const totalAmt = +form.amount || 0;
+  const valorParcela = numParcelas > 1 && totalAmt > 0 ? Math.round(totalAmt / numParcelas) : 0;
+
+  const handleSave = () => {
+    if (!totalAmt || totalAmt <= 0) return;
+    const base = {
+      date: form.date, desc: form.desc, cat: form.cat,
+      customCat: form.cat === "outro" ? (form.customCat || "") : "",
+    };
+    if (!isEdit && form.pagamento === "aprazo" && numParcelas > 1) {
+      const items = Array.from({ length: numParcelas }, (_, i) => ({
+        ...base,
+        date: dateAddMonths(form.date, i),
+        amount: i < numParcelas - 1 ? valorParcela : totalAmt - valorParcela * (numParcelas - 1),
+        desc: (form.desc ? form.desc + " " : "") + `(${i + 1}/${numParcelas})`,
+      }));
+      onSave(items);
+    } else {
+      onSave({ ...base, amount: totalAmt });
+    }
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
       <div className="rounded-t-3xl p-5 flex flex-col gap-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }} onClick={e => e.stopPropagation()}>
@@ -2654,12 +2689,12 @@ function AddLancamentoModal({ onSave, onClose, defaultDate, initialData }) {
             <input type="date" value={form.date} onChange={e => set("date", e.target.value)} className={inCls} style={inStyle} />
           </div>
           <div>
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Valor (¥)</label>
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Valor total (¥)</label>
             <input type="number" min={0} value={form.amount} onChange={e => set("amount", e.target.value)} placeholder="0" className={inCls} style={inStyle} />
           </div>
           <div className="col-span-2">
             <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Descrição</label>
-            <input value={form.desc} onChange={e => set("desc", e.target.value)} placeholder="ex: café, gasolina, supermercado..." className={inCls} style={inStyle} />
+            <input value={form.desc} onChange={e => set("desc", e.target.value)} placeholder="ex: café, TV, supermercado..." className={inCls} style={inStyle} />
           </div>
           <div className="col-span-2">
             <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Categoria</label>
@@ -2674,17 +2709,60 @@ function AddLancamentoModal({ onSave, onClose, defaultDate, initialData }) {
                 placeholder="ex: Transporte, Pet, Papelaria..." className={inCls} style={inStyle} />
             </div>
           )}
+          {!isEdit && (
+            <div className="col-span-2">
+              <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Pagamento</label>
+              <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)" }}>
+                {[["avista","À vista"],["aprazo","A prazo"]].map(([val, label]) => (
+                  <button key={val} onClick={() => set("pagamento", val)}
+                    className="flex-1 py-1.5 text-xs font-medium transition-all"
+                    style={form.pagamento === val
+                      ? { background: "var(--accent)", color: "var(--bg)" }
+                      : { background: "var(--bg)", color: "var(--text-sub)" }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {!isEdit && form.pagamento === "aprazo" && (
+            <div className="col-span-2">
+              <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Número de parcelas</label>
+              <div className="flex gap-1 flex-wrap">
+                {PARCELA_OPTIONS.map(n => (
+                  <button key={n} onClick={() => set("installments", n)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                    style={form.installments === n
+                      ? { background: "var(--accent)", color: "var(--bg)" }
+                      : { background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>
+                    {n}x
+                  </button>
+                ))}
+                <button onClick={() => set("installments", "outro")}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                  style={form.installments === "outro"
+                    ? { background: "var(--accent)", color: "var(--bg)" }
+                    : { background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>
+                  Outro
+                </button>
+              </div>
+              {form.installments === "outro" && (
+                <input type="number" min={2} max={60} value={form.customInstallments}
+                  onChange={e => set("customInstallments", e.target.value)}
+                  placeholder="Nº de parcelas" className={`${inCls} mt-2`} style={inStyle} />
+              )}
+              {numParcelas > 1 && totalAmt > 0 && (
+                <div className="mt-2 rounded-lg px-3 py-2 text-xs text-center" style={{ background: "var(--bg)", color: "var(--text-sub)" }}>
+                  ¥{valorParcela.toLocaleString()} / mês · {numParcelas}x · total ¥{totalAmt.toLocaleString()}
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex gap-2 mt-1">
-          <button onClick={() => {
-            if (!form.amount || +form.amount <= 0) return;
-            onSave({ date: form.date, desc: form.desc, amount: +form.amount,
-              cat: form.cat,
-              customCat: form.cat === "outro" ? (form.customCat || "") : "",
-            });
-            onClose();
-          }} className="flex-1 py-2 rounded-xl text-sm font-semibold" style={{ background: "var(--accent)", color: "var(--bg)" }}>
-            {isEdit ? "Salvar" : "Adicionar"}
+          <button onClick={handleSave}
+            className="flex-1 py-2 rounded-xl text-sm font-semibold" style={{ background: "var(--accent)", color: "var(--bg)" }}>
+            {isEdit ? "Salvar" : form.pagamento === "aprazo" && numParcelas > 1 ? `Lançar ${numParcelas}x` : "Adicionar"}
           </button>
           <button onClick={onClose} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>Cancelar</button>
         </div>
@@ -2884,7 +2962,12 @@ function CartaoScreen() {
 
   const maxCat = byCat.length > 0 ? byCat[0].total : 1;
 
-  const addLancamento = (l) => save({ ...data, lancamentos: [{ ...l, id: Date.now().toString() }, ...lancamentos] });
+  const addLancamento = (items) => {
+    const arr = Array.isArray(items) ? items : [items];
+    const ts = Date.now();
+    const news = arr.map((l, i) => ({ ...l, id: `${ts}_${i}` }));
+    save({ ...data, lancamentos: [...news, ...lancamentos] });
+  };
   const updateLancamento = (id, l) => save({ ...data, lancamentos: lancamentos.map(x => x.id === id ? { ...l, id } : x) });
   const deleteLancamento = (id) => save({ ...data, lancamentos: lancamentos.filter(l => l.id !== id) });
   const addParcela = (p) => save({ ...data, parcelas: [p, ...parcelas] });
