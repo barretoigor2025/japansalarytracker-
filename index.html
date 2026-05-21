@@ -2439,10 +2439,192 @@ function VehicleForm({ onSave, onCancel, initial }) {
   );
 }
 
+const TAX_PAYMENTS_KEY = "jst_tax_payments";
+
+function TaxPaymentModal({ vehicle, calcAmount, year, existing, onSave, onClose }) {
+  const [amount, setAmount] = React.useState(String(existing?.customAmount || calcAmount || ""));
+  const [mode, setMode] = React.useState(existing?.parcelado ? "parcelado" : "avista");
+  const [numPStr, setNumPStr] = React.useState(String(existing?.parcelas?.length > 1 ? existing.parcelas.length : 3));
+
+  const buildParcelas = (count, total, prev) => {
+    const base = count > 0 && total > 0 ? Math.round(total / count) : 0;
+    return Array.from({ length: count }, (_, i) => {
+      const ex = (prev || [])[i];
+      const val = i < count - 1 ? base : Math.max(0, total - base * (count - 1));
+      return { num: i + 1, value: ex?.value ?? val, dueDate: ex?.dueDate || "", paid: ex?.paid || false, paidDate: ex?.paidDate || null };
+    });
+  };
+
+  const initParcelas = () => {
+    if (existing?.parcelas?.length) return existing.parcelas;
+    const total = +amount || calcAmount || 0;
+    if (existing?.parcelado === false) return [{ num:1, value:total, dueDate:"", paid:existing.parcelas?.[0]?.paid||false, paidDate:existing.parcelas?.[0]?.paidDate||null }];
+    return buildParcelas(parseInt(numPStr)||3, total, []);
+  };
+
+  const [parcelas, setParcelas] = React.useState(initParcelas);
+
+  const totalAmt = +amount || 0;
+  const numP = parseInt(numPStr) || 3;
+
+  const updateNumP = (val) => {
+    setNumPStr(val);
+    const count = parseInt(val) || 3;
+    if (count >= 2 && count <= 24) setParcelas(p => buildParcelas(count, totalAmt, p));
+  };
+
+  const updateParcela = (idx, field, val) => setParcelas(prev => prev.map((p, i) => i === idx ? { ...p, [field]: val } : p));
+
+  const switchMode = (m) => {
+    setMode(m);
+    if (m === "avista") {
+      setParcelas([{ num:1, value:totalAmt, dueDate: parcelas[0]?.dueDate||"", paid: parcelas[0]?.paid||false, paidDate: parcelas[0]?.paidDate||null }]);
+    } else {
+      setParcelas(p => buildParcelas(numP, totalAmt, p));
+    }
+  };
+
+  const handleSave = () => {
+    if (!totalAmt || totalAmt <= 0) return;
+    onSave({ customAmount: totalAmt, parcelado: mode === "parcelado", parcelas });
+  };
+
+  const paidCount = parcelas.filter(p => p.paid).length;
+  const inStyle = { background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" };
+  const inCls = "w-full rounded-lg px-2 py-1.5 text-xs";
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ background: "rgba(0,0,0,0.7)" }} onClick={onClose}>
+      <div className="rounded-t-3xl flex flex-col" style={{ background: "var(--bg-card)", border: "1px solid var(--border)", maxHeight: "92vh" }} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
+          <div>
+            <div className="text-sm font-bold" style={{ color: "var(--text)" }}>自動車税 · {year}</div>
+            <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{vehicle.name || "Veículo"} · calc. ¥{(calcAmount||0).toLocaleString()}</div>
+          </div>
+          <button onClick={onClose} className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
+        </div>
+
+        <div className="overflow-y-auto px-5 pb-3 flex flex-col gap-3">
+          {/* Valor real */}
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Valor real do boleto (¥)</label>
+            <input type="number" min={0} value={amount} onChange={e => setAmount(e.target.value)} placeholder={String(calcAmount||0)} className={inCls} style={inStyle} />
+          </div>
+
+          {/* Modo */}
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Forma de pagamento</label>
+            <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)" }}>
+              {[["avista","À vista"],["parcelado","Parcelado"]].map(([val,label]) => (
+                <button key={val} onClick={() => switchMode(val)}
+                  className="flex-1 py-1.5 text-xs font-medium transition-all"
+                  style={mode===val ? {background:"var(--accent)",color:"var(--bg)"} : {background:"var(--bg)",color:"var(--text-sub)"}}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Parcelado: nº parcelas */}
+          {mode === "parcelado" && (
+            <div>
+              <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Número de parcelas</label>
+              <div className="flex gap-1 items-center flex-wrap">
+                {[2,3,4,6].map(n => (
+                  <button key={n} onClick={() => updateNumP(String(n))}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                    style={numP===n ? {background:"var(--accent)",color:"var(--bg)"} : {background:"var(--bg)",color:"var(--text-sub)",border:"1px solid var(--border)"}}>
+                    {n}x
+                  </button>
+                ))}
+                <input type="number" min={2} max={24} value={numPStr} onChange={e => updateNumP(e.target.value)}
+                  className="w-16 rounded-lg px-2 py-1.5 text-xs" style={inStyle} />
+              </div>
+              {totalAmt > 0 && numP >= 2 && (
+                <div className="text-xs mt-1 text-center" style={{ color: "var(--text-muted)" }}>
+                  ¥{Math.round(totalAmt/numP).toLocaleString()} / parcela
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Lista de boletos */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs" style={{ color: "var(--text-sub)" }}>
+                {mode === "avista" ? "Vencimento e pagamento" : `Boletos (${paidCount}/${parcelas.length} pagos)`}
+              </label>
+            </div>
+            <div className="flex flex-col gap-2">
+              {parcelas.map((p, idx) => (
+                <div key={idx} className="rounded-xl p-3 flex flex-col gap-2" style={{ background: "var(--bg)", border: `1px solid ${p.paid ? "#22c55e44" : "var(--border)"}` }}>
+                  <div className="flex items-center justify-between">
+                    {mode === "parcelado" && (
+                      <span className="text-xs font-semibold" style={{ color: p.paid ? "#22c55e" : "var(--text)" }}>{p.num}ª parcela</span>
+                    )}
+                    {mode === "parcelado" && (
+                      <input type="number" min={0} value={p.value || ""} onChange={e => updateParcela(idx, "value", +e.target.value)}
+                        className="w-28 rounded-lg px-2 py-1 text-xs text-right font-semibold" style={inStyle} />
+                    )}
+                  </div>
+                  <div className="flex gap-2 items-center">
+                    <div className="flex-1">
+                      <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>Vencimento</div>
+                      <input type="date" value={p.dueDate || ""} onChange={e => updateParcela(idx, "dueDate", e.target.value)}
+                        className="w-full rounded-lg px-2 py-1.5 text-xs" style={inStyle} />
+                    </div>
+                    <div className="shrink-0 pt-5">
+                      <label className="flex items-center gap-1.5 text-xs cursor-pointer"
+                        style={{ color: p.paid ? "#22c55e" : "var(--text-sub)" }}>
+                        <input type="checkbox" checked={p.paid || false} onChange={e => {
+                          updateParcela(idx, "paid", e.target.checked);
+                          updateParcela(idx, "paidDate", e.target.checked ? new Date().toISOString().slice(0,10) : null);
+                        }} />
+                        {p.paid ? "✓ Pago" : "Pago?"}
+                      </label>
+                    </div>
+                  </div>
+                  {p.paid && (
+                    <div>
+                      <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>Data do pagamento</div>
+                      <input type="date" value={p.paidDate || ""} onChange={e => updateParcela(idx, "paidDate", e.target.value)}
+                        className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ ...inStyle, borderColor: "#22c55e66" }} />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="px-5 py-4 flex gap-2 shrink-0 border-t" style={{ borderColor: "var(--border)" }}>
+          <button onClick={handleSave} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+            style={{ background: "var(--accent)", color: "var(--bg)" }}>Salvar</button>
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm"
+            style={{ background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>Cancelar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ImpostosScreen({ entries, settings, onTabSwitch }) {
-  // Leitura direta do localStorage (sempre atualizado ao navegar para esta aba)
   const vehicles = (() => { try { return JSON.parse(localStorage.getItem("jst_tax_vehicles")||"[]"); } catch { return []; } })();
   const rawG = (() => { try { const r = JSON.parse(localStorage.getItem("jst_gensen")||"null"); if (!r) return []; if (Array.isArray(r)) return r; return [{ ...r, id: "g_legacy" }]; } catch { return []; } })();
+
+  const [taxPayments, setTaxPayments] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(TAX_PAYMENTS_KEY)||"[]"); } catch { return []; }
+  });
+  const [editPaymentV, setEditPaymentV] = React.useState(null);
+  const curYear = new Date().getFullYear();
+
+  const getPayment = (vehicleId) => taxPayments.find(p => p.vehicleId === vehicleId && p.year === curYear) || null;
+  const saveVehiclePayment = (vehicleId, data) => {
+    const updated = [...taxPayments.filter(p => !(p.vehicleId === vehicleId && p.year === curYear)), { vehicleId, year: curYear, ...data }];
+    setTaxPayments(updated);
+    localStorage.setItem(TAX_PAYMENTS_KEY, JSON.stringify(updated));
+    setEditPaymentV(null);
+  };
 
   // Derivações
   const latestGensen = rawG.length > 0 ? [...rawG].sort((a,b) => b.nenBun - a.nenBun)[0] : null;
@@ -2580,20 +2762,57 @@ function ImpostosScreen({ entries, settings, onTabSwitch }) {
       {/* 自動車税 resumo */}
       {vData.length > 0 && (
         <Card>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-widest">自動車税 · Resumo</h3>
+              <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-widest">自動車税 · {curYear}</h3>
               <div className="text-xs text-zinc-500 mt-0.5">Vencimento em maio</div>
             </div>
             <div className="text-xl font-bold font-mono text-blue-400">{YEN(totalJidousha)}</div>
           </div>
-          <div className="space-y-1 mb-2">
-            {vData.map(v => (
-              <div key={v.id} className="flex justify-between text-xs text-zinc-500">
-                <span>{v.name || "Veículo"} <span className="text-zinc-600">({v.registrationYear})</span></span>
-                <span className="font-mono text-blue-300">{YEN(v.calc.annualTax)}/ano</span>
-              </div>
-            ))}
+          <div className="space-y-2 mb-3">
+            {vData.map(v => {
+              const pay = getPayment(v.id);
+              const effectiveAmt = pay?.customAmount || v.calc.annualTax;
+              const parcelas = pay?.parcelas || [];
+              const paidCount = parcelas.filter(p => p.paid).length;
+              const allPaid = parcelas.length > 0 && paidCount === parcelas.length;
+              const nextDue = parcelas.find(p => !p.paid);
+              return (
+                <div key={v.id} className="rounded-xl p-3" style={{ background: "var(--bg)", border: `1px solid ${allPaid ? "#22c55e44" : "var(--border)"}` }}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-zinc-200">{v.name || "Veículo"} <span className="text-zinc-500 font-normal">({v.registrationYear})</span></div>
+                      <div className="text-xs mt-0.5 text-blue-300 font-mono">{YEN(effectiveAmt)}/ano
+                        {pay?.customAmount && pay.customAmount !== v.calc.annualTax && (
+                          <span className="text-zinc-500 ml-1">(calc. {YEN(v.calc.annualTax)})</span>
+                        )}
+                      </div>
+                      {parcelas.length > 0 && (
+                        <div className="text-xs mt-1" style={{ color: allPaid ? "#22c55e" : "#f59e0b" }}>
+                          {allPaid ? "✓ Tudo pago" : pay?.parcelado ? `${paidCount}/${parcelas.length} parcelas pagas` : parcelas[0]?.paid ? "✓ Pago" : "Aguardando pagamento"}
+                          {!allPaid && nextDue?.dueDate && <span className="text-zinc-500 ml-1">· vence {nextDue.dueDate}</span>}
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={() => setEditPaymentV(v)}
+                      className="text-xs px-2.5 py-1.5 rounded-lg shrink-0"
+                      style={{ background: "var(--bg-card)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
+                      {pay ? "editar" : "registrar"}
+                    </button>
+                  </div>
+                  {pay?.parcelado && parcelas.length > 0 && (
+                    <div className="mt-2 flex gap-1 flex-wrap">
+                      {parcelas.map(p => (
+                        <span key={p.num} className="text-xs px-2 py-0.5 rounded-full"
+                          style={{ background: p.paid ? "#22c55e22" : "var(--bg-card)", color: p.paid ? "#22c55e" : "var(--text-muted)", border: `1px solid ${p.paid ? "#22c55e44" : "var(--border)"}` }}>
+                          {p.num}ª {p.paid ? "✓" : p.dueDate ? p.dueDate.slice(5) : "—"}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
           <div className="text-xs text-zinc-600">
             Gerencie veículos na aba <button onClick={()=>onTabSwitch?.("carro")} className="text-amber-500 underline">Carro</button>
@@ -2631,6 +2850,18 @@ function ImpostosScreen({ entries, settings, onTabSwitch }) {
             </div>
           </div>
         </Card>
+      )}
+
+      {/* Modal pagamento 自動車税 */}
+      {editPaymentV && (
+        <TaxPaymentModal
+          vehicle={editPaymentV}
+          calcAmount={editPaymentV.calc?.annualTax || calcJidoushaZei(editPaymentV).annualTax}
+          year={curYear}
+          existing={getPayment(editPaymentV.id)}
+          onSave={(data) => saveVehiclePayment(editPaymentV.id, data)}
+          onClose={() => setEditPaymentV(null)}
+        />
       )}
     </div>
   );
@@ -3107,8 +3338,10 @@ function ExampleCalc({ settings }) {
 function exportBackup(entries, settings, gastos, carro, auditHistory) {
   const gensen = (() => { try { return JSON.parse(localStorage.getItem("jst_gensen")||"null"); } catch { return null; } })();
   const taxVehicles = (() => { try { return JSON.parse(localStorage.getItem("jst_tax_vehicles")||"null"); } catch { return null; } })();
+  const taxPayments = (() => { try { return JSON.parse(localStorage.getItem(TAX_PAYMENTS_KEY)||"null"); } catch { return null; } })();
+  const cartao = (() => { try { return JSON.parse(localStorage.getItem("jst_cartao")||"null"); } catch { return null; } })();
   const data = {
-    version: 4,
+    version: 5,
     exportedAt: new Date().toISOString(),
     entries,
     settings,
@@ -3117,6 +3350,8 @@ function exportBackup(entries, settings, gastos, carro, auditHistory) {
     auditHistory: auditHistory || [],
     gensen: gensen || null,
     taxVehicles: taxVehicles || null,
+    taxPayments: taxPayments || null,
+    cartao: cartao || null,
   };
   return JSON.stringify(data, null, 2);
 }
@@ -4632,6 +4867,8 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
     if (data.auditHistory) setAuditHistory(data.auditHistory);
     if (data.gensen != null) localStorage.setItem("jst_gensen", JSON.stringify(data.gensen));
     if (data.taxVehicles != null) localStorage.setItem("jst_tax_vehicles", JSON.stringify(data.taxVehicles));
+    if (data.taxPayments != null) localStorage.setItem(TAX_PAYMENTS_KEY, JSON.stringify(data.taxPayments));
+    if (data.cartao != null) localStorage.setItem("jst_cartao", JSON.stringify(data.cartao));
     showToast("Backup restaurado com sucesso!", "blue");
   };
 
