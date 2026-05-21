@@ -3781,12 +3781,18 @@ function ImpostosScreen({ entries, settings, onTabSwitch }) {
                     </button>
                   </div>
                   {pay?.parcelado && parc.length > 0 && (
-                    <div className="mt-2 flex gap-1 flex-wrap">
+                    <div className="mt-2 flex flex-col gap-1">
                       {parc.map(p => (
-                        <span key={p.num} className="text-xs px-2 py-0.5 rounded-full"
-                          style={{ background: p.paid ? "#22c55e22" : "var(--bg-card)", color: p.paid ? "#22c55e" : "var(--text-muted)", border: `1px solid ${p.paid ? "#22c55e44" : "var(--border)"}` }}>
-                          {p.num}ª {p.paid ? "✓" : p.dueDate ? p.dueDate.slice(5) : "—"}
-                        </span>
+                        <div key={p.num} className="flex items-center gap-1.5 text-xs"
+                          style={{ color: p.paid ? "#22c55e" : "var(--text-muted)" }}>
+                          <span className="w-5 text-center font-semibold">{p.num}ª</span>
+                          <span className="w-1 text-zinc-700">·</span>
+                          <span className="font-mono w-20 text-right">{p.value ? `¥${p.value.toLocaleString()}` : "—"}</span>
+                          <span className="w-1 text-zinc-700">·</span>
+                          <span className="w-16">{p.dueDate ? p.dueDate.slice(5).replace("-","/") : "—"}</span>
+                          <span className="w-1 text-zinc-700">·</span>
+                          <span>{p.paid ? "✓ pago" : "pendente"}</span>
+                        </div>
                       ))}
                     </div>
                   )}
