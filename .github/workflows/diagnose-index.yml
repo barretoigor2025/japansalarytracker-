@@ -1,0 +1,78 @@
+name: Diagnose index.html
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    if: ${{ !contains(github.event.head_commit.message, 'Write index diagnostics report') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Babel parser
+        run: npm install @babel/core @babel/preset-react --no-save
+      - name: Compile index script and write report
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const babel = require('@babel/core');
+          const html = fs.readFileSync('index.html', 'utf8');
+          const m = html.match(/<script type="text\/babel">([\s\S]*?)<\/script>/);
+          let report = [];
+          report.push('# index.html diagnostics');
+          report.push('');
+          report.push('Commit: ' + process.env.GITHUB_SHA);
+          report.push('');
+          if (!m) {
+            report.push('ERROR: script type="text/babel" not found.');
+          } else {
+            const code = m[1];
+            report.push('Extracted Babel script length: ' + code.length);
+            report.push('');
+            try {
+              babel.transformSync(code, {
+                presets: [['@babel/preset-react', {runtime: 'classic'}]],
+                filename: 'index-inline.jsx',
+                parserOpts: { sourceType: 'script', plugins: ['jsx'] },
+                babelrc: false,
+                configFile: false,
+              });
+              report.push('BABEL_RESULT: OK');
+            } catch (e) {
+              report.push('BABEL_RESULT: ERROR');
+              report.push('Message: ' + e.message);
+              if (e.loc) report.push('Location: line ' + e.loc.line + ', column ' + e.loc.column);
+              if (e.codeFrame) {
+                report.push('');
+                report.push('```');
+                report.push(e.codeFrame);
+                report.push('```');
+              }
+            }
+            const duplicateStyle = (html.match(/style=\{/g) || []).length;
+            report.push('');
+            report.push('style={ count: ' + duplicateStyle);
+            report.push('Contains duplicate bottom-nav style block: ' + html.includes('style={{paddingBottom: "env(safe-area-inset-bottom, 0px)"}}>'));
+          }
+          fs.mkdirSync('diagnostics', {recursive: true});
+          fs.writeFileSync('diagnostics/index-diagnostics.md', report.join('\n'), 'utf8');
+          NODE
+      - name: Commit report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add diagnostics/index-diagnostics.md
+          if git diff --cached --quiet; then
+            echo "No diagnostics change"
+            exit 0
+          fi
+          git commit -m "Write index diagnostics report"
+          git push
