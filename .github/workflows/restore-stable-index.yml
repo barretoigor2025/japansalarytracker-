@@ -1,0 +1,30 @@
+name: Restore stable index
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    if: ${{ !contains(github.event.head_commit.message, 'Restore index.html to stable checkpoint') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore index.html from stable checkpoint
+        run: |
+          git checkout 47c6bb38fb2b8950c6f8b5b697dbb46a65f44176 -- index.html
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "index.html already matches stable checkpoint"
+            exit 0
+          fi
+          git commit -m "Restore index.html to stable checkpoint"
+          git push
