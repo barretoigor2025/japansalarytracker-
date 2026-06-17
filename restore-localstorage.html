@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Restaurar dados — SalaryTracker</title>
+  <style>
+    body{margin:0;background:#09090b;color:#f4f4f5;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:24px;line-height:1.45}
+    .card{max-width:720px;margin:0 auto;background:#18181b;border:1px solid #27272a;border-radius:18px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+    h1{font-size:22px;margin:0 0 8px}.muted{color:#a1a1aa;font-size:14px}.ok{color:#22c55e}.warn{color:#f59e0b}.bad{color:#ef4444}
+    input,textarea{width:100%;box-sizing:border-box;border-radius:12px;border:1px solid #3f3f46;background:#09090b;color:#f4f4f5;padding:12px;margin-top:12px}
+    textarea{min-height:220px;font-family:monospace;font-size:12px}
+    button{width:100%;border:0;border-radius:14px;padding:14px 16px;margin-top:12px;font-weight:700;font-size:16px;background:#22c55e;color:#052e16}
+    button.secondary{background:#27272a;color:#f4f4f5;border:1px solid #3f3f46}
+    pre{white-space:pre-wrap;word-break:break-word;background:#09090b;border:1px solid #27272a;border-radius:12px;padding:12px;font-size:12px;color:#d4d4d8;max-height:260px;overflow:auto}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>♻️ Restaurar backup de resgate</h1>
+    <p class="muted">Use aqui o JSON baixado pela página rescue.html. Esta restauração recoloca as chaves no localStorage deste navegador.</p>
+    <input type="file" accept="application/json,.json" onchange="loadFile(event)" />
+    <textarea id="json" placeholder="Ou cole aqui o JSON do backup..."></textarea>
+    <button onclick="restore()">Restaurar dados no navegador</button>
+    <button class="secondary" onclick="location.href='./index.html?restored=' + Date.now()">Abrir SalaryTracker</button>
+    <pre id="log">Aguardando backup...</pre>
+  </div>
+<script>
+function log(t){document.getElementById('log').textContent=t;}
+function loadFile(ev){
+  const f=ev.target.files && ev.target.files[0];
+  if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{document.getElementById('json').value=r.result; inspect();};
+  r.readAsText(f);
+}
+function inspect(){
+  try{
+    const data=JSON.parse(document.getElementById('json').value);
+    const keys=data.keys && typeof data.keys==='object' ? Object.keys(data.keys) : [];
+    log('Backup carregado. Chaves encontradas: '+keys.length+'\n\n'+keys.slice(0,80).join('\n'));
+  }catch(e){log('JSON ainda inválido ou incompleto.');}
+}
+document.getElementById('json').addEventListener('input',inspect);
+function restore(){
+  let data;
+  try{data=JSON.parse(document.getElementById('json').value);}catch(e){alert('JSON inválido.');return;}
+  if(!data.keys || typeof data.keys!=='object'){alert('Esse arquivo não parece ser o backup de resgate: falta o campo keys.');return;}
+  const entries=Object.entries(data.keys);
+  if(entries.length===0){alert('Nenhuma chave encontrada no backup.');return;}
+  if(!confirm('Restaurar '+entries.length+' chaves no localStorage deste navegador?'))return;
+  for(const [k,v] of entries){localStorage.setItem(k,String(v));}
+  log('Restauração concluída. Chaves restauradas: '+entries.length+'\nAgora clique em Abrir SalaryTracker.');
+  alert('Restauração concluída.');
+}
+</script>
+</body>
+</html>
