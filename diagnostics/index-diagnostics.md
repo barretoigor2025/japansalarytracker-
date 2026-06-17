@@ -1,6 +1,6 @@
 # index.html diagnostics
 
-Commit: d4ff938a7c6983d48488116fe0eec9d753edaae1
+Commit: 304e0540d34bd85848d86d6542d2361483954bec
 
 Extracted Babel script length: 329609
 
