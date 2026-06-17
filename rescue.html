@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resgate — Japan Salary Tracker</title>
+  <style>
+    body{margin:0;background:#09090b;color:#f4f4f5;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:24px;line-height:1.45}
+    .card{max-width:720px;margin:0 auto;background:#18181b;border:1px solid #27272a;border-radius:18px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+    h1{font-size:22px;margin:0 0 8px}.muted{color:#a1a1aa;font-size:14px}.ok{color:#22c55e}.warn{color:#f59e0b}.bad{color:#ef4444}
+    button{width:100%;border:0;border-radius:14px;padding:14px 16px;margin-top:12px;font-weight:700;font-size:16px;background:#f59e0b;color:#09090b}
+    button.secondary{background:#27272a;color:#f4f4f5;border:1px solid #3f3f46}button.danger{background:#7f1d1d;color:#fff}
+    pre{white-space:pre-wrap;word-break:break-word;background:#09090b;border:1px solid #27272a;border-radius:12px;padding:12px;font-size:12px;color:#d4d4d8;max-height:280px;overflow:auto}
+    .row{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid #27272a;padding:8px 0;font-size:14px}.row:last-child{border-bottom:0}.key{color:#a1a1aa}.val{font-family:monospace;color:#f4f4f5;text-align:right}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🛟 Resgate do SalaryTracker</h1>
+    <p class="muted">Esta página não apaga nada automaticamente. Ela serve para salvar seus dados do navegador antes de qualquer limpeza.</p>
+    <div id="summary"></div>
+    <button onclick="downloadBackup()">💾 Baixar backup completo</button>
+    <button class="secondary" onclick="copyBackup()">📋 Copiar backup para área de transferência</button>
+    <button class="secondary" onclick="location.href='./index.html?fresh=' + Date.now()">🔄 Abrir app sem cache</button>
+    <button class="danger" onclick="clearOnlyAfterConfirm()">⚠️ Limpar dados JST deste navegador</button>
+    <p class="muted warn">Use o botão vermelho só depois de baixar o backup.</p>
+    <pre id="preview"></pre>
+  </div>
+<script>
+function collectData(){
+  const data={ exportedAt:new Date().toISOString(), origin:location.origin, href:location.href, keys:{}, meta:{totalLocalStorageKeys:localStorage.length,jstKeys:0} };
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    const v=localStorage.getItem(k);
+    if(k && (k.startsWith('jst') || k.includes('salary') || k.includes('kyuyo'))){ data.keys[k]=v; data.meta.jstKeys++; }
+  }
+  return data;
+}
+function render(){
+  const data=collectData();
+  const bytes=new Blob([JSON.stringify(data)]).size;
+  document.getElementById('summary').innerHTML=`
+    <div class="row"><span class="key">Chaves do SalaryTracker encontradas</span><span class="val ok">${data.meta.jstKeys}</span></div>
+    <div class="row"><span class="key">Tamanho estimado do backup</span><span class="val">${bytes.toLocaleString()} bytes</span></div>
+    <div class="row"><span class="key">Origem</span><span class="val">${location.origin}</span></div>`;
+  document.getElementById('preview').textContent=JSON.stringify(data,null,2).slice(0,6000);
+}
+function downloadBackup(){
+  const data=collectData();
+  const now=new Date();
+  const name=`salarytracker-rescue-${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}-${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}.json`;
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+async function copyBackup(){
+  const text=JSON.stringify(collectData(),null,2);
+  try{await navigator.clipboard.writeText(text);alert('Backup copiado.');}catch(e){alert('Não consegui copiar automaticamente. Use baixar backup.');}
+}
+function clearOnlyAfterConfirm(){
+  if(!confirm('Você já baixou o backup? Isto vai remover só chaves jst/salary/kyuyo deste navegador.')) return;
+  if(!confirm('Confirma mesmo?')) return;
+  const keys=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k && (k.startsWith('jst') || k.includes('salary') || k.includes('kyuyo'))) keys.push(k);}
+  keys.forEach(k=>localStorage.removeItem(k));alert('Dados JST locais limpos. Agora tente abrir o app.');render();
+}
+render();
+</script>
+</body>
+</html>
