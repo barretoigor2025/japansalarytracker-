@@ -534,7 +534,6 @@ const TABS = [
   { id: "gastos",    label: "Gastos",    icon: "💸" },
   { id: "carro",     label: "Carro",     icon: "🚗" },
   { id: "gensen",    label: "Gensen",    icon: "📄" },
-  { id: "cartao",    label: "Cartão",    icon: "💳" },
   { id: "impostos",  label: "Impostos",  icon: "🏛️" },
   { id: "settings",  label: "Config",    icon: "⚙️" },
 ];
@@ -2371,8 +2370,6 @@ function calcJidoushaZei(v) {
   return { annualTax, baseTax, juryoZei2yr, jibaiseki2yr: 20010, isJuka, age };
 }
 
-const TAX_PAYMENTS_KEY = "jst_tax_payments";
-
 // ─── ImpostosScreen ──────────────────────────────────────────────────
 function VehicleForm({ onSave, onCancel, initial }) {
   const blank = { name:"", type:"normal", displacement:1500, registrationYear: new Date().getFullYear(), weight:"", fuel:"gasoline", shakenExpiry:"" };
@@ -2427,7 +2424,7 @@ function VehicleForm({ onSave, onCancel, initial }) {
         )}
         <div>
           <label className="text-xs text-zinc-400 mb-1 block">Ano de registro (初度登録)</label>
-          <input type="number" className={inCls} value={v.registrationYear || ""} onChange={e=>f("registrationYear",Number(e.target.value))} placeholder="2018" />
+          <input type="number" className={inCls} value={v.registrationYear} onChange={e=>f("registrationYear",Number(e.target.value))} placeholder="2018" />
         </div>
         <div>
           <label className="text-xs text-zinc-400 mb-1 block">車検 validade (ano/mês)</label>
@@ -2442,1169 +2439,10 @@ function VehicleForm({ onSave, onCancel, initial }) {
   );
 }
 
-// ─── CARTÃO ────────────────────────────────────────────────────────────────
-const CARTAO_KEY = "jst_cartao";
-
-const CC_CATS = [
-  { id:"posto",       label:"Posto de Gasolina",  emoji:"⛽" },
-  { id:"mercado_jp",  label:"Mercado Japonês",    emoji:"🛒" },
-  { id:"mercado_br",  label:"Mercado Brasileiro", emoji:"🇧🇷" },
-  { id:"farmacia",    label:"Farmácia",           emoji:"💊" },
-  { id:"konbini",     label:"Konbini",            emoji:"🏪" },
-  { id:"online",      label:"Compra Online",      emoji:"📦" },
-  { id:"restaurante", label:"Restaurante",        emoji:"🍽️" },
-  { id:"homecenter",  label:"Home Center",        emoji:"🏗️" },
-  { id:"oficina",     label:"Oficina",            emoji:"🔧" },
-  { id:"outro",       label:"Outro",              emoji:"💰", custom: true },
-];
-
-const CC_LOJAS = [
-  { id:"mercado",    label:"Mercado",     emoji:"🛒" },
-  { id:"amazon",     label:"Amazon",      emoji:"📦" },
-  { id:"posto",      label:"Posto",       emoji:"⛽" },
-  { id:"konbini",    label:"Konbini",     emoji:"🏪" },
-  { id:"loja",       label:"Loja física", emoji:"🏬" },
-  { id:"restaurante",label:"Restaurante", emoji:"🍽️" },
-  { id:"farmacia",   label:"Farmácia",    emoji:"💊" },
-  { id:"online",     label:"Online",      emoji:"🌐" },
-  { id:"oficina",    label:"Oficina",     emoji:"🔧" },
-  { id:"shopping",   label:"Shopping",    emoji:"🛍️" },
-  { id:"outro",      label:"Outro…",      emoji:"❓", custom: true },
-];
-
-function ccLabel(items, id, custom) {
-  if (id === "outro" && custom) return custom;
-  return (items.find(x => x.id === id) || items[items.length - 1]).label;
-}
-function ccEmoji(items, id) {
-  return (items.find(x => x.id === id) || items[items.length - 1]).emoji;
-}
-
-const CARTAO_SEED_V = 7;
-
-function defaultCartao() {
-  return {
-    setup: { name: "au PAY Gold", closingDay: 15, dueDay: 11, limit: 0 },
-    seedV: CARTAO_SEED_V,
-    lancamentos: [
-      { id:"m01", date:"2026-03-16", desc:"FamilyMart Toyota Kaichicho", amount:360,   cat:"konbini",    customCat:"" },
-      { id:"m02", date:"2026-03-17", desc:"FamilyMart Toyota Kaichicho", amount:790,   cat:"konbini",    customCat:"" },
-      { id:"m03", date:"2026-03-18", desc:"Amazon.co.jp",               amount:3940,  cat:"online",     customCat:"" },
-      { id:"m04", date:"2026-03-18", desc:"FamilyMart Toyota Kaichicho", amount:786,   cat:"konbini",    customCat:"" },
-      { id:"m05", date:"2026-03-19", desc:"FamilyMart Toyota Kaichicho", amount:874,   cat:"konbini",    customCat:"" },
-      { id:"m06", date:"2026-03-21", desc:"Felna (スーパー)",            amount:16172, cat:"mercado_jp", customCat:"" },
-      { id:"m07", date:"2026-03-21", desc:"DCM (home center)",           amount:2713,  cat:"homecenter", customCat:"" },
-      { id:"m08", date:"2026-03-21", desc:"Genky",                       amount:9070,  cat:"farmacia",   customCat:"" },
-      { id:"m09", date:"2026-03-22", desc:"DCM (home center)",           amount:1958,  cat:"homecenter", customCat:"" },
-      { id:"m10", date:"2026-03-24", desc:"Apollo Station",              amount:6852,  cat:"posto",      customCat:"" },
-      { id:"m11", date:"2026-03-27", desc:"FamilyMart Miyoshi",          amount:408,   cat:"konbini",    customCat:"" },
-      { id:"m12", date:"2026-03-28", desc:"Felna (スーパー)",            amount:14959, cat:"mercado_jp", customCat:"" },
-      { id:"m13", date:"2026-03-29", desc:"Burger King",                 amount:6420,  cat:"restaurante",customCat:"" },
-      { id:"m14", date:"2026-03-29", desc:"Genky",                       amount:9000,  cat:"farmacia",   customCat:"" },
-      { id:"m15", date:"2026-03-29", desc:"Takara Kura Toyota",          amount:480,   cat:"outro",      customCat:"Armazenagem" },
-      { id:"m16", date:"2026-03-30", desc:"FamilyMart Toyota Kaichicho", amount:601,   cat:"konbini",    customCat:"" },
-      { id:"m17", date:"2026-03-31", desc:"ENEOS SS",                    amount:5000,  cat:"posto",      customCat:"" },
-      { id:"m18", date:"2026-03-31", desc:"Taxa envio fatura",           amount:143,   cat:"outro",      customCat:"Tarifa" },
-      { id:"m19", date:"2026-04-02", desc:"FamilyMart Toyota Kaichicho", amount:888,   cat:"konbini",    customCat:"" },
-      { id:"m20", date:"2026-04-02", desc:"Lawson",                      amount:329,   cat:"konbini",    customCat:"" },
-      { id:"m21", date:"2026-04-03", desc:"DCM (home center)",           amount:3992,  cat:"homecenter", customCat:"" },
-      { id:"m22", date:"2026-04-04", desc:"Daily Yamazaki",              amount:1095,  cat:"konbini",    customCat:"" },
-      { id:"m23", date:"2026-04-04", desc:"Genky",                       amount:23496, cat:"farmacia",   customCat:"" },
-      { id:"m24", date:"2026-04-04", desc:"JA-SS",                       amount:2569,  cat:"posto",      customCat:"" },
-      { id:"m25", date:"2026-04-05", desc:"Daily Yamazaki",              amount:557,   cat:"konbini",    customCat:"" },
-      { id:"m26", date:"2026-04-05", desc:"KOKO Toyota",                 amount:2940,  cat:"restaurante",customCat:"" },
-      { id:"m27", date:"2026-04-09", desc:"Châteraisé",                  amount:3240,  cat:"restaurante",customCat:"" },
-      { id:"m28", date:"2026-04-10", desc:"Genky",                       amount:2138,  cat:"farmacia",   customCat:"" },
-      { id:"m29", date:"2026-04-10", desc:"JA-SS",                       amount:6644,  cat:"posto",      customCat:"" },
-      { id:"m30", date:"2026-04-11", desc:"Daily Yamazaki",              amount:620,   cat:"konbini",    customCat:"" },
-      { id:"m31", date:"2026-04-11", desc:"Genky",                       amount:22641, cat:"farmacia",   customCat:"" },
-      { id:"m32", date:"2026-04-12", desc:"Felna (スーパー)",            amount:1786,  cat:"mercado_jp", customCat:"" },
-      { id:"m33", date:"2026-04-13", desc:"JA-SS",                       amount:1000,  cat:"posto",      customCat:"" },
-      { id:"m34", date:"2026-04-14", desc:"FamilyMart Toyota Kaichicho", amount:500,   cat:"konbini",    customCat:"" },
-    ],
-    parcelas: [],
-    conferencias: [
-      { ym:"2026-04", boletado:154961, pago:false, dataPagamento:null },
-    ],
-  };
-}
-
-function loadCartaoData() {
-  try {
-    const raw = localStorage.getItem(CARTAO_KEY);
-    if (!raw) return defaultCartao();
-    const d = JSON.parse(raw);
-    if (!d.conferencias) d.conferencias = [];
-    if (!d.seedV || d.seedV < CARTAO_SEED_V) {
-      const def = defaultCartao();
-      // Preserve user-added entries (IDs not in seed) across seed updates
-      const seedIds = new Set(def.lancamentos.map(l => l.id));
-      const userAdded = (d.lancamentos || []).filter(l => !seedIds.has(l.id));
-      return { ...def, parcelas: d.parcelas || [], lancamentos: [...def.lancamentos, ...userAdded] };
-    }
-    return d;
-  } catch { return defaultCartao(); }
-}
-
-function saveCartaoData(data) {
-  localStorage.setItem(CARTAO_KEY, JSON.stringify(data));
-}
-
-function nextDueInfo(closingDay, dueDay) {
-  if (!closingDay || !dueDay) return { dueDate: null, diffDays: null };
-  const today = new Date();
-  const d = today.getDate();
-  const m = today.getMonth();
-  const y = today.getFullYear();
-  let dueDate;
-  if (d <= closingDay) {
-    const dm = dueDay > closingDay ? m : m + 1;
-    dueDate = new Date(y, dm, dueDay);
-  } else {
-    const dm = dueDay > closingDay ? m + 1 : m + 2;
-    dueDate = new Date(y, dm, dueDay);
-  }
-  const diffDays = Math.ceil((dueDate - today) / 86400000);
-  return { dueDate, diffDays };
-}
-
-function currentFaturaYM(closingDay) {
-  const today = new Date();
-  const d = today.getDate();
-  const m = today.getMonth();
-  const y = today.getFullYear();
-  if (!closingDay) return { year: y, month: m };
-  if (d <= closingDay) return { year: y, month: m };
-  return { year: m === 11 ? y + 1 : y, month: (m + 1) % 12 };
-}
-
-function fmtYM(year, month) {
-  return `${year}-${String(month + 1).padStart(2, "0")}`;
-}
-
-function dateAddMonths(dateStr, months) {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const total = m - 1 + months;
-  const ny = y + Math.floor(total / 12);
-  const nm = (total % 12) + 1;
-  return `${ny}-${String(nm).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-}
-
-function lancamentoBillingYM(dateStr, closingDay) {
-  if (!closingDay) return dateStr.slice(0, 7);
-  const [ys, ms, ds] = dateStr.split("-");
-  const y = parseInt(ys), m = parseInt(ms) - 1, d = parseInt(ds);
-  if (d <= closingDay) return fmtYM(y, m);
-  return fmtYM(m === 11 ? y + 1 : y, (m + 1) % 12);
-}
-
-function CartaoSetupModal({ setup, onSave, onClose }) {
-  const [form, setForm] = React.useState({ ...setup });
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
-      <div className="rounded-t-3xl p-5 flex flex-col gap-4" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Configurar Cartão</span>
-          <button onClick={onClose} className="text-xl" style={{ color: "var(--text-muted)" }}>×</button>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2">
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Nome do cartão</label>
-            <input value={form.name} onChange={e => set("name", e.target.value)}
-              className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
-          </div>
-          <div>
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Fechamento (dia) <span style={{ color: "var(--text-muted)" }}>opcional</span></label>
-            <input type="number" min={0} max={28} value={form.closingDay || ""} onChange={e => set("closingDay", +e.target.value || 0)} placeholder="ex: 10"
-              className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
-          </div>
-          <div>
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Vencimento (dia) <span style={{ color: "var(--text-muted)" }}>opcional</span></label>
-            <input type="number" min={0} max={28} value={form.dueDay || ""} onChange={e => set("dueDay", +e.target.value || 0)} placeholder="ex: 17"
-              className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
-          </div>
-          <div className="col-span-2 text-xs px-1" style={{ color: "var(--text-muted)" }}>
-            Não sabe as datas? Deixe em branco e descubra depois conferindo o boleto 👇
-          </div>
-          <div className="col-span-2">
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Limite (¥, 0 = sem limite)</label>
-            <input type="number" min={0} value={form.limit || ""} onChange={e => set("limit", +e.target.value)} placeholder="0"
-              className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
-          </div>
-        </div>
-        <div className="flex gap-2 mt-1">
-          <button onClick={() => { onSave(form); onClose(); }} className="flex-1 py-2 rounded-xl text-sm font-semibold" style={{ background: "var(--accent)", color: "var(--bg)" }}>Salvar</button>
-          <button onClick={onClose} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>Cancelar</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AddLancamentoModal({ onSave, onClose, defaultDate, initialData }) {
-  const isEdit = !!initialData;
-  const today = defaultDate || new Date().toISOString().slice(0, 10);
-  const [form, setForm] = React.useState(isEdit
-    ? { ...initialData, amount: String(initialData.amount), pagamento: "avista", installments: 2, customInstallments: "" }
-    : { date: today, desc: "", amount: "", cat: "konbini", customCat: "", pagamento: "avista", installments: 2, customInstallments: "" });
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const inCls = "w-full rounded-lg px-2 py-1.5 text-xs";
-  const inStyle = { background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" };
-  const PARCELA_OPTIONS = [2, 3, 4, 6, 10, 12];
-  const numParcelas = form.installments === "outro"
-    ? (parseInt(form.customInstallments) || 0)
-    : form.installments;
-  const totalAmt = +form.amount || 0;
-  const valorParcela = numParcelas > 1 && totalAmt > 0 ? Math.round(totalAmt / numParcelas) : 0;
-
-  const handleSave = () => {
-    if (!totalAmt || totalAmt <= 0) return;
-    const base = {
-      date: form.date, desc: form.desc, cat: form.cat,
-      customCat: form.cat === "outro" ? (form.customCat || "") : "",
-    };
-    if (!isEdit && form.pagamento === "aprazo" && numParcelas > 1) {
-      const items = Array.from({ length: numParcelas }, (_, i) => ({
-        ...base,
-        date: dateAddMonths(form.date, i),
-        amount: i < numParcelas - 1 ? valorParcela : totalAmt - valorParcela * (numParcelas - 1),
-        desc: (form.desc ? form.desc + " " : "") + `(${i + 1}/${numParcelas})`,
-      }));
-      onSave(items);
-    } else {
-      onSave({ ...base, amount: totalAmt });
-    }
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
-      <div className="rounded-t-3xl p-5 flex flex-col gap-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-bold" style={{ color: "var(--text)" }}>{isEdit ? "Editar lançamento" : "Novo lançamento"}</span>
-          <button onClick={onClose} className="text-xl" style={{ color: "var(--text-muted)" }}>×</button>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Data</label>
-            <input type="date" value={form.date} onChange={e => set("date", e.target.value)} className={inCls} style={inStyle} />
-          </div>
-          <div>
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Valor total (¥)</label>
-            <input type="number" min={0} value={form.amount} onChange={e => set("amount", e.target.value)} placeholder="0" className={inCls} style={inStyle} />
-          </div>
-          <div className="col-span-2">
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Descrição</label>
-            <input value={form.desc} onChange={e => set("desc", e.target.value)} placeholder="ex: café, TV, supermercado..." className={inCls} style={inStyle} />
-          </div>
-          <div className="col-span-2">
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Categoria</label>
-            <select value={form.cat} onChange={e => set("cat", e.target.value)} className={inCls} style={inStyle}>
-              {CC_CATS.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
-            </select>
-          </div>
-          {form.cat === "outro" && (
-            <div className="col-span-2">
-              <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Especificar</label>
-              <input value={form.customCat || ""} onChange={e => set("customCat", e.target.value)}
-                placeholder="ex: Transporte, Pet, Papelaria..." className={inCls} style={inStyle} />
-            </div>
-          )}
-          {!isEdit && (
-            <div className="col-span-2">
-              <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Pagamento</label>
-              <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)" }}>
-                {[["avista","À vista"],["aprazo","A prazo"]].map(([val, label]) => (
-                  <button key={val} onClick={() => set("pagamento", val)}
-                    className="flex-1 py-1.5 text-xs font-medium transition-all"
-                    style={form.pagamento === val
-                      ? { background: "var(--accent)", color: "var(--bg)" }
-                      : { background: "var(--bg)", color: "var(--text-sub)" }}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {!isEdit && form.pagamento === "aprazo" && (
-            <div className="col-span-2">
-              <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Número de parcelas</label>
-              <div className="flex gap-1 flex-wrap">
-                {PARCELA_OPTIONS.map(n => (
-                  <button key={n} onClick={() => set("installments", n)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                    style={form.installments === n
-                      ? { background: "var(--accent)", color: "var(--bg)" }
-                      : { background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>
-                    {n}x
-                  </button>
-                ))}
-                <button onClick={() => set("installments", "outro")}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                  style={form.installments === "outro"
-                    ? { background: "var(--accent)", color: "var(--bg)" }
-                    : { background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>
-                  Outro
-                </button>
-              </div>
-              {form.installments === "outro" && (
-                <input type="number" min={2} max={60} value={form.customInstallments}
-                  onChange={e => set("customInstallments", e.target.value)}
-                  placeholder="Nº de parcelas" className={`${inCls} mt-2`} style={inStyle} />
-              )}
-              {numParcelas > 1 && totalAmt > 0 && (
-                <div className="mt-2 rounded-lg px-3 py-2 text-xs text-center" style={{ background: "var(--bg)", color: "var(--text-sub)" }}>
-                  ¥{valorParcela.toLocaleString()} / mês · {numParcelas}x · total ¥{totalAmt.toLocaleString()}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="flex gap-2 mt-1">
-          <button onClick={handleSave}
-            className="flex-1 py-2 rounded-xl text-sm font-semibold" style={{ background: "var(--accent)", color: "var(--bg)" }}>
-            {isEdit ? "Salvar" : form.pagamento === "aprazo" && numParcelas > 1 ? `Lançar ${numParcelas}x` : "Adicionar"}
-          </button>
-          <button onClick={onClose} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>Cancelar</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AddParcelaModal({ onSave, onClose }) {
-  const [form, setForm] = React.useState({
-    desc: "", cat: "online",
-    totalAmount: "", numInstallments: "", paidInstallments: 0,
-    startYearMonth: new Date().toISOString().slice(0, 7),
-  });
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const monthly = form.totalAmount && form.numInstallments && +form.numInstallments > 0
-    ? Math.round(+form.totalAmount / +form.numInstallments) : 0;
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
-      <div className="rounded-t-3xl p-5 flex flex-col gap-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-bold" style={{ color: "var(--text)" }}>Compra parcelada</span>
-          <button onClick={onClose} className="text-xl" style={{ color: "var(--text-muted)" }}>×</button>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="col-span-2">
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Descrição</label>
-            <input value={form.desc} onChange={e => set("desc", e.target.value)} placeholder="ex: iPhone, notebook..."
-              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
-          </div>
-          <div className="col-span-2">
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Categoria</label>
-            <select value={form.cat} onChange={e => set("cat", e.target.value)}
-              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }}>
-              {CC_CATS.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Valor total (¥)</label>
-            <input type="number" min={0} value={form.totalAmount} onChange={e => set("totalAmount", e.target.value)} placeholder="0"
-              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
-          </div>
-          <div>
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Nº de parcelas</label>
-            <input type="number" min={1} max={60} value={form.numInstallments} onChange={e => set("numInstallments", e.target.value)} placeholder="0"
-              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
-          </div>
-          <div>
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Parcelas pagas</label>
-            <input type="number" min={0} value={form.paidInstallments || ""} onChange={e => set("paidInstallments", +e.target.value)} placeholder="0"
-              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
-          </div>
-          <div>
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Início (mês)</label>
-            <input type="month" value={form.startYearMonth} onChange={e => set("startYearMonth", e.target.value)}
-              className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
-          </div>
-        </div>
-        {monthly > 0 && (
-          <div className="text-xs text-center py-1 rounded-lg" style={{ background: "var(--bg)", color: "var(--text-sub)" }}>
-            Parcela mensal: ¥{monthly.toLocaleString()}
-          </div>
-        )}
-        <div className="flex gap-2 mt-1">
-          <button onClick={() => {
-            if (!form.desc || !form.totalAmount || !form.numInstallments) return;
-            onSave({
-              id: Date.now().toString(), desc: form.desc, cat: form.cat,
-              totalAmount: +form.totalAmount, numInstallments: +form.numInstallments,
-              paidInstallments: +form.paidInstallments,
-              monthlyAmount: monthly, startYearMonth: form.startYearMonth,
-            });
-            onClose();
-          }} className="flex-1 py-2 rounded-xl text-sm font-semibold" style={{ background: "var(--accent)", color: "var(--bg)" }}>Adicionar</button>
-          <button onClick={onClose} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>Cancelar</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CartaoScreen() {
-  const [data, setData] = React.useState(() => {
-    const d = loadCartaoData();
-    if (!d.conferencias) d.conferencias = [];
-    return d;
-  });
-  const [subTab, setSubTab] = React.useState("fatura");
-  const [showSetup, setShowSetup] = React.useState(false);
-  const [showAddLanc, setShowAddLanc] = React.useState(false);
-  const [showAddParcela, setShowAddParcela] = React.useState(false);
-  const [editLancId, setEditLancId] = React.useState(null);
-  const [editConfirm, setEditConfirm] = React.useState(null);
-  const [deleteConfirm, setDeleteConfirm] = React.useState(null);
-  const [boletadoInput, setBoletadoInput] = React.useState("");
-  const [conferirYM, setConferirYM] = React.useState(() => new Date().toISOString().slice(0,7));
-  const [viewFaturaYM, setViewFaturaYM] = React.useState(null);
-  const [showReport, setShowReport] = React.useState(false);
-  const [reportText, setReportText] = React.useState("");
-  const [reportCopied, setReportCopied] = React.useState(false);
-
-  const save = (next) => { setData(next); saveCartaoData(next); };
-
-  const { setup, lancamentos, parcelas, conferencias } = data;
-  const { dueDate, diffDays } = nextDueInfo(setup.closingDay, setup.dueDay);
-  const faturaYM = currentFaturaYM(setup.closingDay);
-  const faturaKey = fmtYM(faturaYM.year, faturaYM.month);
-
-  // current fatura totals (for header card)
-  const faturaLanc = lancamentos.filter(l => lancamentoBillingYM(l.date, setup.closingDay) === faturaKey);
-  const parcelasNaFatura = parcelas.filter(p => {
-    const start = new Date(p.startYearMonth + "-01");
-    const fatDate = new Date(faturaYM.year, faturaYM.month, 1);
-    const paidMs = new Date(start.getFullYear(), start.getMonth() + p.paidInstallments, 1);
-    return fatDate >= paidMs && p.paidInstallments < p.numInstallments;
-  });
-  const totalLanc = faturaLanc.reduce((s, l) => s + l.amount, 0);
-  const totalParcelas = parcelasNaFatura.reduce((s, p) => s + p.monthlyAmount, 0);
-
-  // navigable view (for Fatura tab list)
-  const activeViewYM = viewFaturaYM || faturaKey;
-  const isCurrentFatura = activeViewYM === faturaKey;
-  const shiftViewMonth = (delta) => {
-    const base = activeViewYM;
-    const [y, m] = base.split("-").map(Number);
-    let nm = m + delta, ny = y;
-    if (nm < 1) { nm = 12; ny--; }
-    if (nm > 12) { nm = 1; ny++; }
-    setViewFaturaYM(`${ny}-${String(nm).padStart(2,"0")}`);
-  };
-  const viewLanc = lancamentos
-    .filter(l => lancamentoBillingYM(l.date, setup.closingDay) === activeViewYM)
-    .sort((a, b) => a.date.localeCompare(b.date));
-  const [viewY, viewM] = activeViewYM.split("-").map(Number);
-  const parcelasViewFatura = parcelas.filter(p => {
-    const start = new Date(p.startYearMonth + "-01");
-    const fatDate = new Date(viewY, viewM - 1, 1);
-    const paidMs = new Date(start.getFullYear(), start.getMonth() + p.paidInstallments, 1);
-    return fatDate >= paidMs && p.paidInstallments < p.numInstallments;
-  });
-  // default date for AddLancamentoModal when navigating to a past/future month
-  const defaultLancDate = isCurrentFatura
-    ? new Date().toISOString().slice(0,10)
-    : `${activeViewYM}-05`;
-  const totalFatura = totalLanc + totalParcelas;
-  const limitPct = setup.limit > 0 ? Math.min(100, (totalFatura / setup.limit) * 100) : 0;
-
-  // totals for the currently viewed month (respects month navigator)
-  const totalViewLanc = viewLanc.reduce((s, l) => s + l.amount, 0);
-  const totalViewParcelas = parcelasViewFatura.reduce((s, p) => s + p.monthlyAmount, 0);
-  const totalViewFatura = totalViewLanc + totalViewParcelas;
-
-  // conferência do mês selecionado
-  const confObj = conferencias.find(c => c.ym === conferirYM);
-  const lancConferirYM = lancamentos.filter(l => lancamentoBillingYM(l.date, setup.closingDay) === conferirYM);
-  const parcelasConferirYM = parcelas.filter(p => {
-    const [cy, cm] = conferirYM.split("-").map(Number);
-    const start = new Date(p.startYearMonth + "-01");
-    const fatDate = new Date(cy, cm - 1, 1);
-    const paidMs = new Date(start.getFullYear(), start.getMonth() + p.paidInstallments, 1);
-    return fatDate >= paidMs && p.paidInstallments < p.numInstallments;
-  });
-  const totalLancConferir = lancConferirYM.reduce((s, l) => s + l.amount, 0);
-  const totalParcelasConferir = parcelasConferirYM.reduce((s, p) => s + p.monthlyAmount, 0);
-  const totalLancadoConferir = totalLancConferir + totalParcelasConferir;
-
-  const salvarConferencia = () => {
-    const val = +boletadoInput;
-    if (!val) return;
-    const prev = conferencias.find(c => c.ym === conferirYM);
-    const next = conferencias.filter(c => c.ym !== conferirYM);
-    next.push({ ym: conferirYM, boletado: val, pago: prev?.pago || false, dataPagamento: prev?.dataPagamento || null });
-    save({ ...data, conferencias: next });
-    setBoletadoInput("");
-  };
-
-  const togglePago = (ym, checked) => {
-    const today = new Date().toISOString().slice(0,10);
-    const next = conferencias.map(c => c.ym === ym
-      ? { ...c, pago: checked, dataPagamento: checked ? (c.dataPagamento || today) : null }
-      : c);
-    save({ ...data, conferencias: next });
-  };
-
-  const setDataPagamento = (ym, date) => {
-    const next = conferencias.map(c => c.ym === ym ? { ...c, dataPagamento: date } : c);
-    save({ ...data, conferencias: next });
-  };
-
-  const removerConferencia = (ym) => save({ ...data, conferencias: conferencias.filter(c => c.ym !== ym) });
-
-  // insights: by category and by loja (all lancamentos)
-  const byCat = CC_CATS.map(c => ({
-    ...c,
-    total: viewLanc.filter(l => l.cat === c.id).reduce((s, l) => s + l.amount, 0),
-  })).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
-
-  const maxCat = byCat.length > 0 ? byCat[0].total : 1;
-
-  const addLancamento = (items) => {
-    const arr = Array.isArray(items) ? items : [items];
-    const ts = Date.now();
-    const news = arr.map((l, i) => ({ ...l, id: `${ts}_${i}` }));
-    save({ ...data, lancamentos: [...news, ...lancamentos] });
-  };
-  const updateLancamento = (id, l) => save({ ...data, lancamentos: lancamentos.map(x => x.id === id ? { ...l, id } : x) });
-  const deleteLancamento = (id) => save({ ...data, lancamentos: lancamentos.filter(l => l.id !== id) });
-  const addParcela = (p) => save({ ...data, parcelas: [p, ...parcelas] });
-  const deleteParcela = (id) => save({ ...data, parcelas: parcelas.filter(p => p.id !== id) });
-  const payInstallment = (id) => {
-    save({ ...data, parcelas: parcelas.map(p => p.id === id ? { ...p, paidInstallments: Math.min(p.paidInstallments + 1, p.numInstallments) } : p) });
-  };
-  const saveSetup = (s) => save({ ...data, setup: s });
-
-  return (
-    <div className="flex flex-col gap-3 pb-24 sm:pb-28">
-      {/* Header card */}
-      <div className="rounded-2xl p-4" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-        <div className="flex items-start justify-between mb-2">
-          <div>
-            <div className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>💳 {setup.name}</div>
-            <div className="text-2xl font-bold mt-0.5" style={{ color: "var(--text)" }}>¥{totalViewFatura.toLocaleString()}</div>
-            <div className="text-xs mt-0.5 flex items-center gap-1.5" style={{ color: "var(--text-sub)" }}>
-              {setup.closingDay ? `fecha dia ${setup.closingDay} · ` : ""}fatura {activeViewYM}
-              {isCurrentFatura && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: "var(--accent)", color: "var(--bg)", fontSize:"9px", fontWeight:700 }}>atual</span>}
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-1">
-            <button onClick={() => setShowSetup(true)} className="text-xs px-2 py-1 rounded-lg" style={{ background: "var(--bg)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>⚙️ config</button>
-            {diffDays !== null && (
-              <div className="text-xs mt-1" style={{ color: diffDays <= 5 ? "#ef4444" : "var(--text-sub)" }}>
-                vence em {diffDays}d · dia {setup.dueDay}
-              </div>
-            )}
-            {!setup.dueDay && (
-              <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>vencimento a definir</div>
-            )}
-          </div>
-        </div>
-        {setup.limit > 0 && (
-          <div className="mt-2">
-            <div className="flex justify-between text-xs mb-1" style={{ color: "var(--text-muted)" }}>
-              <span>Limite usado</span>
-              <span>{limitPct.toFixed(0)}% de ¥{setup.limit.toLocaleString()}</span>
-            </div>
-            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
-              <div className="h-full rounded-full transition-all" style={{ width: `${limitPct}%`, background: limitPct > 80 ? "#ef4444" : "var(--accent)" }} />
-            </div>
-          </div>
-        )}
-        <div className="grid grid-cols-2 gap-2 mt-3">
-          <div className="rounded-xl p-2 text-center" style={{ background: "var(--bg)" }}>
-            <div className="text-xs" style={{ color: "var(--text-muted)" }}>Gastos</div>
-            <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>¥{totalViewLanc.toLocaleString()}</div>
-          </div>
-          <div className="rounded-xl p-2 text-center" style={{ background: "var(--bg)" }}>
-            <div className="text-xs" style={{ color: "var(--text-muted)" }}>Parcelas</div>
-            <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>¥{totalViewParcelas.toLocaleString()}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Month navigator — global, affects header totals and fatura list */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1">
-          <button onClick={() => shiftViewMonth(-1)}
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-base font-bold"
-            style={{ background: "var(--bg-card)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>‹</button>
-          <div className="text-center px-2">
-            <div className="text-sm font-bold" style={{ color: "var(--text)" }}>{activeViewYM}</div>
-            <div className="text-xs" style={{ color: isCurrentFatura ? "var(--accent)" : "var(--text-muted)", fontSize:"10px" }}>
-              {isCurrentFatura ? "fatura atual" : "fatura anterior"}
-            </div>
-          </div>
-          <button onClick={() => shiftViewMonth(+1)}
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-base font-bold"
-            style={{ background: "var(--bg-card)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>›</button>
-          {!isCurrentFatura && (
-            <button onClick={() => setViewFaturaYM(null)}
-              className="text-xs px-2 py-1 rounded-lg ml-1"
-              style={{ background: "var(--bg)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>hoje</button>
-          )}
-        </div>
-        <button onClick={() => setShowAddLanc(true)} className="text-xs px-3 py-1.5 rounded-lg font-semibold"
-          style={{ background: "var(--accent)", color: "var(--bg)" }}>+ Lançamento</button>
-      </div>
-
-      {/* Sub-tabs */}
-      <div className="flex gap-1 p-1 rounded-xl" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-        {[["fatura","Fatura"],["parcelas","Parcelas"],["conferir","Conferir"],["insights","Insights"]].map(([id, label]) => (
-          <button key={id} onClick={() => setSubTab(id)}
-            className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all"
-            style={subTab === id ? { background: "var(--accent)", color: "var(--bg)" } : { color: "var(--text-sub)" }}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* FATURA tab */}
-      {subTab === "fatura" && (
-        <div className="flex flex-col gap-2">
-          {viewLanc.length === 0 && parcelasViewFatura.length === 0 && (
-            <div className="text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>Nenhum lançamento nesta fatura</div>
-          )}
-          {viewLanc.map(l => (
-            <div key={l.id} className="rounded-xl px-3 py-2 flex items-center gap-2" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <span className="text-base">{ccEmoji(CC_CATS, l.cat)}</span>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium truncate" style={{ color: "var(--text)" }}>{l.desc || ccLabel(CC_CATS, l.cat, l.customCat)}</div>
-                <div className="text-xs" style={{ color: "var(--text-muted)" }}>{l.date} · {ccLabel(CC_CATS, l.cat, l.customCat)}</div>
-              </div>
-              <div className="text-sm font-bold flex-shrink-0" style={{ color: "var(--text)" }}>¥{l.amount.toLocaleString()}</div>
-              <button onClick={() => setEditConfirm(l)} className="text-xs flex-shrink-0" style={{ color: "var(--text-muted)" }} title="Editar">✏</button>
-              <button onClick={() => setDeleteConfirm({ type: "lanc", id: l.id, desc: l.desc || ccLabel(CC_CATS, l.cat, l.customCat), amount: l.amount })} className="text-xs flex-shrink-0" style={{ color: "var(--text-muted)" }}>✕</button>
-            </div>
-          ))}
-          {parcelasViewFatura.length > 0 && (
-            <>
-              <div className="text-xs font-semibold mt-1" style={{ color: "var(--text-sub)" }}>Parcelas nesta fatura</div>
-              {parcelasViewFatura.map(p => {
-                const rem = p.numInstallments - p.paidInstallments;
-                return (
-                  <div key={p.id} className="rounded-xl px-3 py-2 flex items-center gap-2" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-                    <span className="text-base">{ccEmoji(CC_CATS, p.cat)}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-medium truncate" style={{ color: "var(--text)" }}>{p.desc}</div>
-                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>{ccEmoji(CC_LOJAS, p.loja)} · {p.paidInstallments}/{p.numInstallments}x restam {rem}x</div>
-                    </div>
-                    <div className="text-sm font-bold" style={{ color: "var(--text)" }}>¥{p.monthlyAmount.toLocaleString()}</div>
-                  </div>
-                );
-              })}
-            </>
-          )}
-        </div>
-      )}
-
-      {/* PARCELAS tab */}
-      {subTab === "parcelas" && (
-        <div className="flex flex-col gap-2">
-          <div className="flex justify-between items-center">
-            <span className="text-xs font-semibold" style={{ color: "var(--text-sub)" }}>Compras parceladas</span>
-            <button onClick={() => setShowAddParcela(true)} className="text-xs px-3 py-1 rounded-lg font-semibold" style={{ background: "var(--accent)", color: "var(--bg)" }}>+ Parcela</button>
-          </div>
-          {parcelas.length === 0 && (
-            <div className="text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>Nenhuma compra parcelada</div>
-          )}
-          {parcelas.map(p => {
-            const catObj = CC_CATS.find(c => c.id === p.cat) || CC_CATS[8];
-            const lojaObj = CC_LOJAS.find(x => x.id === p.loja) || CC_LOJAS[9];
-            const pct = Math.round((p.paidInstallments / p.numInstallments) * 100);
-            const rem = p.numInstallments - p.paidInstallments;
-            const remTotal = rem * p.monthlyAmount;
-            return (
-              <div key={p.id} className="rounded-xl p-3 flex flex-col gap-1.5" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span>{catObj.emoji}</span>
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold truncate" style={{ color: "var(--text)" }}>{p.desc}</div>
-                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>{lojaObj.emoji} {lojaObj.label} · ¥{p.monthlyAmount.toLocaleString()}/mês</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 ml-2">
-                    {rem > 0 && (
-                      <button onClick={() => payInstallment(p.id)} className="text-xs px-2 py-0.5 rounded-lg" style={{ background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>+1</button>
-                    )}
-                    <button onClick={() => setDeleteConfirm({ type: "parcela", id: p.id, desc: p.desc, amount: p.monthlyAmount })} className="text-xs" style={{ color: "var(--text-muted)" }}>✕</button>
-                  </div>
-                </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
-                  <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: "var(--accent)" }} />
-                </div>
-                <div className="flex justify-between text-xs" style={{ color: "var(--text-muted)" }}>
-                  <span>{p.paidInstallments}/{p.numInstallments} pagas · {pct}%</span>
-                  <span>Restam ¥{remTotal.toLocaleString()}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* CONFERIR tab */}
-      {subTab === "conferir" && (
-        <div className="flex flex-col gap-3">
-          {/* Month picker + input */}
-          <div className="rounded-2xl p-4 flex flex-col gap-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-            <div className="text-xs font-semibold" style={{ color: "var(--text-sub)" }}>Conferir boleto</div>
-            <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-              Lançou as compras durante o mês? Quando o boleto chegar, compare aqui o que foi registrado com o valor cobrado.
-            </div>
-            <div className="flex gap-2 items-end">
-              <div className="flex-1">
-                <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Mês de referência</label>
-                <input type="month" value={conferirYM} onChange={e => { setConferirYM(e.target.value); setBoletadoInput(""); }}
-                  className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
-              </div>
-            </div>
-            {/* Summary of what was logged */}
-            <div className="rounded-xl p-3 flex flex-col gap-1" style={{ background: "var(--bg)" }}>
-              <div className="flex justify-between text-xs" style={{ color: "var(--text-sub)" }}>
-                <span>Gastos lançados</span>
-                <span>¥{totalLancConferir.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-xs" style={{ color: "var(--text-muted)" }}>
-                <span>· compras diretas</span>
-                <span>¥{totalLancConferir.toLocaleString()}</span>
-              </div>
-              {totalParcelasConferir > 0 && (
-                <div className="flex justify-between text-xs" style={{ color: "var(--text-muted)" }}>
-                  <span>· parcelas neste mês</span>
-                  <span>¥{totalParcelasConferir.toLocaleString()}</span>
-                </div>
-              )}
-            </div>
-            {/* Boleto input */}
-            <div>
-              <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>
-                Valor real do boleto (¥) {confObj && <span style={{ color: "var(--accent)" }}>· já confirmado</span>}
-              </label>
-              <div className="flex gap-2">
-                <input type="number" min={0} value={boletadoInput || (confObj ? confObj.boletado : "")}
-                  onChange={e => setBoletadoInput(e.target.value)} placeholder="0"
-                  className="flex-1 rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" }} />
-                <button onClick={salvarConferencia} className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ background: "var(--accent)", color: "var(--bg)" }}>Salvar</button>
-              </div>
-            </div>
-            {/* Comparison */}
-            {confObj && (() => {
-              const diff = confObj.boletado - totalLancadoConferir;
-              const isOver = diff > 0;
-              const isMatch = diff === 0;
-              return (
-                <div className="flex flex-col gap-2">
-                  <div className="rounded-xl p-3 flex flex-col gap-2" style={{ background: "var(--bg)", border: `1px solid ${isMatch ? "var(--accent)" : isOver ? "#ef4444" : "var(--border)"}` }}>
-                    <div className="flex justify-between text-xs font-semibold" style={{ color: "var(--text)" }}>
-                      <span>Lançado</span>
-                      <span>¥{totalLancadoConferir.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between text-xs font-semibold" style={{ color: "var(--text)" }}>
-                      <span>Boleto</span>
-                      <span>¥{confObj.boletado.toLocaleString()}</span>
-                    </div>
-                    <div className="h-px" style={{ background: "var(--border)" }} />
-                    <div className="flex justify-between text-xs font-bold" style={{ color: isMatch ? "var(--accent)" : isOver ? "#ef4444" : "#22c55e" }}>
-                      <span>{isMatch ? "✓ Tudo confere!" : isOver ? "⚠ Boleto maior — faltou lançar" : "✓ Boleto menor que o lançado"}</span>
-                      <span>{isMatch ? "—" : `${isOver ? "+" : ""}¥${Math.abs(diff).toLocaleString()}`}</span>
-                    </div>
-                    {isOver && (
-                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-                        ¥{diff.toLocaleString()} foram cobrados mas não foram lançados aqui.
-                      </div>
-                    )}
-                  </div>
-                  {/* Payment check */}
-                  <div className="rounded-xl p-3 flex flex-col gap-2" style={{ background: "var(--bg)", border: "1px solid var(--border)" }}>
-                    <div className="flex items-center gap-3">
-                      <button onClick={() => togglePago(confObj.ym, !confObj.pago)}
-                        className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 transition-all"
-                        style={{ background: confObj.pago ? "var(--accent)" : "var(--border)", border: `2px solid ${confObj.pago ? "var(--accent)" : "var(--border)"}` }}>
-                        {confObj.pago && <span className="text-xs font-bold" style={{ color: "var(--bg)" }}>✓</span>}
-                      </button>
-                      <span className="text-xs font-semibold" style={{ color: confObj.pago ? "var(--text)" : "var(--text-muted)" }}>
-                        {confObj.pago ? "Boleto pago" : "Marcar como pago"}
-                      </span>
-                    </div>
-                    {confObj.pago && (
-                      <div>
-                        <label className="text-xs mb-1 block" style={{ color: "var(--text-muted)" }}>Data do pagamento</label>
-                        <input type="date" value={confObj.dataPagamento || ""}
-                          onChange={e => setDataPagamento(confObj.ym, e.target.value)}
-                          className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ background: "var(--bg-card)", color: "var(--text)", border: "1px solid var(--border)" }} />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-
-          {/* History */}
-          {conferencias.length > 0 && (
-            <div className="rounded-2xl p-3 flex flex-col gap-2" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-              <div className="text-xs font-semibold" style={{ color: "var(--text-sub)" }}>Histórico de boletos</div>
-              {[...conferencias].sort((a,b) => b.ym.localeCompare(a.ym)).map(c => {
-                const lancMes = lancamentos.filter(l => lancamentoBillingYM(l.date, setup.closingDay) === c.ym).reduce((s,l) => s+l.amount, 0);
-                const diff = c.boletado - lancMes;
-                return (
-                  <div key={c.ym} className="flex items-center gap-2 text-xs py-1" style={{ color: "var(--text-sub)", borderBottom: "1px solid var(--border)" }}>
-                    <span className="font-mono">{c.ym}</span>
-                    <span style={{ color: "var(--text)" }}>¥{c.boletado.toLocaleString()}</span>
-                    <span style={{ color: diff === 0 ? "var(--accent)" : diff > 0 ? "#ef4444" : "#22c55e" }}>
-                      {diff === 0 ? "✓" : diff > 0 ? `+¥${diff.toLocaleString()}` : `-¥${Math.abs(diff).toLocaleString()}`}
-                    </span>
-                    <span className="ml-1" style={{ color: c.pago ? "#22c55e" : "#f59e0b" }}>
-                      {c.pago ? `✓ pago${c.dataPagamento ? " "+c.dataPagamento.slice(5) : ""}` : "⏳ pendente"}
-                    </span>
-                    <button onClick={() => removerConferencia(c.ym)} className="ml-auto" style={{ color: "var(--text-muted)" }}>✕</button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* INSIGHTS tab */}
-      {subTab === "insights" && (
-        <div className="flex flex-col gap-3">
-          <div className="rounded-2xl p-3" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-xs font-semibold" style={{ color: "var(--text-sub)" }}>Por categoria · {activeViewYM}</div>
-              <button
-                onClick={() => {
-                  const fmt = v => "¥" + v.toLocaleString("ja-JP");
-                  const ls = [];
-                  ls.push("💳 *" + (setup.name || "Cartão") + " — Fatura " + activeViewYM + "*");
-                  if (setup.closingDay) {
-                    const [y, m] = activeViewYM.split("-").map(Number);
-                    const prevM = m === 1 ? 12 : m - 1;
-                    const prevY = m === 1 ? y - 1 : y;
-                    ls.push("📅 " + String(setup.closingDay + 1).padStart(2,"0") + "/" + String(prevM).padStart(2,"0") + "/" + prevY + " → " + String(setup.closingDay).padStart(2,"0") + "/" + String(m).padStart(2,"0") + "/" + y);
-                  }
-                  ls.push("");
-                  ls.push("📊 *Gastos por Categoria*");
-                  byCat.forEach(c => {
-                    const pct = totalViewLanc > 0 ? Math.round((c.total / totalViewLanc) * 100) : 0;
-                    ls.push(c.emoji + " " + (c.id === "outro" && c.customCat ? c.customCat : c.label) + ": " + fmt(c.total) + " (" + pct + "%)");
-                  });
-                  ls.push("");
-                  ls.push("─────────────────");
-                  ls.push("💴 *Total fatura: " + fmt(totalViewLanc) + "*");
-                  if (totalViewParcelas > 0) ls.push("📦 Parcelas: " + fmt(totalViewParcelas));
-                  if (totalViewFatura !== totalViewLanc) ls.push("💳 *Total geral: " + fmt(totalViewFatura) + "*");
-                  setReportText(ls.join("\n"));
-                  setShowReport(true);
-                }}
-                className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg"
-                style={{ background: "var(--bg)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
-              >📋 Relatório</button>
-            </div>
-            {byCat.length === 0 && <div className="text-xs" style={{ color: "var(--text-muted)" }}>Sem dados ainda</div>}
-            {byCat.map(c => {
-              const pct = totalViewLanc > 0 ? Math.round((c.total / totalViewLanc) * 100) : 0;
-              return (
-                <div key={c.id} className="flex items-center gap-2 mb-2">
-                  <span className="text-sm w-5 text-center flex-shrink-0">{c.emoji}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between text-xs mb-0.5">
-                      <span className="font-medium" style={{ color: "var(--text)" }}>{c.label}</span>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <span style={{ color: "var(--text-muted)" }}>{pct}%</span>
-                        <span className="font-semibold" style={{ color: "var(--text)" }}>¥{c.total.toLocaleString()}</span>
-                      </div>
-                    </div>
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
-                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: "var(--accent)" }} />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Modals */}
-      {showSetup && <CartaoSetupModal setup={setup} onSave={saveSetup} onClose={() => setShowSetup(false)} />}
-      {showAddLanc && <AddLancamentoModal onSave={addLancamento} onClose={() => setShowAddLanc(false)} defaultDate={defaultLancDate} />}
-      {editLancId && (() => {
-        const l = lancamentos.find(x => x.id === editLancId);
-        return l ? (
-          <AddLancamentoModal
-            initialData={l}
-            onSave={updated => { updateLancamento(editLancId, updated); setEditLancId(null); }}
-            onClose={() => setEditLancId(null)}
-          />
-        ) : null;
-      })()}
-      {showAddParcela && <AddParcelaModal onSave={addParcela} onClose={() => setShowAddParcela(false)} />}
-      {editConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)" }} onClick={() => setEditConfirm(null)}>
-          <div className="rounded-2xl p-5 mx-4 flex flex-col gap-3 w-full max-w-xs" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }} onClick={e => e.stopPropagation()}>
-            <div className="text-sm font-semibold text-center" style={{ color: "var(--text)" }}>Editar lançamento?</div>
-            <div className="rounded-xl px-3 py-2 text-center" style={{ background: "var(--bg)" }}>
-              <div className="text-xs font-medium" style={{ color: "var(--text)" }}>{editConfirm.desc || ccLabel(CC_CATS, editConfirm.cat, editConfirm.customCat)}</div>
-              <div className="text-sm font-bold mt-0.5" style={{ color: "var(--accent)" }}>¥{editConfirm.amount.toLocaleString()}</div>
-              <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{editConfirm.date}</div>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => { setEditLancId(editConfirm.id); setEditConfirm(null); }}
-                className="flex-1 py-2 rounded-xl text-sm font-semibold" style={{ background: "var(--accent)", color: "var(--bg)" }}>Editar</button>
-              <button onClick={() => setEditConfirm(null)} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>Cancelar</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)" }} onClick={() => setDeleteConfirm(null)}>
-          <div className="rounded-2xl p-5 mx-4 flex flex-col gap-3 w-full max-w-xs" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }} onClick={e => e.stopPropagation()}>
-            <div className="text-sm font-semibold text-center" style={{ color: "var(--text)" }}>Excluir lançamento?</div>
-            <div className="rounded-xl px-3 py-2 text-center" style={{ background: "var(--bg)" }}>
-              <div className="text-xs font-medium" style={{ color: "var(--text)" }}>{deleteConfirm.desc}</div>
-              <div className="text-sm font-bold mt-0.5" style={{ color: "#ef4444" }}>¥{(deleteConfirm.amount||0).toLocaleString()}</div>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => {
-                if (deleteConfirm.type === "lanc") deleteLancamento(deleteConfirm.id);
-                else deleteParcela(deleteConfirm.id);
-                setDeleteConfirm(null);
-              }} className="flex-1 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "#ef4444" }}>Excluir</button>
-              <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2 rounded-xl text-sm" style={{ background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>Cancelar</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Relatório WhatsApp */}
-      {showReport && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-start pt-6 px-4" style={{ background: "rgba(0,0,0,0.85)" }} onClick={() => setShowReport(false)}>
-          <div className="w-full max-w-lg mx-auto rounded-2xl overflow-hidden shadow-2xl border" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }} onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--border)" }}>
-              <div>
-                <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>📋 Relatório para WhatsApp</div>
-                <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>Toque na caixa → segure → Copiar tudo</div>
-              </div>
-              <button onClick={() => setShowReport(false)} className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
-            </div>
-            <div className="p-4">
-              <textarea readOnly value={reportText} rows={12}
-                onClick={e => e.target.select()}
-                className="w-full rounded-xl p-3 text-xs font-mono border focus:outline-none resize-none"
-                style={{ background: "var(--bg)", borderColor: "var(--border)", color: "var(--text)", lineHeight: "1.7" }}
-              />
-            </div>
-            <div className="px-4 pb-4 flex gap-3">
-              <button onClick={() => {
-                try {
-                  navigator.clipboard.writeText(reportText).then(() => {
-                    setReportCopied(true);
-                    setTimeout(() => { setReportCopied(false); setShowReport(false); }, 1500);
-                  });
-                } catch(e) {}
-              }} className="flex-1 py-2.5 rounded-xl border text-sm font-medium transition-colors"
-                style={{ borderColor: "var(--border)", color: reportCopied ? "#22c55e" : "var(--text-muted)" }}>
-                {reportCopied ? "✓ Copiado!" : "📋 Copiar"}
-              </button>
-              <button onClick={() => setShowReport(false)}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-                style={{ background: "var(--accent)", color: "var(--bg)" }}>Fechar</button>
-            </div>
-          </div>
-          <div className="flex-1" onClick={() => setShowReport(false)} />
-        </div>
-      )}
-    </div>
-  );
-}
-// ─── END CARTÃO ─────────────────────────────────────────────────────────────
-
-function TaxPaymentModal({ vehicle, calcAmount, year, existing, onSave, onClose }) {
-  const [amount, setAmount] = React.useState(String(existing?.customAmount || calcAmount || ""));
-  const [mode, setMode] = React.useState(existing?.parcelado ? "parcelado" : "avista");
-  const [numPStr, setNumPStr] = React.useState(String(existing?.parcelas?.length > 1 ? existing.parcelas.length : 3));
-
-  const buildParcelas = (count, total, prev) => {
-    const base = count > 0 && total > 0 ? Math.round(total / count) : 0;
-    return Array.from({ length: count }, (_, i) => {
-      const ex = (prev || [])[i];
-      const val = i < count - 1 ? base : Math.max(0, total - base * (count - 1));
-      return { num: i + 1, value: ex?.value ?? val, dueDate: ex?.dueDate || "", paid: ex?.paid || false, paidDate: ex?.paidDate || null };
-    });
-  };
-
-  const initParcelas = () => {
-    if (existing?.parcelas?.length) return existing.parcelas;
-    const total = +amount || calcAmount || 0;
-    if (existing?.parcelado === false) return [{ num:1, value:total, dueDate:"", paid:existing.parcelas?.[0]?.paid||false, paidDate:existing.parcelas?.[0]?.paidDate||null }];
-    return buildParcelas(parseInt(numPStr)||3, total, []);
-  };
-
-  const [parcelas, setParcelas] = React.useState(initParcelas);
-
-  const totalAmt = +amount || 0;
-  const numP = parseInt(numPStr) || 3;
-
-  const updateNumP = (val) => {
-    setNumPStr(val);
-    const count = parseInt(val) || 3;
-    if (count >= 2 && count <= 24) setParcelas(p => buildParcelas(count, totalAmt, p));
-  };
-
-  const updateParcela = (idx, field, val) => setParcelas(prev => prev.map((p, i) => i === idx ? { ...p, [field]: val } : p));
-
-  const switchMode = (m) => {
-    setMode(m);
-    if (m === "avista") {
-      setParcelas([{ num:1, value:totalAmt, dueDate: parcelas[0]?.dueDate||"", paid: parcelas[0]?.paid||false, paidDate: parcelas[0]?.paidDate||null }]);
-    } else {
-      setParcelas(p => buildParcelas(numP, totalAmt, p));
-    }
-  };
-
-  const handleSave = () => {
-    if (!totalAmt || totalAmt <= 0) return;
-    onSave({ customAmount: totalAmt, parcelado: mode === "parcelado", parcelas });
-  };
-
-  const paidCount = parcelas.filter(p => p.paid).length;
-  const inStyle = { background: "var(--bg)", color: "var(--text)", border: "1px solid var(--border)" };
-  const inCls = "w-full rounded-lg px-2 py-1.5 text-xs";
-
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ background: "rgba(0,0,0,0.7)" }} onClick={onClose}>
-      <div className="rounded-t-3xl flex flex-col" style={{ background: "var(--bg-card)", border: "1px solid var(--border)", maxHeight: "92vh" }} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 pt-5 pb-3 shrink-0">
-          <div>
-            <div className="text-sm font-bold" style={{ color: "var(--text)" }}>自動車税 · {year}</div>
-            <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{vehicle.name || "Veículo"} · calc. ¥{(calcAmount||0).toLocaleString()}</div>
-          </div>
-          <button onClick={onClose} className="text-2xl leading-none" style={{ color: "var(--text-muted)" }}>×</button>
-        </div>
-
-        <div className="overflow-y-auto px-5 pb-3 flex flex-col gap-3">
-          <div>
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Valor real do boleto (¥)</label>
-            <input type="number" min={0} value={amount} onChange={e => setAmount(e.target.value)} placeholder={String(calcAmount||0)} className={inCls} style={inStyle} />
-          </div>
-
-          <div>
-            <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Forma de pagamento</label>
-            <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: "var(--border)" }}>
-              {[["avista","À vista"],["parcelado","Parcelado"]].map(([val,label]) => (
-                <button key={val} onClick={() => switchMode(val)}
-                  className="flex-1 py-1.5 text-xs font-medium transition-all"
-                  style={mode===val ? {background:"var(--accent)",color:"var(--bg)"} : {background:"var(--bg)",color:"var(--text-sub)"}}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {mode === "parcelado" && (
-            <div>
-              <label className="text-xs mb-1 block" style={{ color: "var(--text-sub)" }}>Número de parcelas</label>
-              <div className="flex gap-1 items-center flex-wrap">
-                {[2,3,4,6].map(n => (
-                  <button key={n} onClick={() => updateNumP(String(n))}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                    style={numP===n ? {background:"var(--accent)",color:"var(--bg)"} : {background:"var(--bg)",color:"var(--text-sub)",border:"1px solid var(--border)"}}>
-                    {n}x
-                  </button>
-                ))}
-                <input type="number" min={2} max={24} value={numPStr} onChange={e => updateNumP(e.target.value)}
-                  className="w-16 rounded-lg px-2 py-1.5 text-xs" style={inStyle} />
-              </div>
-              {totalAmt > 0 && numP >= 2 && (
-                <div className="text-xs mt-1 text-center" style={{ color: "var(--text-muted)" }}>
-                  ¥{Math.round(totalAmt/numP).toLocaleString()} / parcela
-                </div>
-              )}
-            </div>
-          )}
-
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs" style={{ color: "var(--text-sub)" }}>
-                {mode === "avista" ? "Vencimento e pagamento" : `Boletos (${paidCount}/${parcelas.length} pagos)`}
-              </label>
-            </div>
-            <div className="flex flex-col gap-2">
-              {parcelas.map((p, idx) => (
-                <div key={idx} className="rounded-xl p-3 flex flex-col gap-2" style={{ background: "var(--bg)", border: `1px solid ${p.paid ? "#22c55e44" : "var(--border)"}` }}>
-                  <div className="flex items-center justify-between">
-                    {mode === "parcelado" && (
-                      <span className="text-xs font-semibold" style={{ color: p.paid ? "#22c55e" : "var(--text)" }}>{p.num}ª parcela</span>
-                    )}
-                    {mode === "parcelado" && (
-                      <input type="number" min={0} value={p.value || ""} onChange={e => updateParcela(idx, "value", +e.target.value)}
-                        className="w-28 rounded-lg px-2 py-1 text-xs text-right font-semibold" style={inStyle} />
-                    )}
-                  </div>
-                  <div className="flex gap-2 items-center">
-                    <div className="flex-1">
-                      <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>Vencimento</div>
-                      <input type="date" value={p.dueDate || ""} onChange={e => updateParcela(idx, "dueDate", e.target.value)}
-                        className="w-full rounded-lg px-2 py-1.5 text-xs" style={inStyle} />
-                    </div>
-                    <div className="shrink-0 pt-5">
-                      <label className="flex items-center gap-1.5 text-xs cursor-pointer"
-                        style={{ color: p.paid ? "#22c55e" : "var(--text-sub)" }}>
-                        <input type="checkbox" checked={p.paid || false} onChange={e => {
-                          updateParcela(idx, "paid", e.target.checked);
-                          updateParcela(idx, "paidDate", e.target.checked ? new Date().toISOString().slice(0,10) : null);
-                        }} />
-                        {p.paid ? "✓ Pago" : "Pago?"}
-                      </label>
-                    </div>
-                  </div>
-                  {p.paid && (
-                    <div>
-                      <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>Data do pagamento</div>
-                      <input type="date" value={p.paidDate || ""} onChange={e => updateParcela(idx, "paidDate", e.target.value)}
-                        className="w-full rounded-lg px-2 py-1.5 text-xs" style={{ ...inStyle, borderColor: "#22c55e66" }} />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="px-5 py-4 flex gap-2 shrink-0 border-t" style={{ borderColor: "var(--border)" }}>
-          <button onClick={handleSave} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-            style={{ background: "var(--accent)", color: "var(--bg)" }}>Salvar</button>
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm"
-            style={{ background: "var(--bg)", color: "var(--text-sub)", border: "1px solid var(--border)" }}>Cancelar</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function ImpostosScreen({ entries, settings, onTabSwitch }) {
+  // Leitura direta do localStorage (sempre atualizado ao navegar para esta aba)
   const vehicles = (() => { try { return JSON.parse(localStorage.getItem("jst_tax_vehicles")||"[]"); } catch { return []; } })();
   const rawG = (() => { try { const r = JSON.parse(localStorage.getItem("jst_gensen")||"null"); if (!r) return []; if (Array.isArray(r)) return r; return [{ ...r, id: "g_legacy" }]; } catch { return []; } })();
-
-  const [taxPayments, setTaxPayments] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem(TAX_PAYMENTS_KEY)||"[]"); } catch { return []; }
-  });
-  const [editPaymentV, setEditPaymentV] = React.useState(null);
-  const curYear = new Date().getFullYear();
-
-  const getPayment = (vehicleId) => taxPayments.find(p => p.vehicleId === vehicleId && p.year === curYear) || null;
-  const saveVehiclePayment = (vehicleId, data) => {
-    const updated = [...taxPayments.filter(p => !(p.vehicleId === vehicleId && p.year === curYear)), { vehicleId, year: curYear, ...data }];
-    setTaxPayments(updated);
-    localStorage.setItem(TAX_PAYMENTS_KEY, JSON.stringify(updated));
-    setEditPaymentV(null);
-  };
 
   // Derivações
   const latestGensen = rawG.length > 0 ? [...rawG].sort((a,b) => b.nenBun - a.nenBun)[0] : null;
@@ -3742,63 +2580,20 @@ function ImpostosScreen({ entries, settings, onTabSwitch }) {
       {/* 自動車税 resumo */}
       {vData.length > 0 && (
         <Card>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-2">
             <div>
-              <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-widest">自動車税 · {curYear}</h3>
+              <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-widest">自動車税 · Resumo</h3>
               <div className="text-xs text-zinc-500 mt-0.5">Vencimento em maio</div>
             </div>
             <div className="text-xl font-bold font-mono text-blue-400">{YEN(totalJidousha)}</div>
           </div>
-          <div className="space-y-2 mb-3">
-            {vData.map(v => {
-              const pay = getPayment(v.id);
-              const effectiveAmt = pay?.customAmount || v.calc.annualTax;
-              const parc = pay?.parcelas || [];
-              const paidCount = parc.filter(p => p.paid).length;
-              const allPaid = parc.length > 0 && paidCount === parc.length;
-              const nextDue = parc.find(p => !p.paid);
-              return (
-                <div key={v.id} className="rounded-xl p-3" style={{ background: "var(--bg)", border: `1px solid ${allPaid ? "#22c55e44" : "var(--border)"}` }}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold text-zinc-200">{v.name || "Veículo"} <span className="text-zinc-500 font-normal">({v.registrationYear})</span></div>
-                      <div className="text-xs mt-0.5 text-blue-300 font-mono">{YEN(effectiveAmt)}/ano
-                        {pay?.customAmount && pay.customAmount !== v.calc.annualTax && (
-                          <span className="text-zinc-500 ml-1">(calc. {YEN(v.calc.annualTax)})</span>
-                        )}
-                      </div>
-                      {parc.length > 0 && (
-                        <div className="text-xs mt-1" style={{ color: allPaid ? "#22c55e" : "#f59e0b" }}>
-                          {allPaid ? "✓ Tudo pago" : pay?.parcelado ? `${paidCount}/${parc.length} parcelas pagas` : parc[0]?.paid ? "✓ Pago" : "Aguardando pagamento"}
-                          {!allPaid && nextDue?.dueDate && <span className="text-zinc-500 ml-1">· vence {nextDue.dueDate}</span>}
-                        </div>
-                      )}
-                    </div>
-                    <button onClick={() => setEditPaymentV(v)}
-                      className="text-xs px-2.5 py-1.5 rounded-lg shrink-0"
-                      style={{ background: "var(--bg-card)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
-                      {pay ? "editar" : "registrar"}
-                    </button>
-                  </div>
-                  {pay?.parcelado && parc.length > 0 && (
-                    <div className="mt-2 flex flex-col gap-1">
-                      {parc.map(p => (
-                        <div key={p.num} className="flex items-center gap-1.5 text-xs"
-                          style={{ color: p.paid ? "#22c55e" : "var(--text-muted)" }}>
-                          <span className="w-5 text-center font-semibold">{p.num}ª</span>
-                          <span className="w-1 text-zinc-700">·</span>
-                          <span className="font-mono w-20 text-right">{p.value ? `¥${p.value.toLocaleString()}` : "—"}</span>
-                          <span className="w-1 text-zinc-700">·</span>
-                          <span className="w-16">{p.dueDate ? p.dueDate.slice(5).replace("-","/") : "—"}</span>
-                          <span className="w-1 text-zinc-700">·</span>
-                          <span>{p.paid ? "✓ pago" : "pendente"}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+          <div className="space-y-1 mb-2">
+            {vData.map(v => (
+              <div key={v.id} className="flex justify-between text-xs text-zinc-500">
+                <span>{v.name || "Veículo"} <span className="text-zinc-600">({v.registrationYear})</span></span>
+                <span className="font-mono text-blue-300">{YEN(v.calc.annualTax)}/ano</span>
+              </div>
+            ))}
           </div>
           <div className="text-xs text-zinc-600">
             Gerencie veículos na aba <button onClick={()=>onTabSwitch?.("carro")} className="text-amber-500 underline">Carro</button>
@@ -3836,17 +2631,6 @@ function ImpostosScreen({ entries, settings, onTabSwitch }) {
             </div>
           </div>
         </Card>
-      )}
-
-      {editPaymentV && (
-        <TaxPaymentModal
-          vehicle={editPaymentV}
-          calcAmount={editPaymentV.calc?.annualTax || calcJidoushaZei(editPaymentV).annualTax}
-          year={curYear}
-          existing={getPayment(editPaymentV.id)}
-          onSave={(data) => saveVehiclePayment(editPaymentV.id, data)}
-          onClose={() => setEditPaymentV(null)}
-        />
       )}
     </div>
   );
@@ -4323,10 +3107,8 @@ function ExampleCalc({ settings }) {
 function exportBackup(entries, settings, gastos, carro, auditHistory) {
   const gensen = (() => { try { return JSON.parse(localStorage.getItem("jst_gensen")||"null"); } catch { return null; } })();
   const taxVehicles = (() => { try { return JSON.parse(localStorage.getItem("jst_tax_vehicles")||"null"); } catch { return null; } })();
-  const cartao = (() => { try { return JSON.parse(localStorage.getItem("jst_cartao")||"null"); } catch { return null; } })();
-  const taxPayments = (() => { try { return JSON.parse(localStorage.getItem(TAX_PAYMENTS_KEY)||"null"); } catch { return null; } })();
   const data = {
-    version: 5,
+    version: 4,
     exportedAt: new Date().toISOString(),
     entries,
     settings,
@@ -4335,8 +3117,6 @@ function exportBackup(entries, settings, gastos, carro, auditHistory) {
     auditHistory: auditHistory || [],
     gensen: gensen || null,
     taxVehicles: taxVehicles || null,
-    taxPayments: taxPayments || null,
-    cartao: cartao || null,
   };
   return JSON.stringify(data, null, 2);
 }
@@ -5388,17 +4168,13 @@ function GastosScreen({ gastos, onSave }) {
 function VehicleTaxSection() {
   const VKEY = "jst_tax_vehicles";
   const [vehicles, setVehicles] = useState(() => { try { return JSON.parse(localStorage.getItem(VKEY)||"[]"); } catch { return []; } });
-  const [taxPayments] = useState(() => { try { return JSON.parse(localStorage.getItem(TAX_PAYMENTS_KEY)||"[]"); } catch { return []; } });
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
-  const curYear = new Date().getFullYear();
 
   function saveVehicles(list) { setVehicles(list); localStorage.setItem(VKEY, JSON.stringify(list)); }
   function addVehicle(v) { saveVehicles([...vehicles, { ...v, id:"v"+Date.now() }]); setShowForm(false); }
   function updateVehicle(v) { saveVehicles(vehicles.map(x => x.id===v.id ? v : x)); setEditId(null); }
   function removeVehicle(id) { if (confirm("Remover veículo?")) saveVehicles(vehicles.filter(x => x.id!==id)); }
-
-  const getPayment = (vehicleId) => taxPayments.find(p => p.vehicleId === vehicleId && p.year === curYear) || null;
 
   const vData = vehicles.map(v => ({ ...v, calc: calcJidoushaZei(v) }));
   const fuelLabel = { gasoline:"Gasolina", diesel:"Diesel", hybrid:"Híbrido", electric:"Elétrico" };
@@ -5421,7 +4197,7 @@ function VehicleTaxSection() {
         </div>
         {vData.length > 0 && (
           <div className="text-right">
-            <div className="text-xl font-bold font-mono text-blue-400">{YEN(vData.reduce((a,v)=>{ const pay=getPayment(v.id); return a+(pay?.customAmount||v.calc.annualTax); },0))}</div>
+            <div className="text-xl font-bold font-mono text-blue-400">{YEN(vData.reduce((a,v)=>a+v.calc.annualTax,0))}</div>
             <div className="text-xs text-zinc-500">total/ano</div>
           </div>
         )}
@@ -5430,12 +4206,6 @@ function VehicleTaxSection() {
       <div className="space-y-3 mb-3">
         {vData.map(v => {
           const sk = shakenStatus(v.shakenExpiry);
-          const pay = getPayment(v.id);
-          const effectiveAmt = pay?.customAmount || v.calc.annualTax;
-          const parc = pay?.parcelas || [];
-          const paidCount = parc.filter(p => p.paid).length;
-          const allPaid = parc.length > 0 && paidCount === parc.length;
-          const nextDue = parc.find(p => !p.paid);
           return (
             <div key={v.id}>
               {editId === v.id ? (
@@ -5455,19 +4225,10 @@ function VehicleTaxSection() {
                           車検 <span className="opacity-60 text-xs">· vistoria</span> {v.shakenExpiry} · {sk.expired ? "VENCIDA!" : sk.months < 1 ? `${sk.days} dias restantes` : `${sk.months} meses restantes`}
                         </div>
                       )}
-                      {parc.length > 0 && (
-                        <div style={{ color: allPaid ? "#22c55e" : "#f59e0b" }}>
-                          {allPaid ? "✓ Imposto pago" : pay?.parcelado ? `${paidCount}/${parc.length} parcelas pagas` : parc[0]?.paid ? "✓ Imposto pago" : "Imposto aguardando pagamento"}
-                          {!allPaid && nextDue?.dueDate && <span className="text-zinc-500 ml-1">· vence {nextDue.dueDate}</span>}
-                        </div>
-                      )}
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="text-base font-bold font-mono text-blue-400">{YEN(effectiveAmt)}<span className="text-xs font-normal text-zinc-500">/ano</span></div>
-                    {pay?.customAmount && pay.customAmount !== v.calc.annualTax && (
-                      <div className="text-xs text-zinc-600">calc. {YEN(v.calc.annualTax)}</div>
-                    )}
+                    <div className="text-base font-bold font-mono text-blue-400">{YEN(v.calc.annualTax)}<span className="text-xs font-normal text-zinc-500">/ano</span></div>
                     <div className="flex gap-1 mt-1.5 justify-end">
                       <button onClick={()=>setEditId(v.id)} className="text-xs px-2 py-1 rounded-lg bg-zinc-700 text-zinc-300 hover:bg-zinc-600">editar</button>
                       <button onClick={()=>removeVehicle(v.id)} className="text-xs px-2 py-1 rounded-lg bg-red-900/40 text-red-400 hover:bg-red-900/70">×</button>
@@ -5491,7 +4252,7 @@ function VehicleTaxSection() {
       {vData.length > 1 && (
         <div className="mt-3 pt-2 border-t border-zinc-800 flex justify-between text-xs">
           <span className="text-zinc-500">{vData.length} veículos · total anual</span>
-          <span className="font-mono font-bold text-blue-400">{YEN(vData.reduce((a,v)=>{ const pay=getPayment(v.id); return a+(pay?.customAmount||v.calc.annualTax); },0))}</span>
+          <span className="font-mono font-bold text-blue-400">{YEN(vData.reduce((a,v)=>a+v.calc.annualTax,0))}</span>
         </div>
       )}
       <div className="mt-2 text-xs text-zinc-700">重量税 <span className="text-zinc-800">(imp.peso)</span> e 自賠責 <span className="text-zinc-800">(seg.obrigatório)</span> incidem na 車検 <span className="text-zinc-800">(vistoria)</span> a cada 2 anos.</div>
@@ -5771,8 +4532,8 @@ function CarroScreen({ carro, onSave }) {
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Valor total</label>
-                <input type="number" inputMode="numeric" value={newFinanc.valorTotal || ""}
-                  onChange={e => setNewFinanc(f => ({...f, valorTotal: parseInt(e.target.value)||0}))} placeholder="0"
+                <input type="number" inputMode="numeric" value={newFinanc.valorTotal}
+                  onChange={e => setNewFinanc(f => ({...f, valorTotal: parseInt(e.target.value)||0}))}
                   className="rounded-xl px-4 py-3 text-xl font-bold font-mono text-right border focus:outline-none focus:border-amber-500"
                   style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
               </div>
@@ -5820,7 +4581,7 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
   }
 
   const [tab, setTab] = useState("dashboard");
-  const [theme, setTheme] = useState(() => { const t = localStorage.getItem("jst_theme") || "dark"; return t === "graphite" ? "gray" : t; });
+  const [theme, setTheme] = useState(() => localStorage.getItem("jst_theme") || "dark");
   const [entries, setEntries] = useState(() => loadData(KEYS.entries, []));
   const [gastos, setGastos] = useState(() => loadData(KEYS.gastos, defaultGastos));
   const [auditHistory, setAuditHistory] = useState(() => loadData(KEYS.payslipAudit, []));
@@ -5871,15 +4632,13 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
     if (data.auditHistory) setAuditHistory(data.auditHistory);
     if (data.gensen != null) localStorage.setItem("jst_gensen", JSON.stringify(data.gensen));
     if (data.taxVehicles != null) localStorage.setItem("jst_tax_vehicles", JSON.stringify(data.taxVehicles));
-    if (data.taxPayments != null) localStorage.setItem(TAX_PAYMENTS_KEY, JSON.stringify(data.taxPayments));
-    if (data.cartao != null) localStorage.setItem("jst_cartao", JSON.stringify(data.cartao));
     showToast("Backup restaurado com sucesso!", "blue");
   };
 
-  const bodyBg = theme === "dark" ? "#09090b" : theme === "gray" ? "#1c1c1c" : "#f4f4f4";
+  const bodyBg = theme === "dark" ? "#09090b" : theme === "graphite" ? "#141414" : "#f9f9f9";
   const rootCls = `min-h-screen font-sans theme-${theme} ` +
     (theme === "light" ? "text-neutral-900" :
-     theme === "gray"  ? "text-zinc-200" :
+     theme === "graphite" ? "text-zinc-200" :
      "bg-zinc-950 text-zinc-100");
 
   const staticCss = `
@@ -5905,82 +4664,42 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
         input[type="time"] { -webkit-appearance: none; color-scheme: ${theme === "light" ? "light" : "dark"}; }
         input[type="date"], input[type="month"] { color-scheme: ${theme === "light" ? "light" : "dark"}; }
         input, select, textarea { font-size: 16px; }
+        .theme-light    { --bg: #f9f9f9; --bg-card: #ffffff; --border: #e0e0e0; --text: #111111; --text-sub: #444444; --text-muted: #909090; --accent: #b91c1c; }
+        .theme-dark     { --bg: #09090b; --bg-card: rgba(24,24,27,0.8); --border: #27272a; --text: #f4f4f5; --text-sub: #a1a1aa; --text-muted: #52525b; --accent: #f59e0b; }
+        .theme-graphite { --bg: #141414; --bg-card: rgba(28,28,28,0.9); --border: #2c2c2c; --text: #d0d0d0; --text-sub: #888888; --text-muted: #4e4e4e; --accent: #a1a1aa; }
 
-        /* ── Variáveis por tema ── */
-        .theme-light { --bg:#f4f4f4; --bg-card:#ffffff; --border:#e0e0e0; --text:#111111; --text-sub:#555555; --text-muted:#999999; --accent:#b91c1c; }
-        .theme-dark  { --bg:#09090b; --bg-card:rgba(24,24,27,0.8); --border:#27272a; --text:#f4f4f5; --text-sub:#a1a1aa; --text-muted:#52525b; --accent:#f59e0b; }
-        .theme-gray  { --bg:#1c1c1c; --bg-card:rgba(38,38,38,0.9); --border:#333333; --text:#e8e8e8; --text-sub:#9a9a9a; --text-muted:#5a5a5a; --accent:#c0c0c0; }
-
-        /* ══ LIGHT: zinc dark → tons claros ══ */
+        /* Light mode: forçar todos os backgrounds dark para claro */
         .theme-light [class*="bg-zinc-9"],
-        .theme-light [class*="bg-zinc-8"]  { background-color: #f5f5f5 !important; }
-        .theme-light [class*="bg-zinc-7"]  { background-color: #ebebeb !important; }
+        .theme-light [class*="bg-zinc-8"] { background-color: #f5f5f5 !important; }
+        .theme-light [class*="bg-zinc-7"] { background-color: #ececec !important; }
         .theme-light [class*="border-zinc-8"],
-        .theme-light [class*="border-zinc-7"] { border-color: #d8d8d8 !important; }
-        .theme-light [class*="text-zinc-1"] { color: #1a1a1a !important; }
-        .theme-light [class*="text-zinc-2"] { color: #2a2a2a !important; }
-        .theme-light [class*="text-zinc-3"] { color: #444444 !important; }
+        .theme-light [class*="border-zinc-7"] { border-color: #d4d4d4 !important; }
+        .theme-light input, .theme-light select, .theme-light textarea {
+          background: #ffffff !important; color: #111111 !important; border-color: #d4d4d4 !important;
+        }
+        .theme-light [class*="text-zinc-2"],
+        .theme-light [class*="text-zinc-1"] { color: #222222 !important; }
         .theme-light [class*="text-zinc-4"],
         .theme-light [class*="text-zinc-5"],
-        .theme-light [class*="text-zinc-6"] { color: #777777 !important; }
-        .theme-light [class*="text-zinc-7"] { color: #555555 !important; }
-        .theme-light input, .theme-light select, .theme-light textarea {
-          background: #ffffff !important; color: #111111 !important; border-color: #d8d8d8 !important; }
-        /* cores semânticas em light → tints claros */
-        .theme-light [class*="bg-green-9"], .theme-light [class*="bg-green-8"] { background-color: #f0fdf4 !important; }
-        .theme-light [class*="bg-blue-9"],  .theme-light [class*="bg-blue-8"]  { background-color: #eff6ff !important; }
-        .theme-light [class*="bg-amber-9"], .theme-light [class*="bg-amber-8"] { background-color: #fffbeb !important; }
-        .theme-light [class*="bg-red-9"],   .theme-light [class*="bg-red-8"]   { background-color: #fef2f2 !important; }
-        .theme-light [class*="bg-yellow-9"]{ background-color: #fefce8 !important; }
-        .theme-light [class*="bg-purple-9"]{ background-color: #faf5ff !important; }
-        .theme-light [class*="border-green-8"], .theme-light [class*="border-green-7"] { border-color: #bbf7d0 !important; }
-        .theme-light [class*="border-blue-8"],  .theme-light [class*="border-blue-7"]  { border-color: #bfdbfe !important; }
-        .theme-light [class*="border-amber-7"], .theme-light [class*="border-amber-8"] { border-color: #fde68a !important; }
-        .theme-light [class*="border-red-8"],   .theme-light [class*="border-red-7"]   { border-color: #fecaca !important; }
-        .theme-light [class*="text-amber-4"], .theme-light [class*="text-amber-5"] { color: #b45309 !important; }
-        .theme-light [class*="text-green-4"], .theme-light [class*="text-green-5"] { color: #15803d !important; }
-        .theme-light [class*="text-blue-4"],  .theme-light [class*="text-blue-5"]  { color: #1d4ed8 !important; }
-        .theme-light [class*="text-orange-4"]{ color: #c2410c !important; }
-        .theme-light [class*="text-red-4"],   .theme-light [class*="text-red-3"]   { color: #b91c1c !important; }
+        .theme-light [class*="text-zinc-6"] { color: #666666 !important; }
 
-        /* ══ GRAY: totalmente dessaturado — só cinzas + vermelho ══ */
-        .theme-gray [class*="bg-zinc-950"] { background-color: #1c1c1c !important; }
-        .theme-gray [class*="bg-zinc-900"] { background-color: #262626 !important; }
-        .theme-gray [class*="bg-zinc-800"] { background-color: #333333 !important; }
-        .theme-gray [class*="bg-zinc-700"] { background-color: #404040 !important; }
-        .theme-gray [class*="border-zinc-8"] { border-color: #333333 !important; }
-        .theme-gray [class*="border-zinc-7"] { border-color: #404040 !important; }
-        .theme-gray [class*="text-zinc-1"]  { color: #e8e8e8 !important; }
-        .theme-gray [class*="text-zinc-2"]  { color: #d0d0d0 !important; }
-        .theme-gray [class*="text-zinc-3"]  { color: #b8b8b8 !important; }
-        .theme-gray [class*="text-zinc-4"]  { color: #909090 !important; }
-        .theme-gray [class*="text-zinc-5"]  { color: #6a6a6a !important; }
-        .theme-gray [class*="text-zinc-6"]  { color: #505050 !important; }
-        .theme-gray [class*="text-zinc-7"]  { color: #404040 !important; }
-        /* amber/yellow → cinza claro (destaque neutro) */
-        .theme-gray [class*="text-amber-"]  { color: #c8c8c8 !important; }
-        .theme-gray [class*="text-yellow-"] { color: #b0b0b0 !important; }
-        .theme-gray [class*="bg-amber-5"],  .theme-gray [class*="bg-amber-4"]  { background-color: #585858 !important; }
-        .theme-gray [class*="bg-amber-9"],  .theme-gray [class*="bg-amber-8"]  { background-color: #2e2e2e !important; }
-        .theme-gray [class*="border-amber-"]{ border-color: #4a4a4a !important; }
-        /* green → cinza médio */
-        .theme-gray [class*="text-green-"]  { color: #a8a8a8 !important; }
-        .theme-gray [class*="bg-green-"]    { background-color: #2e2e2e !important; }
-        .theme-gray [class*="border-green-"]{ border-color: #3e3e3e !important; }
-        /* blue → cinza */
-        .theme-gray [class*="text-blue-"]   { color: #ababab !important; }
-        .theme-gray [class*="bg-blue-6"],   .theme-gray [class*="bg-blue-5"]   { background-color: #4a4a4a !important; }
-        .theme-gray [class*="bg-blue-9"],   .theme-gray [class*="bg-blue-8"]   { background-color: #2e2e2e !important; }
-        .theme-gray [class*="border-blue-"] { border-color: #404040 !important; }
-        /* orange → cinza */
-        .theme-gray [class*="text-orange-"] { color: #b8b8b8 !important; }
-        .theme-gray [class*="bg-orange-"]   { background-color: #333333 !important; }
-        /* purple → cinza */
-        .theme-gray [class*="text-purple-"] { color: #a8a8a8 !important; }
-        .theme-gray [class*="bg-purple-"]   { background-color: #2e2e2e !important; }
-        /* red fica intacto (confirmações/alertas) */
-        .theme-gray input, .theme-gray select, .theme-gray textarea {
-          background: #262626 !important; color: #e8e8e8 !important; border-color: #333333 !important; }
+        /* Graphite mode: zinc blue-black → cinza neutro */
+        .theme-graphite [class*="bg-zinc-950"] { background-color: #141414 !important; }
+        .theme-graphite [class*="bg-zinc-900"] { background-color: #1e1e1e !important; }
+        .theme-graphite [class*="bg-zinc-800"] { background-color: #2a2a2a !important; }
+        .theme-graphite [class*="bg-zinc-700"] { background-color: #363636 !important; }
+        .theme-graphite [class*="border-zinc-800"] { border-color: #2c2c2c !important; }
+        .theme-graphite [class*="border-zinc-700"] { border-color: #383838 !important; }
+        .theme-graphite [class*="text-zinc-100"] { color: #d8d8d8 !important; }
+        .theme-graphite [class*="text-zinc-200"] { color: #cccccc !important; }
+        .theme-graphite [class*="text-zinc-300"] { color: #b8b8b8 !important; }
+        .theme-graphite [class*="text-zinc-400"] { color: #909090 !important; }
+        .theme-graphite [class*="text-zinc-500"] { color: #6a6a6a !important; }
+        .theme-graphite [class*="text-zinc-600"] { color: #505050 !important; }
+        .theme-graphite [class*="text-zinc-700"] { color: #404040 !important; }
+        .theme-graphite input, .theme-graphite select, .theme-graphite textarea {
+          background: #1e1e1e !important; color: #d0d0d0 !important; border-color: #2c2c2c !important;
+        }
 
         @keyframes pulse-border { 0%,100% { border-color: #f59e0b; } 50% { border-color: #ef4444; } }
         .edit-mode-active { animation: pulse-border 1.5s ease-in-out infinite; }
@@ -5996,7 +4715,7 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
       <style>{staticCss}</style>
 
       {/* Top bar */}
-      <div className={`sticky top-0 z-40 backdrop-blur border-b px-4 py-2 ${theme === "light" ? "bg-white/95 border-neutral-200" : "bg-zinc-950/90 border-zinc-800/50"}`} style={theme === "gray" ? {background:"rgba(28,28,28,0.94)", borderColor:"#333333"} : {}}>
+      <div className={`sticky top-0 z-40 backdrop-blur border-b px-4 py-2 ${theme === "light" ? "bg-white/95 border-neutral-200" : theme === "graphite" ? "bg-zinc-950/90 border-zinc-800/50" : "bg-zinc-950/90 border-zinc-800/50"}`} style={theme === "graphite" ? {background:"rgba(20,20,20,0.92)", borderColor:"#2c2c2c"} : {}}>
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-lg">⛩️</span>
@@ -6014,7 +4733,7 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
             <div className="flex items-center gap-1.5" title="Tema de cores">
               {[
                 { id: "dark",     bg: "#09090b", border: "#52525b", label: "Escuro"  },
-                { id: "gray",     bg: "#2e2e2e", border: "#6a6a6a", label: "Cinza"   },
+                { id: "graphite", bg: "#2a2a2a", border: "#6a6a6a", label: "Grafite" },
                 { id: "light",    bg: "#f0f0f0", border: "#c0c0c0", label: "Claro"   },
               ].map(t => (
                 <button
@@ -6083,9 +4802,6 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
         {tab === "gensen" && (
           <GensenScreen settings={settings} />
         )}
-        {tab === "cartao" && (
-          <CartaoScreen />
-        )}
         {tab === "impostos" && (
           <ImpostosScreen entries={entries} settings={settings} onTabSwitch={setTab} />
         )}
@@ -6095,11 +4811,8 @@ function App({ profileId, profileName, profileColor, profiles, onSwitchProfile }
       </div>
 
       {/* Bottom nav */}
-      <div className={`fixed bottom-0 inset-x-0 z-40 backdrop-blur border-t ${theme === "light" ? "bg-white/95 border-neutral-200" : "bg-zinc-950/95 border-zinc-800/50"}`}
-        style={{
-          ...(theme === "gray" ? {background:"rgba(28,28,28,0.97)", borderColor:"#333333"} : {}),
-          paddingBottom: "env(safe-area-inset-bottom, 0px)"
-        }}>
+      <div className={`fixed bottom-0 inset-x-0 z-40 backdrop-blur border-t ${theme === "light" ? "bg-white/95 border-neutral-200" : "bg-zinc-950/95 border-zinc-800/50"}`} style={theme === "graphite" ? {background:"rgba(20,20,20,0.96)", borderColor:"#2c2c2c"} : {}}
+        style={{paddingBottom: "env(safe-area-inset-bottom, 0px)"}}>
         <div className="max-w-2xl mx-auto flex">
           {TABS.map((t) => (
             <button
