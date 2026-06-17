@@ -1,0 +1,48 @@
+name: Fix duplicate JSX style in index
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix-index:
+    if: ${{ !contains(github.event.head_commit.message, 'Fix duplicate JSX style on bottom nav') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch duplicate style prop in index.html
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          old = '''<div className={`fixed bottom-0 inset-x-0 z-40 backdrop-blur border-t ${theme === "light" ? "bg-white/95 border-neutral-200" : "bg-zinc-950/95 border-zinc-800/50"}`} style={theme === "gray" ? {background:"rgba(28,28,28,0.97)", borderColor:"#333333"} : {}}
+        style={{paddingBottom: "env(safe-area-inset-bottom, 0px)"}}>'''
+          new = '''<div className={`fixed bottom-0 inset-x-0 z-40 backdrop-blur border-t ${theme === "light" ? "bg-white/95 border-neutral-200" : "bg-zinc-950/95 border-zinc-800/50"}`}
+        style={{
+          ...(theme === "gray" ? {background:"rgba(28,28,28,0.97)", borderColor:"#333333"} : {}),
+          paddingBottom: "env(safe-area-inset-bottom, 0px)"
+        }}>'''
+          if old not in s:
+              print('Target duplicate style block not found; no change needed.')
+              raise SystemExit(0)
+          p.write_text(s.replace(old, new), encoding='utf-8')
+          print('Patched duplicate JSX style prop in index.html')
+          PY
+
+      - name: Commit fix if changed
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Fix duplicate JSX style on bottom nav"
+          git push
