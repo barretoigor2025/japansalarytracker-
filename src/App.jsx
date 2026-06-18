@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect } from "react";
 
 // Screens
 import { DashboardScreen } from "./screens/Dashboard.jsx";
@@ -7,6 +7,8 @@ import { ReportsScreen } from "./screens/Reports.jsx";
 import { CompareScreen } from "./screens/Compare.jsx";
 import { GastosScreen } from "./screens/Gastos.jsx";
 import { CarroScreen } from "./screens/Carro.jsx";
+import { GensenScreen } from "./screens/Gensen.jsx";
+import { ImpostosScreen } from "./screens/Impostos.jsx";
 import { SettingsScreen } from "./screens/Settings.jsx";
 
 // Components
@@ -24,6 +26,8 @@ const TABS = [
   { id: "compare",   label: "Comparar",   icon: "📈" },
   { id: "gastos",    label: "Gastos",     icon: "💸" },
   { id: "carro",     label: "Carro",      icon: "🚗" },
+  { id: "gensen",    label: "Gensen",     icon: "📄" },
+  { id: "impostos",  label: "Impostos",   icon: "🏛️" },
   { id: "settings",  label: "Config",     icon: "⚙️" },
 ];
 
@@ -32,6 +36,12 @@ const TABS = [
 export default function App() {
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstall, setShowInstall] = useState(false);
+
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register(import.meta.env.BASE_URL + "sw.js").catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
     const handler = (e) => {
@@ -215,30 +225,38 @@ export default function App() {
         {tab === "carro" && (
           <CarroScreen carro={carro} onSave={setCarro} />
         )}
+        {tab === "gensen" && (
+          <GensenScreen settings={settings} />
+        )}
+        {tab === "impostos" && (
+          <ImpostosScreen entries={entries} settings={settings} onTabSwitch={setTab} />
+        )}
         {tab === "settings" && (
           <SettingsScreen settings={settings} onSave={saveSettings} entries={entries}
             auditHistory={auditHistory} onSaveAudit={setAuditHistory} />
         )}
       </div>
 
-      {/* Bottom nav */}
+      {/* Bottom nav — scrollable for 9 tabs */}
       <div className={`fixed bottom-0 inset-x-0 z-40 backdrop-blur border-t ${theme === "dark" ? "bg-zinc-950/95 border-zinc-800/50" : "bg-white/95 border-zinc-200"}`}
         style={{paddingBottom: "env(safe-area-inset-bottom, 0px)"}}>
-        <div className="max-w-2xl mx-auto flex">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex-1 flex flex-col items-center py-2 transition-colors ${
-                tab === t.id
-                  ? "text-amber-400"
-                  : theme === "dark" ? "text-zinc-600 hover:text-zinc-400" : "text-zinc-400 hover:text-zinc-600"
-              }`}
-            >
-              <span className="text-xl">{t.icon}</span>
-              <span className="text-xs mt-0.5 font-medium">{t.label}</span>
-            </button>
-          ))}
+        <div className="max-w-2xl mx-auto overflow-x-auto scrollbar-none">
+          <div className="flex min-w-max mx-auto">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`flex flex-col items-center py-2 px-3 transition-colors min-w-[56px] ${
+                  tab === t.id
+                    ? "text-amber-400"
+                    : theme === "dark" ? "text-zinc-600 hover:text-zinc-400" : "text-zinc-400 hover:text-zinc-600"
+                }`}
+              >
+                <span className="text-lg">{t.icon}</span>
+                <span className="text-[10px] mt-0.5 font-medium whitespace-nowrap">{t.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
