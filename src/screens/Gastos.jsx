@@ -133,6 +133,10 @@ function GastosScreen({ gastos, onSave }) {
   const miHagaki = monthItemsList.filter(i => i.tipo === "hagaki").reduce((a, i) => a + i.amount, 0);
   const miRenda  = monthItemsList.filter(i => i.tipo === "renda").reduce((a, i) => a + i.amount, 0);
 
+  // ── Cartão de Crédito ────────────────────────────────────────────────
+  const cartaoItems = (localGastos.cartao?.[month] || []);
+  const totalCartao = cartaoItems.reduce((a, c) => a + (c.valor || 0), 0);
+
   function clearOverride(id) {
     const monthOvr = { ...(localGastos.overrides?.[month] || {}) };
     delete monthOvr[id];
@@ -149,7 +153,7 @@ function GastosScreen({ gastos, onSave }) {
   const activeHagaki = localGastos.despesas.filter(d => d.active && d.tipo === "hagaki");
   const totalDebito = activeDebito.filter(d => !hiddenThisMonth.includes(d.id)).reduce((a, d) => a + getVal(d), 0) + miDebito;
   const totalHagaki = activeHagaki.filter(d => !hiddenThisMonth.includes(d.id)).reduce((a, d) => a + getVal(d), 0) + miHagaki;
-  const totalDespesas = totalDebito + totalHagaki;
+  const totalDespesas = totalDebito + totalHagaki + totalCartao;
   const saldo = totalRenda - totalDespesas;
 
   // Modal de edição de valor
@@ -461,10 +465,17 @@ function GastosScreen({ gastos, onSave }) {
               ls.push("*Subtotal: " + fmt(totalHagaki) + "*");
               ls.push("");
             }
+            if (totalCartao > 0) {
+              ls.push("💳 *CARTÃO DE CRÉDITO*");
+              cartaoItems.forEach(c => ls.push("  " + c.nome + ": " + fmt(c.valor)));
+              ls.push("*Subtotal: " + fmt(totalCartao) + "*");
+              ls.push("");
+            }
             ls.push("─────────────────");
             ls.push("💴 Renda: " + fmt(totalRenda));
             ls.push("🏦 Débito Auto: " + fmt(totalDebito));
             ls.push("📮 Hagaki (sacar): " + fmt(totalHagaki));
+            if (totalCartao > 0) ls.push("💳 Cartão: " + fmt(totalCartao));
             ls.push("💸 Total Despesas: " + fmt(totalDespesas));
             ls.push("✅ *Saldo Final: " + fmt(saldo) + "*");
             if (totalHagaki > 0) {
@@ -497,7 +508,7 @@ function GastosScreen({ gastos, onSave }) {
           <div>
             <div className="text-xs uppercase tracking-widest font-semibold" style={{color:"var(--text-muted)"}}>Saldo Final</div>
             <div className="text-xs mt-0.5" style={{color:"var(--text-muted)"}}>
-              Débito: <span className="font-mono text-blue-400">{YEN(totalDebito)}</span> · Hagaki: <span className="font-mono text-orange-400">{YEN(totalHagaki)}</span>
+              Débito: <span className="font-mono text-blue-400">{YEN(totalDebito)}</span> · Hagaki: <span className="font-mono text-orange-400">{YEN(totalHagaki)}</span>{totalCartao > 0 && <> · CC: <span className="font-mono text-purple-400">{YEN(totalCartao)}</span></>}
             </div>
           </div>
           <div className={`text-2xl font-bold font-mono ${saldo >= 0 ? "text-green-400" : "text-red-400"}`}>
@@ -535,6 +546,18 @@ function GastosScreen({ gastos, onSave }) {
         items={localGastos.despesas.filter(d => d.tipo === "hagaki")}
         tipoDesp="hagaki" total={totalHagaki} onAdd={() => addItem("hagaki")} onAddMonth={() => addItemThisMonth("hagaki")}
         badge={`${activeHagaki.length} ativos`} />
+
+      {/* ── Cartão de Crédito (resumo) ── */}
+      <div className="rounded-2xl border border-purple-900/40 bg-purple-950/20 p-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">💳</span>
+          <div>
+            <div className="text-xs font-semibold text-purple-300">Cartão de Crédito</div>
+            <div className="text-xs text-zinc-600">{cartaoItems.length} lançamento{cartaoItems.length !== 1 ? "s" : ""} · aba Cartão</div>
+          </div>
+        </div>
+        <span className="text-base font-bold font-mono text-purple-400">{YEN(totalCartao)}</span>
+      </div>
 
       {renderEditModal()}
 
