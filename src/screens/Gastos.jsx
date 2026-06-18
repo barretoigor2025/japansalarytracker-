@@ -4,7 +4,7 @@ import { MonthPicker, Card } from "../components/ui.jsx";
 
 // ── GastosScreen ─────────────────────────────────────────────────────
 
-function GastosScreen({ gastos, onSave }) {
+function GastosScreen({ gastos, onSave, cartao }) {
   const today = new Date().toISOString().slice(0, 7);
   const [month, setMonth] = useState(today);
   const [editMode, setEditMode] = useState(false);
@@ -134,8 +134,8 @@ function GastosScreen({ gastos, onSave }) {
   const miRenda  = monthItemsList.filter(i => i.tipo === "renda").reduce((a, i) => a + i.amount, 0);
 
   // ── Cartão de Crédito ────────────────────────────────────────────────
-  const cartaoItems = (localGastos.cartao?.[month] || []);
-  const totalCartao = cartaoItems.reduce((a, c) => a + (c.valor || 0), 0);
+  const cartaoMonthItems = (cartao?.lancamentos || []).filter(l => l.date.slice(0, 7) === month);
+  const totalCartao = cartaoMonthItems.reduce((s, l) => s + (l.amount || 0), 0);
 
   function clearOverride(id) {
     const monthOvr = { ...(localGastos.overrides?.[month] || {}) };
@@ -467,8 +467,7 @@ function GastosScreen({ gastos, onSave }) {
             }
             if (totalCartao > 0) {
               ls.push("💳 *CARTÃO DE CRÉDITO*");
-              cartaoItems.forEach(c => ls.push("  " + c.nome + ": " + fmt(c.valor)));
-              ls.push("*Subtotal: " + fmt(totalCartao) + "*");
+              ls.push("*Total: " + fmt(totalCartao) + "*");
               ls.push("");
             }
             ls.push("─────────────────");
@@ -553,7 +552,7 @@ function GastosScreen({ gastos, onSave }) {
           <span className="text-lg">💳</span>
           <div>
             <div className="text-xs font-semibold text-purple-300">Cartão de Crédito</div>
-            <div className="text-xs text-zinc-600">{cartaoItems.length} lançamento{cartaoItems.length !== 1 ? "s" : ""} · aba Cartão</div>
+            <div className="text-xs text-zinc-600">{cartaoMonthItems.length} lançamento{cartaoMonthItems.length !== 1 ? "s" : ""} · aba Cartão</div>
           </div>
         </div>
         <span className="text-base font-bold font-mono text-purple-400">{YEN(totalCartao)}</span>
