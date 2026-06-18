@@ -69,35 +69,59 @@ export default function App() {
   const [entries, setEntries] = useState(() => loadData(STORAGE_KEYS.entries, []));
   const [gastos, setGastos] = useState(() => {
     const current = loadData(STORAGE_KEYS.gastos, defaultGastos);
-    // One-time migration: recover cartão data from old profile-based storage (jst_p_{pid}_gastos)
-    if (!localStorage.getItem("jst_v1_cartao_migrated")) {
+    // Migration v2: recover cartão data from old v1 profile storage.
+    // v1 stored data in jst_p_{pid}_gastos with two possible formats:
+    //   a) old.cartao[month] = [{id, nome, valor}]  — newer v1
+    //   b) old.overrides[month]["d9"] = number       — classic v1 (total only)
+    if (localStorage.getItem("jst_v1_cartao_migrated") !== "2") {
       try {
-        const profiles = JSON.parse(localStorage.getItem("jst_profiles") || "null");
-        if (profiles && Array.isArray(profiles)) {
-          let merged = false;
-          const cartao = { ...(current.cartao || {}) };
-          profiles.forEach(({ id: pid }) => {
-            try {
-              const old = JSON.parse(localStorage.getItem(`jst_p_${pid}_gastos`) || "null");
-              if (old?.cartao && typeof old.cartao === "object") {
-                Object.entries(old.cartao).forEach(([month, items]) => {
-                  if (!cartao[month] || cartao[month].length === 0) {
-                    cartao[month] = items;
-                    merged = true;
-                  }
-                });
-              }
-            } catch {}
-          });
-          if (merged) {
-            const updated = { ...current, cartao };
-            localStorage.setItem(STORAGE_KEYS.gastos, JSON.stringify(updated));
-            localStorage.setItem("jst_v1_cartao_migrated", "1");
-            return updated;
+        const cartao = { ...(current.cartao || {}) };
+        let merged = false;
+
+        const sources = [];
+        try {
+          const profiles = JSON.parse(localStorage.getItem("jst_profiles") || "null");
+          if (Array.isArray(profiles)) {
+            profiles.forEach(({ id: pid }) => {
+              const raw = localStorage.getItem(`jst_p_${pid}_gastos`);
+              if (raw) sources.push(JSON.parse(raw));
+            });
           }
+        } catch {}
+        // Also check direct jst_gastos as fallback (may have d9 overrides)
+        sources.push(current);
+
+        sources.forEach(old => {
+          if (!old) return;
+          // Format a: per-item cartão array
+          if (old.cartao && typeof old.cartao === "object") {
+            Object.entries(old.cartao).forEach(([month, items]) => {
+              if (Array.isArray(items) && items.length > 0 && (!cartao[month] || cartao[month].length === 0)) {
+                cartao[month] = items;
+                merged = true;
+              }
+            });
+          }
+          // Format b: d9 override (classic v1 total-only)
+          if (old.overrides && typeof old.overrides === "object") {
+            Object.entries(old.overrides).forEach(([month, ovr]) => {
+              const d9val = ovr?.["d9"];
+              if (d9val > 0 && (!cartao[month] || cartao[month].length === 0)) {
+                cartao[month] = [{ id: "cc_v1_" + month.replace("-", ""), nome: "Cartão de Crédito", valor: d9val }];
+                merged = true;
+              }
+            });
+          }
+        });
+
+        if (merged) {
+          const updated = { ...current, cartao };
+          localStorage.setItem(STORAGE_KEYS.gastos, JSON.stringify(updated));
+          localStorage.setItem("jst_v1_cartao_migrated", "2");
+          return updated;
         }
       } catch {}
-      localStorage.setItem("jst_v1_cartao_migrated", "1");
+      localStorage.setItem("jst_v1_cartao_migrated", "2");
     }
     return current;
   });
