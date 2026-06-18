@@ -28,13 +28,13 @@ function EntryForm({ initial, settings, onSave, onClose, entries = [] }) {
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.75)" }}>
-      <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
-          <h2 className="text-base font-semibold text-zinc-100">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.85)" }}>
+      <div className="w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "var(--border)" }}>
+          <h2 className="text-base font-semibold" style={{ color: "var(--text)" }}>
             {initial ? "Editar Lançamento" : "Novo Lançamento"}
           </h2>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 transition-colors text-xl">×</button>
+          <button onClick={onClose} className="text-xl transition-colors" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
 
         <div className="p-4 grid grid-cols-2 gap-3">
@@ -45,11 +45,15 @@ function EntryForm({ initial, settings, onSave, onClose, entries = [] }) {
           {form.dayType !== "yukyu" && <Input label="Saída" type="time" value={form.end} onChange={(e) => set("end", e.target.value)} />}
           {/* Break */}
           {form.dayType !== "yukyu" && <div className="col-span-2 flex flex-col gap-2">
-            <label className="text-xs text-zinc-400 font-medium tracking-wide uppercase">Intervalo / Break</label>
+            <label className="text-xs font-medium tracking-wide uppercase" style={{ color: "var(--text-muted)" }}>Intervalo / Break</label>
             <div className="flex gap-2">
               {[{l:"Sem intervalo",v:0},{l:"30min",v:30},{l:"45min",v:45},{l:"1h",v:60}].map((p) => (
                 <button key={p.v} onClick={() => set("breakMinutes", p.v)}
-                  className={"flex-1 py-1 rounded-lg text-xs font-medium border transition-all " + (form.breakMinutes === p.v ? "bg-amber-500 border-amber-500 text-black" : "border-zinc-700 text-zinc-400 hover:border-zinc-500")}>
+                  className="flex-1 py-1 rounded-lg text-xs font-medium transition-all"
+                  style={form.breakMinutes === p.v
+                    ? { background: "var(--text)", color: "var(--bg)", border: "1px solid var(--text)" }
+                    : { background: "var(--bg-elevated)", border: "1px solid var(--border-mid)", color: "var(--text-sub)" }
+                  }>
                   {p.l}
                 </button>
               ))}
@@ -57,27 +61,29 @@ function EntryForm({ initial, settings, onSave, onClose, entries = [] }) {
             <div className="flex items-center gap-2">
               <input type="number" min="0" max="480" value={form.breakMinutes}
                 onChange={(e) => set("breakMinutes", e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value,10)||0))}
-                className="w-24 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-amber-500 transition-all"
+                className="w-24 rounded-lg px-3 py-2 text-sm focus:outline-none transition-all"
+                style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-mid)", color: "var(--text)" }}
               />
-              <span className="text-xs text-zinc-500">min {form.breakMinutes === 0 && <span className="text-amber-400 font-semibold">· sem intervalo ✓</span>}</span>
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>min {form.breakMinutes === 0 && <span className="font-semibold" style={{ color: "var(--warning)" }}>· sem intervalo ✓</span>}</span>
             </div>
           </div>}
           <div className="col-span-2 flex flex-col gap-1.5">
-            <label className="text-xs text-zinc-400 font-medium tracking-wide uppercase">Tipo de Dia</label>
+            <label className="text-xs font-medium tracking-wide uppercase" style={{ color: "var(--text-muted)" }}>Tipo de Dia</label>
             <div className="flex items-center gap-2">
               <select
                 value={form.dayType}
                 onChange={(e) => set("dayType", e.target.value)}
-                className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 transition-all">
+                className="flex-1 rounded-lg px-3 py-2 text-sm focus:outline-none transition-all"
+                style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-mid)", color: "var(--text)" }}>
                 {DAY_TYPES.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
               </select>
               <button
                 onClick={() => setForm(f => ({ ...f, dayType: "normal", start: "05:45", end: "17:00", breakMinutes: 60 }))}
                 className="shrink-0 px-2.5 py-2 rounded-lg text-xs font-bold border-2 transition-all"
                 style={{
-                  background: form.start === "05:45" && form.end === "17:00" ? "#f59e0b" : "transparent",
-                  borderColor: "#f59e0b",
-                  color: form.start === "05:45" && form.end === "17:00" ? "#000" : "#f59e0b"
+                  background: form.start === "05:45" && form.end === "17:00" ? "var(--warning)" : "transparent",
+                  borderColor: "var(--warning)",
+                  color: form.start === "05:45" && form.end === "17:00" ? "var(--bg)" : "var(--warning)"
                 }}>
                 ☀️ 昼勤
               </button>
@@ -85,9 +91,9 @@ function EntryForm({ initial, settings, onSave, onClose, entries = [] }) {
                 onClick={() => setForm(f => ({ ...f, dayType: "normal", start: "17:00", end: "03:45", breakMinutes: 60 }))}
                 className="shrink-0 px-2.5 py-2 rounded-lg text-xs font-bold border-2 transition-all"
                 style={{
-                  background: form.start === "17:00" && form.end === "03:45" ? "#a855f7" : "transparent",
-                  borderColor: "#a855f7",
-                  color: form.start === "17:00" && form.end === "03:45" ? "#fff" : "#a855f7"
+                  background: form.start === "17:00" && form.end === "03:45" ? "var(--night)" : "transparent",
+                  borderColor: "var(--night)",
+                  color: form.start === "17:00" && form.end === "03:45" ? "#fff" : "var(--night)"
                 }}>
                 🌙 夜勤
               </button>
@@ -104,12 +110,12 @@ function EntryForm({ initial, settings, onSave, onClose, entries = [] }) {
           if (!conflict) return null;
           return (
             <div className="px-4 pb-2">
-              <div className="bg-red-900/30 border border-red-700/50 rounded-xl p-3 flex items-start gap-2">
-                <span className="text-red-400 text-base shrink-0">⚠️</span>
+              <div className="rounded-xl p-3 flex items-start gap-2" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
+                <span className="text-base shrink-0" style={{ color: "var(--negative)" }}>⚠️</span>
                 <div>
-                  <div className="text-xs font-semibold text-red-300">Conflito de horário detectado</div>
-                  <div className="text-xs text-red-400 mt-0.5">{conflict.message}</div>
-                  <div className="text-xs text-zinc-500 mt-1">Verifique os horários antes de salvar.</div>
+                  <div className="text-xs font-semibold" style={{ color: "var(--negative)" }}>Conflito de horário detectado</div>
+                  <div className="text-xs mt-0.5" style={{ color: "var(--negative)" }}>{conflict.message}</div>
+                  <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Verifique os horários antes de salvar.</div>
                 </div>
               </div>
             </div>
@@ -119,11 +125,11 @@ function EntryForm({ initial, settings, onSave, onClose, entries = [] }) {
         {/* Preview yukyu */}
         {form.dayType === "yukyu" && (
           <div className="px-4 pb-3">
-            <div className="bg-green-900/20 border border-green-800/30 rounded-xl p-3 text-center">
+            <div className="rounded-xl p-3 text-center" style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)" }}>
               <div className="text-lg mb-1">🌿</div>
-              <div className="text-sm font-semibold text-green-400">有給休暇</div>
-              <div className="text-xs text-zinc-500 mt-1">8h remuneradas · sem hora extra · sem noturno</div>
-              <div className="font-mono font-bold text-green-400 mt-2">{YEN(8 * settings.hourlyRate)}</div>
+              <div className="text-sm font-semibold" style={{ color: "var(--positive)" }}>有給休暇</div>
+              <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>8h remuneradas · sem hora extra · sem noturno</div>
+              <div className="font-mono font-bold mt-2" style={{ color: "var(--positive)" }}>{YEN(8 * settings.hourlyRate)}</div>
             </div>
           </div>
         )}
@@ -131,18 +137,18 @@ function EntryForm({ initial, settings, onSave, onClose, entries = [] }) {
         {/* Preview rápido */}
         {form.dayType !== "yukyu" && calc && calc.totalHours > 0 && (
           <div className="px-4 pb-3">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 grid grid-cols-3 gap-3 text-center">
+            <div className="rounded-xl p-3 grid grid-cols-3 gap-3 text-center" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
               <div>
-                <div className="text-xs text-zinc-500 mb-1">Total</div>
-                <div className="text-sm font-mono font-bold text-zinc-200">{formatMinutes(calc.totalMin)}</div>
+                <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>Total</div>
+                <div className="text-sm font-mono font-bold" style={{ color: "var(--text)" }}>{formatMinutes(calc.totalMin)}</div>
               </div>
               <div>
-                <div className="text-xs text-zinc-500 mb-1">HE</div>
-                <div className="text-sm font-mono font-bold text-amber-400">{formatMinutes(calc.overtimeDailyMin)}</div>
+                <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>HE</div>
+                <div className="text-sm font-mono font-bold" style={{ color: "var(--warning)" }}>{formatMinutes(calc.overtimeDailyMin)}</div>
               </div>
               <div>
-                <div className="text-xs text-zinc-500 mb-1">Bruto</div>
-                <div className="text-sm font-mono font-bold text-green-400">{YEN(calc.grossPay)}</div>
+                <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>Bruto</div>
+                <div className="text-sm font-mono font-bold" style={{ color: "var(--positive)" }}>{YEN(calc.grossPay)}</div>
               </div>
             </div>
             {(calc.nightHours > 0 || calc.isHoliday) && (
@@ -157,13 +163,15 @@ function EntryForm({ initial, settings, onSave, onClose, entries = [] }) {
         <div className="flex gap-3 px-4 pb-4">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
+            className="flex-1 py-2.5 rounded-xl text-sm transition-colors"
+            style={{ border: "1px solid var(--border-mid)", color: "var(--text-sub)" }}
           >
             Cancelar
           </button>
           <button
             onClick={() => onSave({ ...form, id: initial?.id || Date.now().toString() })}
-            className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm transition-colors"
+            className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-colors"
+            style={{ background: "var(--text)", color: "var(--bg)" }}
           >
             Salvar
           </button>
@@ -195,29 +203,33 @@ function CalcDetailModal({ entry, settings, onClose }) {
   ].filter(Boolean);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.75)" }}>
-      <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
-          <h2 className="text-base font-semibold text-zinc-100">Detalhamento do Cálculo</h2>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 transition-colors text-xl">×</button>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.85)" }}>
+      <div className="w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "var(--border)" }}>
+          <h2 className="text-base font-semibold" style={{ color: "var(--text)" }}>Detalhamento do Cálculo</h2>
+          <button onClick={onClose} className="text-xl transition-colors" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
         <div className="p-4 space-y-0.5 max-h-80 overflow-y-auto">
           {rows.map((r, i) =>
             r.label === "—" ? (
-              <div key={i} className="border-t border-zinc-800 my-2" />
+              <div key={i} className="border-t my-2" style={{ borderColor: "var(--border)" }} />
             ) : (
-              <div key={i} className={`flex justify-between items-start py-1.5 ${r.bold ? "text-amber-400 font-bold" : ""}`}>
+              <div key={i} className="flex justify-between items-start py-1.5">
                 <div>
-                  <div className={`text-sm ${r.bold ? "text-amber-400" : "text-zinc-300"}`}>{r.label}</div>
-                  {r.note && <div className="text-xs text-zinc-600">{r.note}</div>}
+                  <div className="text-sm" style={{ color: r.bold ? "var(--warning)" : "var(--text-sub)" }}>{r.label}</div>
+                  {r.note && <div className="text-xs" style={{ color: "var(--text-muted)" }}>{r.note}</div>}
                 </div>
-                <div className={`font-mono text-sm ${r.bold ? "text-amber-400 text-base" : "text-zinc-200"}`}>{r.value}</div>
+                <div className="font-mono text-sm" style={{ color: r.bold ? "var(--warning)" : "var(--text)", fontWeight: r.bold ? "bold" : "normal" }}>{r.value}</div>
               </div>
             )
           )}
         </div>
         <div className="px-4 pb-4">
-          <button onClick={onClose} className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm transition-colors">
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 rounded-xl font-semibold text-sm transition-colors"
+            style={{ background: "var(--text)", color: "var(--bg)" }}
+          >
             Fechar
           </button>
         </div>

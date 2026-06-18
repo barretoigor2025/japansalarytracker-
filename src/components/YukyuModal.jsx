@@ -16,32 +16,32 @@ function YukyuModal({ entries, settings, onAddEntry, onClose }) {
   const remainingDays = Math.max(0, availableDays - usedDays);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{background:"rgba(0,0,0,0.8)"}}>
-      <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 shrink-0">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{background:"rgba(0,0,0,0.85)"}}>
+      <div className="w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center justify-between px-4 py-3 border-b shrink-0" style={{ borderColor: "var(--border)" }}>
           <div className="flex items-center gap-2">
             <span className="text-lg">🌿</span>
-            <h2 className="text-sm font-semibold text-zinc-100">有給休暇 — Folgas Remuneradas</h2>
+            <h2 className="text-sm font-semibold" style={{ color: "var(--text)" }}>有給休暇 — Folgas Remuneradas</h2>
           </div>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 text-xl">×</button>
+          <button onClick={onClose} className="text-xl" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-2 p-4 shrink-0">
-          <div className="bg-green-900/20 border border-green-800/30 rounded-xl p-2.5 text-center">
-            <div className="text-xs text-green-500 mb-1">Disponíveis</div>
-            <div className="text-2xl font-bold text-green-400">{remainingDays}</div>
-            <div className="text-xs text-zinc-500 mt-0.5">dias restantes</div>
+          <div className="rounded-xl p-2.5 text-center" style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)" }}>
+            <div className="text-xs mb-1" style={{ color: "var(--positive)" }}>Disponíveis</div>
+            <div className="text-2xl font-bold" style={{ color: "var(--positive)" }}>{remainingDays}</div>
+            <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>dias restantes</div>
           </div>
-          <div className="bg-amber-900/20 border border-amber-800/30 rounded-xl p-2.5 text-center">
-            <div className="text-xs text-amber-500 mb-1">Utilizados</div>
-            <div className="text-2xl font-bold text-amber-400">{usedDays}</div>
-            <div className="text-xs text-zinc-500 mt-0.5">dias tirados</div>
+          <div className="rounded-xl p-2.5 text-center" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }}>
+            <div className="text-xs mb-1" style={{ color: "var(--warning)" }}>Utilizados</div>
+            <div className="text-2xl font-bold" style={{ color: "var(--warning)" }}>{usedDays}</div>
+            <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>dias tirados</div>
           </div>
-          <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-2.5 text-center">
-            <div className="text-xs text-zinc-400 mb-1">Total direito</div>
-            <div className="text-2xl font-bold text-zinc-200">{availableDays}</div>
-            <div className="text-xs text-zinc-500 mt-0.5">dias totais</div>
+          <div className="rounded-xl p-2.5 text-center" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-mid)" }}>
+            <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>Total direito</div>
+            <div className="text-2xl font-bold" style={{ color: "var(--text)" }}>{availableDays}</div>
+            <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>dias totais</div>
           </div>
         </div>
 
@@ -52,27 +52,27 @@ function YukyuModal({ entries, settings, onAddEntry, onClose }) {
               const daysLeft = Math.ceil((new Date(g.expiry) - new Date()) / 86400000);
               const urgency = daysLeft <= 90 ? "red" : daysLeft <= 180 ? "yellow" : "green";
               const colors = {
-                red: { bar:"bg-red-500", text:"text-red-400", bg:"bg-red-900/20 border-red-800/40" },
-                yellow: { bar:"bg-yellow-500", text:"text-yellow-400", bg:"bg-yellow-900/20 border-yellow-800/40" },
-                green: { bar:"bg-green-500", text:"text-green-400", bg:"bg-green-900/20 border-green-800/40" },
+                red: { barColor: "var(--negative)", textColor: "var(--negative)", bgStyle: { background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)" } },
+                yellow: { barColor: "var(--warning)", textColor: "var(--warning)", bgStyle: { background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)" } },
+                green: { barColor: "var(--positive)", textColor: "var(--positive)", bgStyle: { background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.3)" } },
               }[urgency];
               return (
-                <div key={i} className={`border rounded-xl p-3 ${colors.bg}`}>
+                <div key={i} className="rounded-xl p-3" style={colors.bgStyle}>
                   <div className="flex justify-between items-center mb-1.5">
                     <div>
-                      <span className="text-sm font-bold text-zinc-100">{g.days} dias</span>
-                      <span className="text-xs text-zinc-500 ml-2">desde {new Date(g.date+"T12:00:00").toLocaleDateString("pt-BR",{month:"short",year:"numeric"})}</span>
+                      <span className="text-sm font-bold" style={{ color: "var(--text)" }}>{g.days} dias</span>
+                      <span className="text-xs ml-2" style={{ color: "var(--text-muted)" }}>desde {new Date(g.date+"T12:00:00").toLocaleDateString("pt-BR",{month:"short",year:"numeric"})}</span>
                     </div>
-                    <div className={`text-xs font-semibold ${colors.text}`}>
+                    <div className="text-xs font-semibold" style={{ color: colors.textColor }}>
                       {daysLeft <= 90 ? `⚠️ Vence em ${daysLeft} dias` : `Válido por ${Math.floor(daysLeft/30)} meses`}
                     </div>
                   </div>
-                  <div className="flex justify-between text-xs text-zinc-600 mb-1">
+                  <div className="flex justify-between text-xs mb-1" style={{ color: "var(--text-muted)" }}>
                     <span>Validade</span>
                     <span>{new Date(g.expiry+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})}</span>
                   </div>
-                  <div className="w-full h-1.5 bg-zinc-700/60 rounded-full overflow-hidden">
-                    <div className={`h-1.5 rounded-full ${colors.bar}`} style={{width:`${Math.max(5,Math.min(100,(daysLeft/730)*100))}%`}} />
+                  <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-elevated)" }}>
+                    <div className="h-1.5 rounded-full" style={{ width:`${Math.max(5,Math.min(100,(daysLeft/730)*100))}%`, background: colors.barColor }} />
                   </div>
                 </div>
               );
@@ -82,16 +82,16 @@ function YukyuModal({ entries, settings, onAddEntry, onClose }) {
 
         {/* Próxima concessão */}
         {entitlement?.eligible && (
-          <div className="mx-4 mb-3 bg-amber-900/10 border border-amber-800/30 rounded-xl px-3 py-2.5 shrink-0">
-            <div className="text-xs text-zinc-500 uppercase tracking-widest mb-1">Próxima concessão</div>
+          <div className="mx-4 mb-3 rounded-xl px-3 py-2.5 shrink-0" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-mid)" }}>
+            <div className="text-xs uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>Próxima concessão</div>
             <div className="flex justify-between items-center">
               <div>
-                <div className="text-sm font-semibold text-zinc-100">Você receberá <span className="text-amber-400">+{entitlement.nextGrantDays} dias</span></div>
-                <div className="text-xs text-zinc-500 mt-0.5">em {new Date(entitlement.nextGrantDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})}</div>
+                <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>Você receberá <span style={{ color: "var(--warning)" }}>+{entitlement.nextGrantDays} dias</span></div>
+                <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>em {new Date(entitlement.nextGrantDate+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})}</div>
               </div>
               <div className="text-right">
-                <div className="text-xl font-bold text-amber-400">{entitlement.daysToNext}</div>
-                <div className="text-xs text-zinc-500">dias</div>
+                <div className="text-xl font-bold" style={{ color: "var(--warning)" }}>{entitlement.daysToNext}</div>
+                <div className="text-xs" style={{ color: "var(--text-muted)" }}>dias</div>
               </div>
             </div>
           </div>
@@ -100,24 +100,24 @@ function YukyuModal({ entries, settings, onAddEntry, onClose }) {
         {/* Lista de utilizados */}
         <div className="flex-1 overflow-y-auto px-4 pb-2">
           {yukyuEntries.length === 0 ? (
-            <div className="text-center py-8 text-zinc-600 text-sm">Nenhuma 有給 utilizada ainda</div>
+            <div className="text-center py-8 text-sm" style={{ color: "var(--text-muted)" }}>Nenhuma 有給 utilizada ainda</div>
           ) : (
             <div className="space-y-2">
-              <div className="text-xs text-zinc-500 uppercase tracking-widest mb-2">Histórico de uso</div>
+              <div className="text-xs uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>Histórico de uso</div>
               {yukyuEntries.map((e, i) => (
-                <div key={e.id} className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5">
+                <div key={e.id} className="flex items-center justify-between rounded-xl px-3 py-2.5" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
                   <div className="flex items-center gap-2">
-                    <span className="text-green-500 text-sm">🌿</span>
+                    <span className="text-sm" style={{ color: "var(--positive)" }}>🌿</span>
                     <div>
-                      <div className="text-sm text-zinc-200 font-medium">
+                      <div className="text-sm font-medium" style={{ color: "var(--text)" }}>
                         {new Date(e.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday:"short", day:"2-digit", month:"short", year:"numeric" })}
                       </div>
-                      {e.note && <div className="text-xs text-zinc-600 italic">{e.note}</div>}
+                      {e.note && <div className="text-xs italic" style={{ color: "var(--text-muted)" }}>{e.note}</div>}
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs font-bold text-green-400">{YEN(8 * settings.hourlyRate)}</div>
-                    <div className="text-xs text-zinc-600">8h base</div>
+                    <div className="text-xs font-bold" style={{ color: "var(--positive)" }}>{YEN(8 * settings.hourlyRate)}</div>
+                    <div className="text-xs" style={{ color: "var(--text-muted)" }}>8h base</div>
                   </div>
                 </div>
               ))}
@@ -126,14 +126,15 @@ function YukyuModal({ entries, settings, onAddEntry, onClose }) {
         </div>
 
         {/* Botão lançar */}
-        <div className="p-4 border-t border-zinc-800 shrink-0">
+        <div className="p-4 border-t shrink-0" style={{ borderColor: "var(--border)" }}>
           {!settings.hireDate && (
-            <div className="text-xs text-zinc-500 text-center mb-2">Configure a data de contratação em ⚙️ Config para ver seu saldo correto</div>
+            <div className="text-xs text-center mb-2" style={{ color: "var(--text-muted)" }}>Configure a data de contratação em ⚙️ Config para ver seu saldo correto</div>
           )}
           <button
             onClick={() => setShowForm(true)}
             disabled={settings.hireDate && remainingDays <= 0}
-            className="w-full py-2.5 rounded-xl bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm transition-colors"
+            className="w-full py-2.5 rounded-xl font-bold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: "var(--positive)", color: "#fff" }}
           >
             🌿 Lançar 有給休暇
           </button>

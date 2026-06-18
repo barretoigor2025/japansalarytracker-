@@ -60,20 +60,24 @@ function BackupModal({ entries, settings, gastos, carro, auditHistory, onRestore
 
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.8)" }}>
-      <div className="w-full max-w-lg bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
-          <h2 className="text-base font-semibold text-zinc-100">💾 Backup & Restauração</h2>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 text-xl">×</button>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.85)" }}>
+      <div className="w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "var(--border)" }}>
+          <h2 className="text-base font-semibold" style={{ color: "var(--text)" }}>💾 Backup & Restauração</h2>
+          <button onClick={onClose} className="text-xl" style={{ color: "var(--text-muted)" }}>×</button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-zinc-800">
+        <div className="flex border-b" style={{ borderColor: "var(--border)" }}>
           {[{ id: "export", label: "⬇ Exportar" }, { id: "import", label: "⬆ Importar" }].map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex-1 py-2.5 text-sm font-medium transition-colors ${tab === t.id ? "text-amber-400 border-b-2 border-amber-500" : "text-zinc-500"}`}
+              className="flex-1 py-2.5 text-sm font-medium transition-colors"
+              style={tab === t.id
+                ? { color: "var(--warning)", borderBottom: "2px solid var(--warning)" }
+                : { color: "var(--text-muted)" }
+              }
             >
               {t.label}
             </button>
@@ -83,39 +87,40 @@ function BackupModal({ entries, settings, gastos, carro, auditHistory, onRestore
         <div className="p-5">
           {tab === "export" && (
             <div className="space-y-2">
-              <div className="bg-zinc-900 rounded-xl p-4 space-y-2">
+              <div className="rounded-xl p-4 space-y-2" style={{ background: "var(--bg-elevated)" }}>
                 <div className="flex justify-between text-sm">
-                  <span className="text-zinc-400">Lançamentos</span>
-                  <span className="font-mono font-bold text-zinc-200">{entries.length}</span>
+                  <span style={{ color: "var(--text-sub)" }}>Lançamentos</span>
+                  <span className="font-mono font-bold" style={{ color: "var(--text)" }}>{entries.length}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-zinc-400">Último backup</span>
-                  <span className={`font-mono text-sm ${daysSinceBackup === null ? "text-red-400" : daysSinceBackup > 7 ? "text-yellow-400" : "text-green-400"}`}>
+                  <span style={{ color: "var(--text-sub)" }}>Último backup</span>
+                  <span className="font-mono text-sm" style={{ color: daysSinceBackup === null ? "var(--negative)" : daysSinceBackup > 7 ? "var(--warning)" : "var(--positive)" }}>
                     {daysSinceBackup === null ? "nunca feito ⚠️" : daysSinceBackup === 0 ? "hoje ✓" : `há ${daysSinceBackup} dias`}
                   </span>
                 </div>
               </div>
 
               {daysSinceBackup === null && (
-                <div className="bg-red-900/20 border border-red-800/40 rounded-xl p-3 text-xs text-red-300">
+                <div className="rounded-xl p-3 text-xs" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "var(--negative)" }}>
                   ⚠️ Você ainda não fez backup! Se o browser limpar os dados, você perde tudo. Faça agora.
                 </div>
               )}
               {daysSinceBackup !== null && daysSinceBackup > 7 && (
-                <div className="bg-yellow-900/20 border border-yellow-800/40 rounded-xl p-3 text-xs text-yellow-300">
+                <div className="rounded-xl p-3 text-xs" style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", color: "var(--warning)" }}>
                   ⚠️ Seu último backup foi há {daysSinceBackup} dias. Recomendamos backup semanal.
                 </div>
               )}
 
-              <div className="bg-zinc-900/50 rounded-xl p-3 text-xs text-zinc-500 space-y-1">
-                <div>• Gera um arquivo <code className="text-zinc-400">.json</code> com todos os lançamentos e configurações</div>
+              <div className="rounded-xl p-3 text-xs space-y-1" style={{ background: "var(--bg-elevated)", color: "var(--text-muted)" }}>
+                <div>• Gera um arquivo <code style={{ color: "var(--text-sub)" }}>.json</code> com todos os lançamentos e configurações</div>
                 <div>• Salve no seu celular, envie por WhatsApp pra você mesmo</div>
                 <div>• Para restaurar depois: use a aba "Importar"</div>
               </div>
 
               <button
                 onClick={doExport}
-                className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm transition-colors"
+                className="w-full py-3 rounded-xl font-bold text-sm transition-colors"
+                style={{ background: "var(--text)", color: "var(--bg)" }}
               >
                 ⬇ Baixar Backup Agora
               </button>
@@ -131,36 +136,39 @@ function BackupModal({ entries, settings, gastos, carro, auditHistory, onRestore
                           if (ta) { ta.select(); ta.setSelectionRange(0, 99999); }
                         });
                     }}
-                    className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm transition-colors"
+                    className="w-full py-3 rounded-xl font-bold text-sm transition-colors"
+                    style={{ background: "var(--info)", color: "#fff" }}
                   >
                     📋 Copiar JSON (alternativa)
                   </button>
-                  <div className="text-xs text-zinc-500 text-center">
-                    Cole o texto copiado num bloco de notas e salve como <span className="text-amber-400 font-mono">backup.json</span>
+                  <div className="text-xs text-center" style={{ color: "var(--text-muted)" }}>
+                    Cole o texto copiado num bloco de notas e salve como <span className="font-mono" style={{ color: "var(--warning)" }}>backup.json</span>
                   </div>
                 </div>
               )}
 
               {backupJson && (
                 <div className="space-y-2">
-                  <div className="text-xs text-green-400 font-semibold">✓ Backup gerado! Se o download não abriu automaticamente, copie o texto abaixo e salve como .json:</div>
+                  <div className="text-xs font-semibold" style={{ color: "var(--positive)" }}>✓ Backup gerado! Se o download não abriu automaticamente, copie o texto abaixo e salve como .json:</div>
                   <div className="relative">
                     <textarea
                       id="backup-textarea"
                       readOnly
                       value={backupJson}
                       rows={5}
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-300 font-mono resize-none focus:outline-none"
+                      className="w-full rounded-lg p-2 text-xs font-mono resize-none focus:outline-none"
+                      style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-mid)", color: "var(--text-sub)" }}
                       onClick={(e) => { e.target.select(); e.target.setSelectionRange(0, 99999); }}
                     />
                     <button
                       onClick={() => { navigator.clipboard.writeText(backupJson); }}
-                      className="absolute top-2 right-2 px-2 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs text-zinc-300 transition-colors"
+                      className="absolute top-2 right-2 px-2 py-1 rounded text-xs transition-colors"
+                      style={{ background: "var(--bg-card)", border: "1px solid var(--border-mid)", color: "var(--text-sub)" }}
                     >
                       Copiar
                     </button>
                   </div>
-                  <div className="text-xs text-zinc-500">Cole no bloco de notas, salve como <code className="text-zinc-400">backup.json</code> e guarde em lugar seguro.</div>
+                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>Cole no bloco de notas, salve como <code style={{ color: "var(--text-sub)" }}>backup.json</code> e guarde em lugar seguro.</div>
                 </div>
               )}
             </div>
@@ -173,14 +181,16 @@ function BackupModal({ entries, settings, gastos, carro, auditHistory, onRestore
                 onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${
-                  dragOver ? "border-amber-500 bg-amber-500/10" : "border-zinc-700 hover:border-zinc-600"
-                }`}
+                className="border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer"
+                style={dragOver
+                  ? { borderColor: "var(--warning)", background: "rgba(245,158,11,0.08)" }
+                  : { borderColor: "var(--border-mid)" }
+                }
                 onClick={() => document.getElementById("backup-file-input").click()}
               >
                 <div className="text-3xl mb-2">📂</div>
-                <div className="text-sm text-zinc-400">Arraste o arquivo aqui ou clique para escolher</div>
-                <div className="text-xs text-zinc-600 mt-1">Aceita: jst-backup-XXXX-XX-XX.json</div>
+                <div className="text-sm" style={{ color: "var(--text-sub)" }}>Arraste o arquivo aqui ou clique para escolher</div>
+                <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Aceita: jst-backup-XXXX-XX-XX.json</div>
                 <input
                   id="backup-file-input"
                   type="file"
@@ -191,29 +201,29 @@ function BackupModal({ entries, settings, gastos, carro, auditHistory, onRestore
               </div>
 
               {error && (
-                <div className="bg-red-900/20 border border-red-800/40 rounded-xl p-3 text-xs text-red-300">{error}</div>
+                <div className="rounded-xl p-3 text-xs" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "var(--negative)" }}>{error}</div>
               )}
 
               {preview && (
-                <div className="bg-zinc-900 rounded-xl p-4 space-y-2">
-                  <div className="text-xs text-green-400 font-semibold mb-2">✓ Arquivo válido — Preview do backup:</div>
+                <div className="rounded-xl p-4 space-y-2" style={{ background: "var(--bg-elevated)" }}>
+                  <div className="text-xs font-semibold mb-2" style={{ color: "var(--positive)" }}>✓ Arquivo válido — Preview do backup:</div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-zinc-400">Lançamentos</span>
-                    <span className="font-mono font-bold text-zinc-200">{preview.entries.length}</span>
+                    <span style={{ color: "var(--text-sub)" }}>Lançamentos</span>
+                    <span className="font-mono font-bold" style={{ color: "var(--text)" }}>{preview.entries.length}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-zinc-400">Data do backup</span>
-                    <span className="font-mono text-zinc-300 text-xs">{new Date(preview.exportedAt).toLocaleString("pt-BR")}</span>
+                    <span style={{ color: "var(--text-sub)" }}>Data do backup</span>
+                    <span className="font-mono text-xs" style={{ color: "var(--text-sub)" }}>{new Date(preview.exportedAt).toLocaleString("pt-BR")}</span>
                   </div>
                   {preview.settings?.name && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-zinc-400">Trabalhador</span>
-                      <span className="text-zinc-300">{preview.settings.name}</span>
+                      <span style={{ color: "var(--text-sub)" }}>Trabalhador</span>
+                      <span style={{ color: "var(--text)" }}>{preview.settings.name}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-sm">
-                    <span className="text-zinc-400">Dados atuais serão substituídos</span>
-                    <span className="text-red-400 font-mono">{entries.length} → {preview.entries.length}</span>
+                    <span style={{ color: "var(--text-sub)" }}>Dados atuais serão substituídos</span>
+                    <span className="font-mono" style={{ color: "var(--negative)" }}>{entries.length} → {preview.entries.length}</span>
                   </div>
                 </div>
               )}
@@ -221,22 +231,23 @@ function BackupModal({ entries, settings, gastos, carro, auditHistory, onRestore
               <button
                 onClick={confirmRestore}
                 disabled={!preview}
-                className="w-full py-3 rounded-xl font-bold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed bg-blue-600 hover:bg-blue-500 text-white"
+                className="w-full py-3 rounded-xl font-bold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ background: "var(--info)", color: "#fff" }}
               >
                 ⬆ Restaurar este Backup
               </button>
 
               {showRestoreConfirm && (
-                <div className="bg-red-900/20 border border-red-700/50 rounded-xl p-4 text-center space-y-3">
-                  <div className="text-sm font-semibold text-red-300">Tem certeza? Isso substitui todos os dados atuais ({entries.length} lançamentos).</div>
+                <div className="rounded-xl p-4 text-center space-y-3" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
+                  <div className="text-sm font-semibold" style={{ color: "var(--negative)" }}>Tem certeza? Isso substitui todos os dados atuais ({entries.length} lançamentos).</div>
                   <div className="flex gap-3">
-                    <button onClick={() => setShowRestoreConfirm(false)} className="flex-1 py-2 rounded-lg border border-zinc-700 text-xs text-zinc-400 hover:text-zinc-200">Cancelar</button>
-                    <button onClick={doRestore} className="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-xs">Sim, restaurar</button>
+                    <button onClick={() => setShowRestoreConfirm(false)} className="flex-1 py-2 rounded-lg text-xs transition-colors" style={{ border: "1px solid var(--border-mid)", color: "var(--text-sub)" }}>Cancelar</button>
+                    <button onClick={doRestore} className="flex-1 py-2 rounded-lg font-bold text-xs" style={{ background: "var(--negative)", color: "#fff" }}>Sim, restaurar</button>
                   </div>
                 </div>
               )}
 
-              <div className="bg-zinc-900/50 rounded-xl p-3 text-xs text-zinc-500">
+              <div className="rounded-xl p-3 text-xs" style={{ background: "var(--bg-elevated)", color: "var(--text-muted)" }}>
                 ⚠️ A restauração substitui todos os dados atuais. Faça um export antes se quiser preservar o que tem.
               </div>
             </div>

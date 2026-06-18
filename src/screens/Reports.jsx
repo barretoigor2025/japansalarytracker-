@@ -83,38 +83,38 @@ function ReportsScreen({ entries, settings }) {
         <MonthPicker value={month} onChange={setMonth} />
         <button onClick={exportCSV}
           className="text-xs px-3 py-2 border rounded-lg transition-colors"
-          style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>↓ CSV</button>
+          style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>↓ CSV</button>
       </div>
 
       {/* ── RESULTADO FINANCEIRO — destaque principal ── */}
       <Card>
-        <div className="text-xs font-semibold text-amber-400 uppercase tracking-widest mb-3 capitalize">{monthLabel}</div>
+        <div className="text-xs font-semibold uppercase tracking-widest mb-3 capitalize" style={{ color: "var(--text-muted)" }}>{monthLabel}</div>
 
         {/* Linha principal: Bruto → Descontos → Líquido */}
         <div className="flex items-center justify-between mb-3">
           <div className="text-center">
             <div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>Bruto total</div>
-            <div className="text-lg font-bold font-mono text-green-400">{YEN(grossWithTeate)}</div>
+            <div className="text-lg font-bold font-mono" style={{ color: "var(--positive)" }}>{YEN(grossWithTeate)}</div>
             {totalTeate > 0 && <div className="text-xs" style={{color:"var(--text-muted)"}}>incl. {YEN(totalTeate)} teate</div>}
           </div>
           <div className="text-xl" style={{color:"var(--text-muted)"}}>→</div>
           <div className="text-center">
-            <div className="text-xs mb-1 text-red-400">Descontos</div>
-            <div className="text-lg font-bold font-mono text-red-400">−{YEN(deductionInfo.totalDeductions)}</div>
-            <div className="text-xs text-red-400">{(deductionInfo.totalRate * 100).toFixed(1)}%</div>
+            <div className="text-xs mb-1" style={{ color: "var(--negative)" }}>Descontos</div>
+            <div className="text-lg font-bold font-mono" style={{ color: "var(--negative)" }}>−{YEN(deductionInfo.totalDeductions)}</div>
+            <div className="text-xs" style={{ color: "var(--negative)" }}>{(deductionInfo.totalRate * 100).toFixed(1)}%</div>
           </div>
           <div className="text-xl" style={{color:"var(--text-muted)"}}>→</div>
           <div className="text-center">
-            <div className="text-xs mb-1 text-amber-400">💰 Líquido</div>
-            <div className="text-2xl font-bold font-mono text-amber-400">{YEN(netPay)}</div>
+            <div className="text-xs mb-1" style={{ color: "var(--warning)" }}>💰 Líquido</div>
+            <div className="text-2xl font-bold font-mono" style={{ color: "var(--warning)" }}>{YEN(netPay)}</div>
             <div className="text-xs" style={{color:"var(--text-muted)"}}>{(100 - deductionInfo.totalRate * 100).toFixed(1)}% do bruto</div>
           </div>
         </div>
 
         {/* Barra visual bruto → líquido */}
-        <div className="w-full h-3 bg-zinc-800 rounded-full overflow-hidden">
-          <div className="h-3 bg-amber-500 rounded-full transition-all"
-            style={{width:`${(netPay / grossWithTeate) * 100}%`}} />
+        <div className="w-full h-3 rounded-full overflow-hidden" style={{ background: "var(--bg-elevated)" }}>
+          <div className="h-3 rounded-full transition-all"
+            style={{ width: `${(netPay / grossWithTeate) * 100}%`, background: "var(--warning)" }} />
         </div>
         <div className="flex justify-between text-xs mt-1" style={{color:"var(--text-muted)"}}>
           <span>¥0</span>
@@ -125,7 +125,7 @@ function ReportsScreen({ entries, settings }) {
 
       {/* ── HORAS — resumo compacto ── */}
       <Card>
-        <div className="text-xs font-semibold text-amber-400 uppercase tracking-widest mb-2">Horas Trabalhadas</div>
+        <div className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>Horas Trabalhadas</div>
         <div className="grid grid-cols-4 gap-2 text-center">
           <div>
             <div className="text-xs mb-0.5" style={{color:"var(--text-muted)"}}>Total</div>
@@ -137,18 +137,18 @@ function ReportsScreen({ entries, settings }) {
           </div>
           <div>
             <div className="text-xs mb-0.5" style={{color:"var(--text-muted)"}}>Extras</div>
-            <div className={`text-base font-bold font-mono ${totals.overtimeHours > 60 ? "text-red-400" : "text-amber-400"}`}>{totals.overtimeHours.toFixed(1)}h</div>
+            <div className="text-base font-bold font-mono" style={{ color: totals.overtimeHours > 60 ? "var(--negative)" : "var(--warning)" }}>{totals.overtimeHours.toFixed(1)}h</div>
           </div>
           <div>
             <div className="text-xs mb-0.5" style={{color:"var(--text-muted)"}}>Noturnas</div>
-            <div className="text-base font-bold font-mono text-purple-400">{totals.nightHours.toFixed(1)}h</div>
+            <div className="text-base font-bold font-mono" style={{ color: "var(--night)" }}>{totals.nightHours.toFixed(1)}h</div>
           </div>
         </div>
         {totals.overtimeHours > 60 && (
-          <div className="mt-2 text-xs text-red-400 text-center">⚠️ {totals.overtimeHours.toFixed(1)}h extras — acima de 60h, adicional +50% aplicado</div>
+          <div className="mt-2 text-xs text-center" style={{ color: "var(--negative)" }}>⚠️ {totals.overtimeHours.toFixed(1)}h extras — acima de 60h, adicional +50% aplicado</div>
         )}
         {yukyuEntries.length > 0 && (
-          <div className="mt-2 text-xs text-green-400 text-center">🌿 {yukyuEntries.length} dia(s) de 有給休暇 neste mês</div>
+          <div className="mt-2 text-xs text-center" style={{ color: "var(--positive)" }}>🌿 {yukyuEntries.length} dia(s) de 有給休暇 neste mês</div>
         )}
       </Card>
 
@@ -156,19 +156,19 @@ function ReportsScreen({ entries, settings }) {
       <Card>
         <button className="w-full flex items-center justify-between"
           onClick={() => setShowDetails(!showDetails)}>
-          <div className="text-xs font-semibold text-amber-400 uppercase tracking-widest">Detalhamento de Descontos</div>
-          <span className="text-zinc-500 text-sm">{showDetails ? "▲" : "▼"}</span>
+          <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Detalhamento de Descontos</div>
+          <span className="text-sm" style={{ color: "var(--text-muted)" }}>{showDetails ? "▲" : "▼"}</span>
         </button>
         {showDetails && (
           <div className="mt-3 space-y-1">
             <div className="flex justify-between py-1.5 border-b" style={{borderColor:"var(--border)"}}>
               <span className="text-sm font-semibold" style={{color:"var(--text)"}}>Bruto (salário)</span>
-              <span className="font-mono text-green-400">{YEN(totals.grossPay)}</span>
+              <span className="font-mono" style={{ color: "var(--positive)" }}>{YEN(totals.grossPay)}</span>
             </div>
             {totalTeate > 0 && (
               <div className="flex justify-between py-1.5 border-b" style={{borderColor:"var(--border)"}}>
                 <span className="text-xs" style={{color:"var(--text-muted)"}}>+ Benefícios (手当)</span>
-                <span className="font-mono text-xs text-green-400">+{YEN(totalTeate)}</span>
+                <span className="font-mono text-xs" style={{ color: "var(--positive)" }}>+{YEN(totalTeate)}</span>
               </div>
             )}
             {deductionInfo.deductions.map((d, i) => (
@@ -177,14 +177,14 @@ function ReportsScreen({ entries, settings }) {
                   <div className="text-xs" style={{color:"var(--text)"}}>{d.name}</div>
                   <div className="text-xs" style={{color:"var(--text-muted)"}}>{(d.rate * 100).toFixed(2)}%</div>
                 </div>
-                <span className="font-mono text-xs text-red-400">−{YEN(d.amount)}</span>
+                <span className="font-mono text-xs" style={{ color: "var(--negative)" }}>−{YEN(d.amount)}</span>
               </div>
             ))}
             <div className="flex justify-between items-center py-2 mt-1 border-t-2" style={{borderColor:"var(--border)"}}>
               <span className="text-sm font-bold" style={{color:"var(--text)"}}>💰 Líquido estimado</span>
-              <span className="font-mono font-bold text-lg text-amber-400">{YEN(netPay)}</span>
+              <span className="font-mono font-bold text-lg" style={{ color: "var(--warning)" }}>{YEN(netPay)}</span>
             </div>
-            <div className="p-2 rounded-lg text-xs" style={{background:"var(--bg-card)", color:"var(--text-muted)"}}>
+            <div className="p-2 rounded-lg text-xs" style={{background:"var(--bg-elevated)", color:"var(--text-muted)"}}>
               📋 Taxas baseadas no holerite real — Aichi-ken, Toyota-shi · Imposto de renda estimado
             </div>
           </div>
@@ -193,7 +193,7 @@ function ReportsScreen({ entries, settings }) {
 
       {/* ── DETALHE DIÁRIO ── */}
       <Card className="overflow-hidden">
-        <div className="text-xs font-semibold text-amber-400 uppercase tracking-widest mb-2">Detalhe Diário</div>
+        <div className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>Detalhe Diário</div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
@@ -212,21 +212,21 @@ function ReportsScreen({ entries, settings }) {
                   <tr key={e.id} className="border-b last:border-0" style={{borderColor:"var(--border)"}}>
                     <td className="py-1.5 pr-2" style={{color:"var(--text)"}}>
                       {new Date(e.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
-                      {e.dayType === "yukyu" && <span className="ml-1 text-green-400">🌿</span>}
+                      {e.dayType === "yukyu" && <span className="ml-1" style={{ color: "var(--positive)" }}>🌿</span>}
                     </td>
                     <td className="text-right py-1.5 pr-2 font-mono" style={{color:"var(--text-muted)"}}>{c.totalHours.toFixed(1)}h</td>
-                    <td className="text-right py-1.5 pr-2 font-mono text-amber-400">{c.overtimeHours > 0 ? c.overtimeHours.toFixed(1) + "h" : "—"}</td>
-                    <td className="text-right py-1.5 pr-2 font-mono text-purple-400">{c.nightHours > 0 ? c.nightHours.toFixed(1) + "h" : "—"}</td>
-                    <td className="text-right py-1.5 font-mono font-bold text-green-400">{YEN(c.grossPay)}</td>
+                    <td className="text-right py-1.5 pr-2 font-mono" style={{ color: "var(--warning)" }}>{c.overtimeHours > 0 ? c.overtimeHours.toFixed(1) + "h" : "—"}</td>
+                    <td className="text-right py-1.5 pr-2 font-mono" style={{ color: "var(--night)" }}>{c.nightHours > 0 ? c.nightHours.toFixed(1) + "h" : "—"}</td>
+                    <td className="text-right py-1.5 font-mono font-bold" style={{ color: "var(--positive)" }}>{YEN(c.grossPay)}</td>
                   </tr>
                 );
               })}
               <tr className="border-t-2" style={{borderColor:"var(--border)"}}>
                 <td className="py-1.5 pr-2 font-bold" style={{color:"var(--text)"}}>Total</td>
                 <td className="text-right py-1.5 pr-2 font-mono font-bold" style={{color:"var(--text)"}}>{totals.totalHours.toFixed(1)}h</td>
-                <td className="text-right py-1.5 pr-2 font-mono font-bold text-amber-400">{totals.overtimeHours.toFixed(1)}h</td>
-                <td className="text-right py-1.5 pr-2 font-mono font-bold text-purple-400">{totals.nightHours.toFixed(1)}h</td>
-                <td className="text-right py-1.5 font-mono font-bold text-green-400">{YEN(totals.grossPay)}</td>
+                <td className="text-right py-1.5 pr-2 font-mono font-bold" style={{ color: "var(--warning)" }}>{totals.overtimeHours.toFixed(1)}h</td>
+                <td className="text-right py-1.5 pr-2 font-mono font-bold" style={{ color: "var(--night)" }}>{totals.nightHours.toFixed(1)}h</td>
+                <td className="text-right py-1.5 font-mono font-bold" style={{ color: "var(--positive)" }}>{YEN(totals.grossPay)}</td>
               </tr>
             </tbody>
           </table>

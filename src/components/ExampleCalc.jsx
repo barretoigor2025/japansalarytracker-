@@ -8,26 +8,26 @@ function ExampleCalc({ settings }) {
 
   return (
     <div className="space-y-2 text-xs">
-      <div className="text-zinc-400">Entrada: 17:00 · Saída: 03:45 · Break: 1h</div>
+      <div style={{ color: "var(--text-muted)" }}>Entrada: 17:00 · Saída: 03:45 · Break: 1h</div>
       <div className="grid grid-cols-2 gap-2 mt-2">
-        <div className="bg-zinc-800/50 rounded-lg p-2">
-          <div className="text-zinc-500">Total líquido</div>
-          <div className="font-mono font-bold text-zinc-200">{formatMinutes(calc.totalMin)}</div>
+        <div className="rounded-lg p-2" style={{ background: "var(--bg-elevated)" }}>
+          <div style={{ color: "var(--text-muted)" }}>Total líquido</div>
+          <div className="font-mono font-bold" style={{ color: "var(--text)" }}>{formatMinutes(calc.totalMin)}</div>
         </div>
-        <div className="bg-zinc-800/50 rounded-lg p-2">
-          <div className="text-zinc-500">Horas extras</div>
-          <div className="font-mono font-bold text-amber-400">{formatMinutes(calc.overtimeDailyMin)}</div>
+        <div className="rounded-lg p-2" style={{ background: "var(--bg-elevated)" }}>
+          <div style={{ color: "var(--text-muted)" }}>Horas extras</div>
+          <div className="font-mono font-bold" style={{ color: "var(--warning)" }}>{formatMinutes(calc.overtimeDailyMin)}</div>
         </div>
-        <div className="bg-zinc-800/50 rounded-lg p-2">
-          <div className="text-zinc-500">Horas noturnas</div>
-          <div className="font-mono font-bold text-purple-400">{formatMinutes(calc.nightMin)}</div>
+        <div className="rounded-lg p-2" style={{ background: "var(--bg-elevated)" }}>
+          <div style={{ color: "var(--text-muted)" }}>Horas noturnas</div>
+          <div className="font-mono font-bold" style={{ color: "var(--night)" }}>{formatMinutes(calc.nightMin)}</div>
         </div>
-        <div className="bg-zinc-800/50 rounded-lg p-2">
-          <div className="text-zinc-500">Bruto (¥{settings.hourlyRate}/h)</div>
-          <div className="font-mono font-bold text-green-400">{YEN(calc.grossPay)}</div>
+        <div className="rounded-lg p-2" style={{ background: "var(--bg-elevated)" }}>
+          <div style={{ color: "var(--text-muted)" }}>Bruto (¥{settings.hourlyRate}/h)</div>
+          <div className="font-mono font-bold" style={{ color: "var(--positive)" }}>{YEN(calc.grossPay)}</div>
         </div>
       </div>
-      <div className="text-zinc-600 mt-1">
+      <div className="mt-1" style={{ color: "var(--text-muted)" }}>
         • 17:00–22:00: 5h normais · 22:00–03:45: {formatMinutes(calc.nightMin)} noturno
         · HE = {formatMinutes(calc.overtimeDailyMin)} (acima de 8h)
       </div>

@@ -56,10 +56,14 @@ function CarroScreen({ carro, onSave }) {
         <Card className="text-center py-12">
           <div className="text-5xl mb-3">🚗</div>
           <div className="text-sm font-semibold" style={{color:"var(--text)"}}>Nenhum financiamento</div>
-          <button onClick={() => setShowAddFinanc(true)} className="mt-4 px-4 py-2 rounded-xl bg-amber-500 text-black text-sm font-bold">+ Adicionar</button>
+          <button
+            onClick={() => setShowAddFinanc(true)}
+            className="mt-4 px-4 py-2 rounded-xl text-sm font-bold"
+            style={{ background: "var(--text)", color: "var(--bg)" }}
+          >+ Adicionar</button>
         </Card>
         {showAddFinanc && (
-          <div className="fixed inset-0 z-50 flex flex-col justify-start pt-8 px-4" style={{background:"rgba(0,0,0,0.82)"}}>
+          <div className="fixed inset-0 z-50 flex flex-col justify-start pt-8 px-4" style={{background:"rgba(0,0,0,0.85)"}}>
             <div className="w-full max-w-lg mx-auto rounded-2xl overflow-hidden border shadow-2xl" style={{background:"var(--bg-card)", borderColor:"var(--border)"}}>
               <div className="flex items-center justify-between px-4 py-3 border-b" style={{borderColor:"var(--border)"}}>
                 <h3 className="text-sm font-semibold" style={{color:"var(--text)"}}>Novo Veículo</h3>
@@ -69,20 +73,20 @@ function CarroScreen({ carro, onSave }) {
                 <div className="flex flex-col gap-1">
                   <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Nome</label>
                   <input value={newFinanc.nome} onChange={e => setNewFinanc(f => ({...f, nome: e.target.value}))}
-                    className="rounded-xl px-4 py-2.5 text-sm border focus:outline-none focus:border-amber-500"
-                    style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} placeholder="Ex: Outlander 2025" />
+                    className="rounded-xl px-4 py-2.5 text-sm border focus:outline-none"
+                    style={{background:"var(--bg-elevated)", borderColor:"var(--border-mid)", color:"var(--text)"}} placeholder="Ex: Outlander 2025" />
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Valor total</label>
                   <input type="number" inputMode="numeric" value={newFinanc.valorTotal}
                     onChange={e => setNewFinanc(f => ({...f, valorTotal: parseInt(e.target.value)||0}))}
-                    className="rounded-xl px-4 py-3 text-xl font-bold font-mono text-right border focus:outline-none focus:border-amber-500"
-                    style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
+                    className="rounded-xl px-4 py-3 text-xl font-bold font-mono text-right border focus:outline-none"
+                    style={{background:"var(--bg-elevated)", borderColor:"var(--border-mid)", color:"var(--text)"}} />
                 </div>
               </div>
               <div className="flex gap-3 px-4 pb-4">
-                <button onClick={() => setShowAddFinanc(false)} className="flex-1 py-2.5 rounded-xl border text-sm" style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>Cancelar</button>
-                <button onClick={addFinanciamento} className="flex-1 py-2.5 rounded-xl bg-amber-500 text-black font-bold text-sm">Criar</button>
+                <button onClick={() => setShowAddFinanc(false)} className="flex-1 py-2.5 rounded-xl border text-sm" style={{borderColor:"var(--border-mid)", color:"var(--text-muted)"}}>Cancelar</button>
+                <button onClick={addFinanciamento} className="flex-1 py-2.5 rounded-xl font-bold text-sm" style={{ background: "var(--text)", color: "var(--bg)" }}>Criar</button>
               </div>
             </div>
             <div className="flex-1" onClick={() => setShowAddFinanc(false)} />
@@ -112,8 +116,14 @@ function CarroScreen({ carro, onSave }) {
             <h2 className="text-lg font-bold" style={{color:"var(--text)"}}>{financ.nome}</h2>
           )}
         </div>
-        <button onClick={() => setEditMode(!editMode)}
-          className={"text-xs px-2.5 py-1.5 rounded-lg border transition-all " + (editMode ? "bg-amber-500 border-amber-500 text-black font-semibold" : "border-zinc-700 text-zinc-400")}>
+        <button
+          onClick={() => setEditMode(!editMode)}
+          className="text-xs px-2.5 py-1.5 rounded-lg border transition-all"
+          style={editMode
+            ? { background: "var(--text)", color: "var(--bg)", borderColor: "var(--text)" }
+            : { background: "var(--bg-elevated)", border: "1px solid var(--border-mid)", color: "var(--text-sub)" }
+          }
+        >
           {editMode ? "Pronto" : "Editar"}
         </button>
       </div>
@@ -121,8 +131,15 @@ function CarroScreen({ carro, onSave }) {
       {carro.financiamentos.length > 1 && (
         <div className="flex gap-2 overflow-x-auto pb-1">
           {carro.financiamentos.map(f => (
-            <button key={f.id} onClick={() => setSelId(f.id)}
-              className={"px-3 py-1.5 rounded-xl text-xs font-medium border whitespace-nowrap " + (selId === f.id ? "bg-amber-500 border-amber-500 text-black" : "border-zinc-700 text-zinc-400")}>
+            <button
+              key={f.id}
+              onClick={() => setSelId(f.id)}
+              className="px-3 py-1.5 rounded-xl text-xs font-medium border whitespace-nowrap"
+              style={selId === f.id
+                ? { background: "var(--text)", color: "var(--bg)", borderColor: "var(--text)" }
+                : { background: "var(--bg-elevated)", border: "1px solid var(--border-mid)", color: "var(--text-sub)" }
+              }
+            >
               {f.nome}
             </button>
           ))}
@@ -130,7 +147,7 @@ function CarroScreen({ carro, onSave }) {
       )}
 
       <Card>
-        <div className="text-xs font-semibold text-amber-400 uppercase tracking-widest mb-3">Progresso</div>
+        <div className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>Progresso</div>
         <div className="flex justify-between items-center mb-2">
           <div>
             <div className="text-xs" style={{color:"var(--text-muted)"}}>Valor Total</div>
@@ -143,50 +160,51 @@ function CarroScreen({ carro, onSave }) {
               <div className="text-xl font-bold font-mono" style={{color:"var(--text)"}}>{YEN(financ.valorTotal)}</div>
             )}
           </div>
-          <div className={"text-3xl font-bold " + (progressoPct >= 100 ? "text-green-400" : progressoPct >= 50 ? "text-amber-400" : "text-zinc-400")}>
+          <div className="text-3xl font-bold" style={{ color: progressoPct >= 100 ? "var(--positive)" : progressoPct >= 50 ? "var(--warning)" : "var(--text-sub)" }}>
             {progressoPct}%
           </div>
         </div>
-        <div className="w-full h-3 bg-zinc-800 rounded-full overflow-hidden mb-3">
-          <div className="h-3 rounded-full transition-all" style={{width: progressoPct + "%", background: progressoPct >= 100 ? "#22c55e" : "#f59e0b"}} />
+        <div className="w-full h-3 rounded-full overflow-hidden mb-3" style={{ background: "var(--bg-elevated)" }}>
+          <div className="h-3 rounded-full transition-all" style={{width: progressoPct + "%", background: progressoPct >= 100 ? "var(--positive)" : "var(--warning)"}} />
         </div>
         <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="bg-green-900/20 border border-green-800/30 rounded-xl p-2">
-            <div className="text-xs text-green-500 mb-0.5">Pago</div>
-            <div className="text-sm font-bold font-mono text-green-400">{YEN(totalPago)}</div>
+          <div className="rounded-xl p-2" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
+            <div className="text-xs mb-0.5" style={{ color: "var(--positive)" }}>Pago</div>
+            <div className="text-sm font-bold font-mono" style={{ color: "var(--positive)" }}>{YEN(totalPago)}</div>
           </div>
-          <div className="bg-red-900/20 border border-red-800/30 rounded-xl p-2">
-            <div className="text-xs text-red-400 mb-0.5">Restante</div>
-            <div className="text-sm font-bold font-mono text-red-400">{YEN(totalRestante)}</div>
+          <div className="rounded-xl p-2" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
+            <div className="text-xs mb-0.5" style={{ color: "var(--negative)" }}>Restante</div>
+            <div className="text-sm font-bold font-mono" style={{ color: "var(--negative)" }}>{YEN(totalRestante)}</div>
           </div>
-          <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-2">
+          <div className="rounded-xl p-2" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
             <div className="text-xs mb-0.5" style={{color:"var(--text-muted)"}}>Parcelas</div>
             <div className="text-sm font-bold font-mono" style={{color:"var(--text)"}}>{parcelasPagas}/{financ.parcelas.length}</div>
           </div>
         </div>
         {proximaParcela && (
-          <div className="mt-3 flex justify-between items-center bg-amber-900/10 border border-amber-800/30 rounded-xl px-3 py-2">
+          <div className="mt-3 flex justify-between items-center rounded-xl px-3 py-2" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-mid)" }}>
             <div>
-              <div className="text-xs text-amber-400 font-semibold">Proxima parcela</div>
+              <div className="text-xs font-semibold" style={{ color: "var(--warning)" }}>Proxima parcela</div>
               <div className="text-xs" style={{color:"var(--text-muted)"}}>#{proximaParcela.numero}</div>
             </div>
-            <div className="text-lg font-bold font-mono text-amber-400">{YEN(proximaParcela.valor)}</div>
+            <div className="text-lg font-bold font-mono" style={{ color: "var(--warning)" }}>{YEN(proximaParcela.valor)}</div>
           </div>
         )}
-        {progressoPct >= 100 && <div className="mt-3 text-center text-sm font-bold text-green-400">Financiamento quitado!</div>}
+        {progressoPct >= 100 && <div className="mt-3 text-center text-sm font-bold" style={{ color: "var(--positive)" }}>Financiamento quitado!</div>}
       </Card>
 
       {financ.entradas.length > 0 && (
         <Card>
-          <div className="text-xs font-semibold text-amber-400 uppercase tracking-widest mb-2">Entrada Inicial</div>
+          <div className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>Entrada Inicial</div>
           {financ.entradas.map(e => (
             <div key={e.id} className="flex items-center gap-2 py-2 border-b last:border-0" style={{borderColor:"var(--border)"}}>
               <button onClick={() => toggleEntrada(e.id)}
-                className={"w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 " + (e.pago ? "bg-green-500 border-green-500" : "border-zinc-600")}>
+                className="w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0"
+                style={{ background: e.pago ? "var(--positive)" : "transparent", borderColor: e.pago ? "var(--positive)" : "var(--border-strong)" }}>
                 {e.pago && <span className="text-white text-xs font-bold">v</span>}
               </button>
               <span className={"flex-1 text-sm " + (e.pago ? "line-through" : "")} style={{color: e.pago ? "var(--text-muted)" : "var(--text)"}}>{e.descricao}</span>
-              <span className={"font-mono text-sm font-semibold " + (e.pago ? "text-green-400" : "text-amber-400")}>{YEN(e.valor)}</span>
+              <span className="font-mono text-sm font-semibold" style={{ color: e.pago ? "var(--positive)" : "var(--warning)" }}>{YEN(e.valor)}</span>
             </div>
           ))}
         </Card>
@@ -194,24 +212,27 @@ function CarroScreen({ carro, onSave }) {
 
       <Card>
         <div className="flex items-center justify-between mb-2">
-          <div className="text-xs font-semibold text-amber-400 uppercase tracking-widest">Parcelas</div>
+          <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Parcelas</div>
           <span className="text-xs" style={{color:"var(--text-muted)"}}>{parcelasPagas}/{financ.parcelas.length} pagas</span>
         </div>
         {financ.parcelas.map((p) => (
           <div key={p.id} className="flex items-center gap-2 py-2 border-b last:border-0" style={{borderColor:"var(--border)"}}>
             <button onClick={() => toggleParcela(p.id)}
-              className={"w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 " + (p.pago ? "bg-green-500 border-green-500" : "border-zinc-600 hover:border-amber-500")}>
+              className="w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0"
+              style={{ background: p.pago ? "var(--positive)" : "transparent", borderColor: p.pago ? "var(--positive)" : "var(--border-strong)" }}>
               {p.pago && <span className="text-white text-xs font-bold">v</span>}
             </button>
             <span className="text-xs w-5 text-center shrink-0" style={{color:"var(--text-muted)"}}>{p.numero}</span>
             <span className="flex-1 text-xs" style={{color: p.pago ? "var(--text-muted)" : "var(--text-sub)"}}>
               {p.mesRef ? new Date(p.mesRef + "-01").toLocaleDateString("pt-BR", {month:"short", year:"2-digit"}) : ""}
             </span>
-            <span className={"font-mono text-sm font-semibold " + (p.pago ? "text-green-400 line-through" : p.id === proximaParcela?.id ? "text-amber-400" : "")}
-              style={!p.pago && p.id !== proximaParcela?.id ? {color:"var(--text)"} : {}}>
+            <span className="font-mono text-sm font-semibold" style={{
+              color: p.pago ? "var(--positive)" : p.id === proximaParcela?.id ? "var(--warning)" : "var(--text)",
+              textDecoration: p.pago ? "line-through" : "none"
+            }}>
               {YEN(p.valor)}
             </span>
-            {editMode && <button onClick={() => removeParcela(p.id)} className="text-red-400 text-xs ml-1">x</button>}
+            {editMode && <button onClick={() => removeParcela(p.id)} className="text-xs ml-1" style={{ color: "var(--negative)" }}>x</button>}
           </div>
         ))}
         {editMode && (
@@ -224,7 +245,7 @@ function CarroScreen({ carro, onSave }) {
       </Card>
 
       {showAddParcela && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-start pt-8 px-4" style={{background:"rgba(0,0,0,0.82)"}}>
+        <div className="fixed inset-0 z-50 flex flex-col justify-start pt-8 px-4" style={{background:"rgba(0,0,0,0.85)"}}>
           <div className="w-full max-w-lg mx-auto rounded-2xl overflow-hidden border shadow-2xl" style={{background:"var(--bg-card)", borderColor:"var(--border)"}}>
             <div className="flex items-center justify-between px-4 py-3 border-b" style={{borderColor:"var(--border)"}}>
               <h3 className="text-sm font-semibold" style={{color:"var(--text)"}}>Nova Parcela</h3>
@@ -235,20 +256,20 @@ function CarroScreen({ carro, onSave }) {
                 <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Valor</label>
                 <input type="number" inputMode="numeric" value={newParcela.valor}
                   onChange={e => setNewParcela(p => ({...p, valor: parseInt(e.target.value)||0}))}
-                  className="rounded-xl px-4 py-3 text-xl font-bold font-mono text-right border focus:outline-none focus:border-amber-500"
-                  style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
+                  className="rounded-xl px-4 py-3 text-xl font-bold font-mono text-right border focus:outline-none"
+                  style={{background:"var(--bg-elevated)", borderColor:"var(--border-mid)", color:"var(--text)"}} />
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Mes de referencia</label>
                 <input type="month" value={newParcela.mesRef}
                   onChange={e => setNewParcela(p => ({...p, mesRef: e.target.value}))}
-                  className="rounded-xl px-4 py-3 text-sm border focus:outline-none focus:border-amber-500"
-                  style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
+                  className="rounded-xl px-4 py-3 text-sm border focus:outline-none"
+                  style={{background:"var(--bg-elevated)", borderColor:"var(--border-mid)", color:"var(--text)"}} />
               </div>
             </div>
             <div className="flex gap-3 px-4 pb-4">
-              <button onClick={() => setShowAddParcela(false)} className="flex-1 py-2.5 rounded-xl border text-sm" style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>Cancelar</button>
-              <button onClick={addParcela} className="flex-1 py-2.5 rounded-xl bg-amber-500 text-black font-bold text-sm">Adicionar</button>
+              <button onClick={() => setShowAddParcela(false)} className="flex-1 py-2.5 rounded-xl border text-sm" style={{borderColor:"var(--border-mid)", color:"var(--text-muted)"}}>Cancelar</button>
+              <button onClick={addParcela} className="flex-1 py-2.5 rounded-xl font-bold text-sm" style={{ background: "var(--text)", color: "var(--bg)" }}>Adicionar</button>
             </div>
           </div>
           <div className="flex-1" onClick={() => setShowAddParcela(false)} />
@@ -261,7 +282,7 @@ function CarroScreen({ carro, onSave }) {
       </button>
 
       {showAddFinanc && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-start pt-8 px-4" style={{background:"rgba(0,0,0,0.82)"}}>
+        <div className="fixed inset-0 z-50 flex flex-col justify-start pt-8 px-4" style={{background:"rgba(0,0,0,0.85)"}}>
           <div className="w-full max-w-lg mx-auto rounded-2xl overflow-hidden border shadow-2xl" style={{background:"var(--bg-card)", borderColor:"var(--border)"}}>
             <div className="flex items-center justify-between px-4 py-3 border-b" style={{borderColor:"var(--border)"}}>
               <h3 className="text-sm font-semibold" style={{color:"var(--text)"}}>Novo Veiculo</h3>
@@ -271,20 +292,20 @@ function CarroScreen({ carro, onSave }) {
               <div className="flex flex-col gap-1">
                 <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Nome</label>
                 <input value={newFinanc.nome} onChange={e => setNewFinanc(f => ({...f, nome: e.target.value}))}
-                  className="rounded-xl px-4 py-2.5 text-sm border focus:outline-none focus:border-amber-500"
-                  style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} placeholder="Ex: Outlander 2025" />
+                  className="rounded-xl px-4 py-2.5 text-sm border focus:outline-none"
+                  style={{background:"var(--bg-elevated)", borderColor:"var(--border-mid)", color:"var(--text)"}} placeholder="Ex: Outlander 2025" />
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Valor total</label>
                 <input type="number" inputMode="numeric" value={newFinanc.valorTotal}
                   onChange={e => setNewFinanc(f => ({...f, valorTotal: parseInt(e.target.value)||0}))}
-                  className="rounded-xl px-4 py-3 text-xl font-bold font-mono text-right border focus:outline-none focus:border-amber-500"
-                  style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
+                  className="rounded-xl px-4 py-3 text-xl font-bold font-mono text-right border focus:outline-none"
+                  style={{background:"var(--bg-elevated)", borderColor:"var(--border-mid)", color:"var(--text)"}} />
               </div>
             </div>
             <div className="flex gap-3 px-4 pb-4">
-              <button onClick={() => setShowAddFinanc(false)} className="flex-1 py-2.5 rounded-xl border text-sm" style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>Cancelar</button>
-              <button onClick={addFinanciamento} className="flex-1 py-2.5 rounded-xl bg-amber-500 text-black font-bold text-sm">Criar</button>
+              <button onClick={() => setShowAddFinanc(false)} className="flex-1 py-2.5 rounded-xl border text-sm" style={{borderColor:"var(--border-mid)", color:"var(--text-muted)"}}>Cancelar</button>
+              <button onClick={addFinanciamento} className="flex-1 py-2.5 rounded-xl font-bold text-sm" style={{ background: "var(--text)", color: "var(--bg)" }}>Criar</button>
             </div>
           </div>
           <div className="flex-1" onClick={() => setShowAddFinanc(false)} />

@@ -30,42 +30,55 @@ function TeateSection({ teate = [], onChange }) {
   return (
     <div className="space-y-2">
       {teate.map(t => (
-        <div key={t.id} className={`border rounded-xl p-3 space-y-2 transition-all ${t.active ? "border-zinc-700 bg-zinc-900/50" : "border-zinc-800 bg-zinc-900/20 opacity-50"}`}>
+        <div key={t.id} className="rounded-xl p-3 space-y-2 transition-all"
+          style={{
+            border: `1px solid ${t.active ? "var(--border-mid)" : "var(--border)"}`,
+            background: t.active ? "var(--bg-elevated)" : "var(--bg-card)",
+            opacity: t.active ? 1 : 0.5
+          }}>
           <div className="flex items-center gap-2">
             <div
               onClick={() => update(t.id, "active", !t.active)}
-              className={`w-8 h-4 rounded-full transition-colors cursor-pointer shrink-0 ${t.active ? "bg-amber-500" : "bg-zinc-700"}`}
+              className="w-8 h-4 rounded-full transition-colors cursor-pointer shrink-0"
+              style={{ background: t.active ? "var(--positive)" : "var(--border-strong)" }}
             >
-              <div className={`w-3 h-3 bg-white rounded-full m-0.5 transition-transform ${t.active ? "translate-x-4" : ""}`} />
+              <div className="w-3 h-3 bg-white rounded-full m-0.5 transition-transform" style={{ transform: t.active ? "translateX(16px)" : "translateX(0)" }} />
             </div>
             <input
               value={t.label}
               onChange={e => update(t.id, "label", e.target.value)}
-              className="flex-1 bg-transparent text-sm font-medium text-zinc-200 focus:outline-none"
+              className="flex-1 bg-transparent text-sm font-medium focus:outline-none"
+              style={{ color: "var(--text)" }}
               placeholder="Nome do benefício"
             />
-            <button onClick={() => remove(t.id)} className="text-zinc-600 hover:text-red-400 text-xs transition-colors">✕</button>
+            <button onClick={() => remove(t.id)} className="text-xs transition-colors" style={{ color: "var(--text-muted)" }}>✕</button>
           </div>
           <div className="flex gap-2 items-center">
             <input
               value={t.name}
               onChange={e => update(t.id, "name", e.target.value)}
-              className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-xs text-zinc-400 focus:outline-none focus:border-amber-500 transition-all"
+              className="flex-1 rounded-lg px-2 py-1.5 text-xs focus:outline-none transition-all"
+              style={{ background: "var(--bg-card)", border: "1px solid var(--border-mid)", color: "var(--text-muted)" }}
               placeholder="Nome em japonês (opcional)"
             />
             <div className="relative flex items-center">
-              <span className="absolute left-2 text-xs text-zinc-500">¥</span>
+              <span className="absolute left-2 text-xs" style={{ color: "var(--text-muted)" }}>¥</span>
               <input
                 type="number"
                 min="0"
                 value={t.amount}
                 onChange={e => update(t.id, "amount", parseInt(e.target.value)||0)}
-                className="w-28 bg-zinc-800 border border-zinc-700 rounded-lg pl-5 pr-2 py-1.5 text-xs text-zinc-200 font-mono focus:outline-none focus:border-amber-500 transition-all"
+                className="w-28 rounded-lg pl-5 pr-2 py-1.5 text-xs font-mono focus:outline-none transition-all"
+                style={{ background: "var(--bg-card)", border: "1px solid var(--border-mid)", color: "var(--text)" }}
               />
             </div>
             <button
               onClick={() => update(t.id, "taxable", !t.taxable)}
-              className={`text-xs px-2 py-1.5 rounded-lg border transition-all whitespace-nowrap ${t.taxable ? "border-orange-700/50 text-orange-400 bg-orange-900/20" : "border-blue-700/50 text-blue-400 bg-blue-900/20"}`}
+              className="text-xs px-2 py-1.5 rounded-lg border transition-all whitespace-nowrap"
+              style={t.taxable
+                ? { border: "1px solid rgba(245,158,11,0.4)", color: "var(--warning)", background: "rgba(245,158,11,0.1)" }
+                : { border: "1px solid var(--border-mid)", color: "var(--text-sub)", background: "var(--bg-elevated)" }
+              }
             >
               {t.taxable ? "tributável" : "não trib."}
             </button>
@@ -75,24 +88,25 @@ function TeateSection({ teate = [], onChange }) {
 
       <button
         onClick={add}
-        className="w-full py-2 rounded-xl border border-dashed border-zinc-700 text-xs text-zinc-500 hover:text-zinc-300 hover:border-zinc-500 transition-all"
+        className="w-full py-2 rounded-xl border border-dashed text-xs transition-all"
+        style={{ borderColor: "var(--border-mid)", color: "var(--text-muted)" }}
       >
         + Adicionar benefício
       </button>
 
       {teate.some(t => t.active) && (
-        <div className="bg-zinc-800/50 rounded-xl p-2.5 space-y-1">
+        <div className="rounded-xl p-2.5 space-y-1" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
           <div className="flex justify-between text-xs">
-            <span className="text-zinc-500">Tributáveis</span>
-            <span className="font-mono text-orange-400">{YEN(totalTaxable)}</span>
+            <span style={{ color: "var(--text-muted)" }}>Tributáveis</span>
+            <span className="font-mono" style={{ color: "var(--warning)" }}>{YEN(totalTaxable)}</span>
           </div>
           <div className="flex justify-between text-xs">
-            <span className="text-zinc-500">Não tributáveis</span>
-            <span className="font-mono text-blue-400">{YEN(totalNonTaxable)}</span>
+            <span style={{ color: "var(--text-muted)" }}>Não tributáveis</span>
+            <span className="font-mono" style={{ color: "var(--info)" }}>{YEN(totalNonTaxable)}</span>
           </div>
-          <div className="flex justify-between text-xs border-t border-zinc-700 pt-1.5">
-            <span className="text-zinc-300 font-medium">Total 手当</span>
-            <span className="font-mono font-bold text-amber-400">{YEN(totalActive)}</span>
+          <div className="flex justify-between text-xs border-t pt-1.5" style={{ borderColor: "var(--border)" }}>
+            <span className="font-medium" style={{ color: "var(--text)" }}>Total 手当</span>
+            <span className="font-mono font-bold" style={{ color: "var(--warning)" }}>{YEN(totalActive)}</span>
           </div>
         </div>
       )}

@@ -54,42 +54,42 @@ function CompareScreen({ entries, settings }) {
         <div className="text-xs" style={{color:"var(--text-muted)"}}>{months.length} meses de histórico</div>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <Card><div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>Média bruto/mês</div><div className="text-lg font-bold text-green-400 font-mono">{YEN(avgGross)}</div></Card>
-        <Card><div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>Média líquido/mês</div><div className="text-lg font-bold text-amber-400 font-mono">{YEN(avgNet)}</div></Card>
+        <Card><div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>Média bruto/mês</div><div className="text-lg font-bold font-mono" style={{ color: "var(--positive)" }}>{YEN(avgGross)}</div></Card>
+        <Card><div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>Média líquido/mês</div><div className="text-lg font-bold font-mono" style={{ color: "var(--warning)" }}>{YEN(avgNet)}</div></Card>
         <Card><div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>Média HE/mês</div><div className="text-lg font-bold" style={{color:"var(--text)"}}>{avgOT}h</div></Card>
-        <Card><div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>Melhor mês</div><div className="text-sm font-bold text-amber-400">{bestMonth.label}</div><div className="text-xs font-mono" style={{color:"var(--text-muted)"}}>{YEN(bestMonth.grossWithTeate)}</div></Card>
+        <Card><div className="text-xs mb-1" style={{color:"var(--text-muted)"}}>Melhor mês</div><div className="text-sm font-bold" style={{ color: "var(--warning)" }}>{bestMonth.label}</div><div className="text-xs font-mono" style={{color:"var(--text-muted)"}}>{YEN(bestMonth.grossWithTeate)}</div></Card>
       </div>
       <Card>
-        <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-widest mb-3">Bruto vs Líquido</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>Bruto vs Líquido</h3>
         <div className="space-y-3">
           {monthlyData.map((d, i) => (
             <div key={d.month}>
               <div className="flex justify-between items-center mb-1">
                 <span className="text-xs font-medium w-12" style={{color:"var(--text)"}}>{d.label}</span>
                 <div className="flex gap-3 text-xs font-mono">
-                  <span className="text-green-400">{YEN(d.grossWithTeate)}</span>
+                  <span style={{ color: "var(--positive)" }}>{YEN(d.grossWithTeate)}</span>
                   <span style={{color:"var(--text-muted)"}}>→</span>
-                  <span className="text-amber-400">{YEN(d.netPay)}</span>
+                  <span style={{ color: "var(--warning)" }}>{YEN(d.netPay)}</span>
                 </div>
               </div>
-              <div className="relative h-5 bg-zinc-800 rounded-lg overflow-hidden">
-                <div className="absolute top-0 left-0 h-full bg-green-500/30 rounded-lg" style={{width:`${maxGross>0?(d.grossWithTeate/maxGross)*100:0}%`}} />
-                <div className="absolute top-0 left-0 h-full bg-amber-500/60 rounded-lg" style={{width:`${maxGross>0?(d.netPay/maxGross)*100:0}%`}} />
+              <div className="relative h-5 rounded-lg overflow-hidden" style={{ background: "var(--bg-elevated)" }}>
+                <div className="absolute top-0 left-0 h-full rounded-lg" style={{ width:`${maxGross>0?(d.grossWithTeate/maxGross)*100:0}%`, background: "rgba(34,197,94,0.3)" }} />
+                <div className="absolute top-0 left-0 h-full rounded-lg" style={{ width:`${maxGross>0?(d.netPay/maxGross)*100:0}%`, background: "rgba(245,158,11,0.6)" }} />
                 <div className="absolute right-2 top-0 h-full flex items-center">
-                  <span className="text-xs text-red-400 font-mono">-{YEN(d.totalDeductions)}</span>
+                  <span className="text-xs font-mono" style={{ color: "var(--negative)" }}>-{YEN(d.totalDeductions)}</span>
                 </div>
               </div>
             </div>
           ))}
         </div>
         <div className="flex gap-4 mt-3 text-xs" style={{color:"var(--text-muted)"}}>
-          <span><span className="inline-block w-3 h-2 bg-green-500/30 rounded mr-1"></span>Bruto</span>
-          <span><span className="inline-block w-3 h-2 bg-amber-500/60 rounded mr-1"></span>Líquido</span>
-          <span><span className="inline-block w-3 h-2 bg-red-500/60 rounded mr-1"></span>Descontos</span>
+          <span><span className="inline-block w-3 h-2 rounded mr-1" style={{ background: "rgba(34,197,94,0.3)" }}></span>Bruto</span>
+          <span><span className="inline-block w-3 h-2 rounded mr-1" style={{ background: "rgba(245,158,11,0.6)" }}></span>Líquido</span>
+          <span><span className="inline-block w-3 h-2 rounded mr-1" style={{ background: "rgba(239,68,68,0.6)" }}></span>Descontos</span>
         </div>
       </Card>
       <Card className="overflow-hidden">
-        <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-widest mb-3">Tabela Detalhada</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "var(--text-muted)" }}>Tabela Detalhada</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
@@ -109,9 +109,9 @@ function CompareScreen({ entries, settings }) {
                   <tr key={d.month} className="border-b last:border-0" style={{borderColor:"var(--border)"}}>
                     <td className="py-2 pr-2"><div className="font-medium" style={{color:"var(--text)"}}>{d.label}</div><div style={{color:"var(--text-muted)"}}>{d.workedDays}d{d.yukyuDays>0?` +${d.yukyuDays}有給`:""}</div></td>
                     <td className="text-right py-2 pr-2 font-mono" style={{color:"var(--text-muted)"}}>{d.totalHours.toFixed(0)}h</td>
-                    <td className="text-right py-2 pr-2 font-mono text-green-400">{YEN(d.grossWithTeate)}</td>
-                    <td className="text-right py-2 pr-2 font-mono text-red-400">-{YEN(d.totalDeductions)}</td>
-                    <td className="text-right py-2"><div className="font-mono font-bold text-amber-400">{YEN(d.netPay)}</div>{diff!==null&&<div className={`text-xs font-mono ${diff>=0?"text-green-500":"text-red-500"}`}>{diff>=0?"▲":"▼"}{YEN(Math.abs(diff))}</div>}</td>
+                    <td className="text-right py-2 pr-2 font-mono" style={{ color: "var(--positive)" }}>{YEN(d.grossWithTeate)}</td>
+                    <td className="text-right py-2 pr-2 font-mono" style={{ color: "var(--negative)" }}>-{YEN(d.totalDeductions)}</td>
+                    <td className="text-right py-2"><div className="font-mono font-bold" style={{ color: "var(--warning)" }}>{YEN(d.netPay)}</div>{diff!==null&&<div className="text-xs font-mono" style={{ color: diff >= 0 ? "var(--positive)" : "var(--negative)" }}>{diff>=0?"▲":"▼"}{YEN(Math.abs(diff))}</div>}</td>
                   </tr>
                 );
               })}

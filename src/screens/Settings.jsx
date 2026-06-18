@@ -17,7 +17,7 @@ function SettingsScreen({ settings, onSave, entries = [], auditHistory = [], onS
   return (
     <div className="space-y-3 pb-24 sm:pb-28">
       <Card>
-        <h3 className="text-sm font-semibold text-amber-400 mb-2 uppercase tracking-widest">Trabalhador</h3>
+        <h3 className="text-sm font-semibold mb-2 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Trabalhador</h3>
         <div className="grid grid-cols-1 gap-3">
           <Input label="Nome" value={s.name} onChange={(e) => set("name", e.target.value)} placeholder="Seu nome" />
           <Input label="Salário por hora (¥)" type="number" value={s.hourlyRate} onChange={(e) => set("hourlyRate", Number(e.target.value))} />
@@ -35,43 +35,43 @@ function SettingsScreen({ settings, onSave, entries = [], auditHistory = [], onS
               <div className="col-span-2 space-y-3">
 
                 {/* ── Tempo de empresa ── */}
-                <div className="bg-zinc-800/40 rounded-xl p-3">
-                  <div className="text-xs text-zinc-500 uppercase tracking-widest mb-1">Tempo de empresa</div>
-                  <div className="text-base font-semibold text-zinc-100">
+                <div className="rounded-xl p-3" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
+                  <div className="text-xs uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>Tempo de empresa</div>
+                  <div className="text-base font-semibold" style={{ color: "var(--text)" }}>
                     {yrs > 0 ? `${yrs} ano${yrs > 1 ? "s" : ""}` : ""}{yrs > 0 && mos > 0 ? " e " : ""}{mos > 0 ? `${mos} ${mos === 1 ? "mês" : "meses"}` : ""}
                   </div>
-                  <div className="text-xs text-zinc-500 mt-0.5">desde {new Date(s.hireDate + "T12:00:00").toLocaleDateString("pt-BR", {day:"2-digit", month:"long", year:"numeric"})}</div>
+                  <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>desde {new Date(s.hireDate + "T12:00:00").toLocaleDateString("pt-BR", {day:"2-digit", month:"long", year:"numeric"})}</div>
                 </div>
 
                 {ent.eligible ? (
                   <>
                     {/* ── Lotes de 有給 ── */}
                     <div className="space-y-2">
-                      <div className="text-xs text-zinc-500 uppercase tracking-widest">Lotes de 有給休暇</div>
+                      <div className="text-xs uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Lotes de 有給休暇</div>
                       {ent.availableGrants.map((g, i) => {
                         const daysLeft = Math.ceil((new Date(g.expiry) - new Date()) / 86400000);
                         const urgency = daysLeft <= 90 ? "red" : daysLeft <= 180 ? "yellow" : "green";
                         const colors = {
-                          red: { bar: "bg-red-500", text: "text-red-400", bg: "bg-red-900/20 border-red-800/40" },
-                          yellow: { bar: "bg-yellow-500", text: "text-yellow-400", bg: "bg-yellow-900/20 border-yellow-800/40" },
-                          green: { bar: "bg-green-500", text: "text-green-400", bg: "bg-green-900/20 border-green-800/40" },
+                          red: { barColor: "var(--negative)", textColor: "var(--negative)", bgStyle: { background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)" } },
+                          yellow: { barColor: "var(--warning)", textColor: "var(--warning)", bgStyle: { background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)" } },
+                          green: { barColor: "var(--positive)", textColor: "var(--positive)", bgStyle: { background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.3)" } },
                         }[urgency];
                         return (
-                          <div key={i} className={`border rounded-xl p-3 ${colors.bg}`}>
+                          <div key={i} className="rounded-xl p-3" style={colors.bgStyle}>
                             <div className="flex justify-between items-start mb-2">
                               <div>
-                                <div className="text-sm font-semibold text-zinc-200">{g.days} dias</div>
-                                <div className="text-xs text-zinc-500">concedidos em {new Date(g.date + "T12:00:00").toLocaleDateString("pt-BR", {month:"long", year:"numeric"})}</div>
+                                <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>{g.days} dias</div>
+                                <div className="text-xs" style={{ color: "var(--text-muted)" }}>concedidos em {new Date(g.date + "T12:00:00").toLocaleDateString("pt-BR", {month:"long", year:"numeric"})}</div>
                               </div>
                               <div className="text-right">
-                                <div className={`text-xs font-semibold ${colors.text}`}>
+                                <div className="text-xs font-semibold" style={{ color: colors.textColor }}>
                                   {daysLeft <= 0 ? "Vencido" : daysLeft <= 90 ? `⚠️ Vence em ${daysLeft} dias` : `Válido por ${Math.floor(daysLeft/30)} meses`}
                                 </div>
-                                <div className="text-xs text-zinc-600">{new Date(g.expiry + "T12:00:00").toLocaleDateString("pt-BR", {day:"2-digit", month:"short", year:"numeric"})}</div>
+                                <div className="text-xs" style={{ color: "var(--text-muted)" }}>{new Date(g.expiry + "T12:00:00").toLocaleDateString("pt-BR", {day:"2-digit", month:"short", year:"numeric"})}</div>
                               </div>
                             </div>
-                            <div className="w-full h-1.5 bg-zinc-700 rounded-full overflow-hidden">
-                              <div className={`h-1.5 rounded-full ${colors.bar}`} style={{width: `${Math.max(5, Math.min(100, (daysLeft / 730) * 100))}%`}} />
+                            <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: "var(--bg-elevated)" }}>
+                              <div className="h-1.5 rounded-full" style={{ width: `${Math.max(5, Math.min(100, (daysLeft / 730) * 100))}%`, background: colors.barColor }} />
                             </div>
                           </div>
                         );
@@ -79,35 +79,35 @@ function SettingsScreen({ settings, onSave, entries = [], auditHistory = [], onS
                     </div>
 
                     {/* ── Saldo total ── */}
-                    <div className="flex items-center justify-between bg-zinc-800/40 rounded-xl px-3 py-2.5">
+                    <div className="flex items-center justify-between rounded-xl px-3 py-2.5" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
                       <div>
-                        <div className="text-xs text-zinc-500">Saldo disponível</div>
-                        <div className="text-xs text-zinc-600">todos os lotes ativos</div>
+                        <div className="text-xs" style={{ color: "var(--text-muted)" }}>Saldo disponível</div>
+                        <div className="text-xs" style={{ color: "var(--text-muted)" }}>todos os lotes ativos</div>
                       </div>
-                      <div className="text-2xl font-bold text-green-400">{ent.daysTotal} <span className="text-sm font-normal text-zinc-500">dias</span></div>
+                      <div className="text-2xl font-bold" style={{ color: "var(--positive)" }}>{ent.daysTotal} <span className="text-sm font-normal" style={{ color: "var(--text-muted)" }}>dias</span></div>
                     </div>
 
                     {/* ── Próxima concessão ── */}
-                    <div className="bg-amber-900/10 border border-amber-800/30 rounded-xl p-3">
-                      <div className="text-xs text-zinc-500 uppercase tracking-widest mb-1">Próxima concessão</div>
+                    <div className="rounded-xl p-3" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-mid)" }}>
+                      <div className="text-xs uppercase tracking-widest mb-1" style={{ color: "var(--text-muted)" }}>Próxima concessão</div>
                       <div className="flex justify-between items-center">
                         <div>
-                          <div className="text-sm font-semibold text-zinc-100">Você receberá <span className="text-amber-400">+{ent.nextGrantDays} dias</span></div>
-                          <div className="text-xs text-zinc-500 mt-0.5">em {new Date(ent.nextGrantDate + "T12:00:00").toLocaleDateString("pt-BR", {day:"2-digit", month:"long", year:"numeric"})}</div>
+                          <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>Você receberá <span style={{ color: "var(--warning)" }}>+{ent.nextGrantDays} dias</span></div>
+                          <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>em {new Date(ent.nextGrantDate + "T12:00:00").toLocaleDateString("pt-BR", {day:"2-digit", month:"long", year:"numeric"})}</div>
                         </div>
                         <div className="text-right">
-                          <div className="text-lg font-bold text-amber-400">{ent.daysToNext}</div>
-                          <div className="text-xs text-zinc-500">dias</div>
+                          <div className="text-lg font-bold" style={{ color: "var(--warning)" }}>{ent.daysToNext}</div>
+                          <div className="text-xs" style={{ color: "var(--text-muted)" }}>dias</div>
                         </div>
                       </div>
                     </div>
                   </>
                 ) : (
-                  <div className="bg-zinc-800/40 rounded-xl p-3">
-                    <div className="text-sm text-zinc-300">Ainda não elegível para 有給</div>
-                    <div className="text-xs text-zinc-500 mt-1">Faltam <span className="text-amber-400 font-semibold">{ent.monthsToFirst} {ent.monthsToFirst === 1 ? "mês" : "meses"}</span> para receber os primeiros 10 dias</div>
-                    <div className="w-full h-1.5 bg-zinc-700 rounded-full overflow-hidden mt-2">
-                      <div className="h-1.5 bg-amber-500 rounded-full" style={{width: `${Math.round(((6 - ent.monthsToFirst) / 6) * 100)}%`}} />
+                  <div className="rounded-xl p-3" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
+                    <div className="text-sm" style={{ color: "var(--text)" }}>Ainda não elegível para 有給</div>
+                    <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Faltam <span className="font-semibold" style={{ color: "var(--warning)" }}>{ent.monthsToFirst} {ent.monthsToFirst === 1 ? "mês" : "meses"}</span> para receber os primeiros 10 dias</div>
+                    <div className="w-full h-1.5 rounded-full overflow-hidden mt-2" style={{ background: "var(--bg-card)" }}>
+                      <div className="h-1.5 rounded-full" style={{ width: `${Math.round(((6 - ent.monthsToFirst) / 6) * 100)}%`, background: "var(--warning)" }} />
                     </div>
                   </div>
                 )}
@@ -118,24 +118,24 @@ function SettingsScreen({ settings, onSave, entries = [], auditHistory = [], onS
       </Card>
 
       <Card>
-        <h3 className="text-sm font-semibold text-amber-400 mb-2 uppercase tracking-widest">Modo de Cálculo</h3>
+        <h3 className="text-sm font-semibold mb-2 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Modo de Cálculo</h3>
         <div className="flex gap-3">
           {[{ value: "japan", label: "🇯🇵 Padrão Japão" }, { value: "custom", label: "⚙️ Personalizado" }].map((m) => (
             <button
               key={m.value}
               onClick={() => set("mode", m.value)}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all border ${
-                s.mode === m.value
-                  ? "bg-amber-500 text-black border-amber-500"
-                  : "border-zinc-700 text-zinc-400 hover:border-zinc-500"
-              }`}
+              className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all"
+              style={s.mode === m.value
+                ? { background: "var(--text)", color: "var(--bg)", border: "1px solid var(--text)" }
+                : { background: "var(--bg-elevated)", border: "1px solid var(--border-mid)", color: "var(--text-sub)" }
+              }
             >
               {m.label}
             </button>
           ))}
         </div>
         {s.mode === "japan" && (
-          <div className="mt-3 p-3 bg-zinc-800/50 rounded-lg text-xs text-zinc-500 space-y-1">
+          <div className="mt-3 p-3 rounded-lg text-xs space-y-1" style={{ background: "var(--bg-elevated)", color: "var(--text-muted)" }}>
             <div>• Jornada: 8h/dia, 40h/semana</div>
             <div>• Hora extra: +25% | Noturno (22h–05h): +25%</div>
             <div>• Feriado legal: +35% | HE acima de 60h/mês: +50%</div>
@@ -145,7 +145,7 @@ function SettingsScreen({ settings, onSave, entries = [], auditHistory = [], onS
 
       {s.mode === "custom" && (
         <Card>
-          <h3 className="text-sm font-semibold text-amber-400 mb-2 uppercase tracking-widest">Regras Personalizadas</h3>
+          <h3 className="text-sm font-semibold mb-2 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Regras Personalizadas</h3>
           <div className="grid grid-cols-2 gap-2">
             <Input
               label="Horas normais/dia"
@@ -188,7 +188,7 @@ function SettingsScreen({ settings, onSave, entries = [], auditHistory = [], onS
       )}
 
       <Card>
-        <h3 className="text-sm font-semibold text-amber-400 mb-2 uppercase tracking-widest">Descontos & Seguros</h3>
+        <h3 className="text-sm font-semibold mb-2 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Descontos & Seguros</h3>
         <div className="space-y-2">
           <Toggle label="Kousei Nenkin (厚生年金)" note="aprox. 9.15%" checked={s.pension} onChange={(v) => set("pension", v)} />
           <Toggle label="Seguro Saúde (健康保険)" note="aprox. 5%" checked={s.healthInsurance} onChange={(v) => set("healthInsurance", v)} />
@@ -196,26 +196,26 @@ function SettingsScreen({ settings, onSave, entries = [], auditHistory = [], onS
           <Toggle label="Imposto Municipal (住民税)" note="aprox. 10%/ano via holerite" checked={s.municipalTax} onChange={(v) => set("municipalTax", v)} />
         </div>
         {s.age >= 40 && (
-          <div className="mt-3 p-2 bg-zinc-800/50 rounded-lg text-xs text-zinc-500">
+          <div className="mt-3 p-2 rounded-lg text-xs" style={{ background: "var(--bg-elevated)", color: "var(--text-muted)" }}>
             ℹ️ Kaigo Hoken (介護保険) aplicado automaticamente — você tem {s.age} anos
           </div>
         )}
-        <div className="mt-3 p-3 bg-blue-900/20 border border-blue-800/30 rounded-xl space-y-1.5">
-          <div className="text-xs font-semibold text-blue-400">🏥 Cooperativa de Saúde</div>
-          <div className="text-xs font-medium text-zinc-300">愛知県トラック事業健康保険組合</div>
-          <div className="text-xs text-zinc-500">Setor de Caminhões — Aichi-ken · Toyota-shi</div>
+        <div className="mt-3 p-3 rounded-xl space-y-1.5" style={{ background: "rgba(96,165,250,0.08)", border: "1px solid rgba(96,165,250,0.2)" }}>
+          <div className="text-xs font-semibold" style={{ color: "var(--info)" }}>🏥 Cooperativa de Saúde</div>
+          <div className="text-xs font-medium" style={{ color: "var(--text)" }}>愛知県トラック事業健康保険組合</div>
+          <div className="text-xs" style={{ color: "var(--text-muted)" }}>Setor de Caminhões — Aichi-ken · Toyota-shi</div>
           <div className="mt-1.5 space-y-1 text-xs">
-            <div className="flex justify-between"><span className="text-zinc-500">健康保険</span><span className="font-mono text-zinc-400">10.5% total · 5.25% emp.</span></div>
-            <div className="flex justify-between"><span className="text-zinc-500">介護保険 (40+)</span><span className="font-mono text-zinc-400">1.64% total · 0.82% emp.</span></div>
-            <div className="flex justify-between"><span className="text-zinc-500">厚生年金</span><span className="font-mono text-zinc-400">18.3% total · 9.15% emp.</span></div>
-            <div className="flex justify-between"><span className="text-zinc-500">雇用保険</span><span className="font-mono text-zinc-400">0.6% emp.</span></div>
+            <div className="flex justify-between"><span style={{ color: "var(--text-muted)" }}>健康保険</span><span className="font-mono" style={{ color: "var(--text-sub)" }}>10.5% total · 5.25% emp.</span></div>
+            <div className="flex justify-between"><span style={{ color: "var(--text-muted)" }}>介護保険 (40+)</span><span className="font-mono" style={{ color: "var(--text-sub)" }}>1.64% total · 0.82% emp.</span></div>
+            <div className="flex justify-between"><span style={{ color: "var(--text-muted)" }}>厚生年金</span><span className="font-mono" style={{ color: "var(--text-sub)" }}>18.3% total · 9.15% emp.</span></div>
+            <div className="flex justify-between"><span style={{ color: "var(--text-muted)" }}>雇用保険</span><span className="font-mono" style={{ color: "var(--text-sub)" }}>0.6% emp.</span></div>
           </div>
-          <div className="text-xs text-zinc-600 mt-1">* Cálculo sobre 標準報酬月額 — taxas do holerite real</div>
+          <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>* Cálculo sobre 標準報酬月額 — taxas do holerite real</div>
         </div>
       </Card>
 
       <Card>
-        <h3 className="text-sm font-semibold text-amber-400 mb-2 uppercase tracking-widest">Padrões de Jornada</h3>
+        <h3 className="text-sm font-semibold mb-2 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Padrões de Jornada</h3>
         <div className="grid grid-cols-2 gap-2">
           <Input
             label="Break padrão (min)"
@@ -227,8 +227,8 @@ function SettingsScreen({ settings, onSave, entries = [], auditHistory = [], onS
       </Card>
 
       <Card>
-        <h3 className="text-sm font-semibold text-amber-400 mb-1 uppercase tracking-widest">手当 — Benefícios Fixos</h3>
-        <p className="text-xs text-zinc-500 mb-4">Valores do seu holerite. Aparecem no resumo mensal separado do salário.</p>
+        <h3 className="text-sm font-semibold mb-1 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>手当 — Benefícios Fixos</h3>
+        <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>Valores do seu holerite. Aparecem no resumo mensal separado do salário.</p>
         <TeateSection
           teate={s.teate || []}
           onChange={(t) => set("teate", t)}
@@ -237,13 +237,13 @@ function SettingsScreen({ settings, onSave, entries = [], auditHistory = [], onS
 
       {/* ── Auditoria de Acertividade ── */}
       <Card>
-        <h3 className="text-sm font-semibold text-amber-400 mb-1 uppercase tracking-widest">🎯 Auditoria de Acertividade</h3>
+        <h3 className="text-sm font-semibold mb-1 uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>🎯 Auditoria de Acertividade</h3>
         <p className="text-xs mb-3" style={{color:"var(--text-muted)"}}>Compare o cálculo do app com seu holerite real e acompanhe a precisão mês a mês.</p>
 
         <div className="space-y-2">
           <input type="month" value={auditMonth} onChange={e => setAuditMonth(e.target.value)}
-            className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500 border transition-all"
-            style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
+            className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none border transition-all"
+            style={{background:"var(--bg-elevated)", borderColor:"var(--border-mid)", color:"var(--text)"}} />
 
           {(() => {
             // Calculate what app predicted for this month
@@ -256,17 +256,17 @@ function SettingsScreen({ settings, onSave, entries = [], auditHistory = [], onS
             const { netPay: appLiquido } = estimateDeductions(appBrutoTotal, s);
 
             return (
-              <div className="bg-zinc-800/40 rounded-xl p-3 space-y-1.5">
+              <div className="rounded-xl p-3 space-y-1.5" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
                 <div className="text-xs font-semibold mb-2" style={{color:"var(--text-sub)"}}>App calculou para {auditMonth}:</div>
                 <div className="flex justify-between text-xs">
                   <span style={{color:"var(--text-muted)"}}>Bruto estimado</span>
-                  <span className="font-mono text-green-400">{YEN(appBrutoTotal)}</span>
+                  <span className="font-mono" style={{ color: "var(--positive)" }}>{YEN(appBrutoTotal)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
                   <span style={{color:"var(--text-muted)"}}>Líquido estimado</span>
-                  <span className="font-mono text-amber-400">{YEN(appLiquido)}</span>
+                  <span className="font-mono" style={{ color: "var(--warning)" }}>{YEN(appLiquido)}</span>
                 </div>
-                {mEntries.length === 0 && <div className="text-xs text-zinc-600">Sem lançamentos neste mês</div>}
+                {mEntries.length === 0 && <div className="text-xs" style={{ color: "var(--text-muted)" }}>Sem lançamentos neste mês</div>}
               </div>
             );
           })()}
@@ -276,15 +276,15 @@ function SettingsScreen({ settings, onSave, entries = [], auditHistory = [], onS
               <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Bruto real (holerite)</label>
               <input type="number" placeholder="¥0" value={auditBruto}
                 onChange={e => setAuditBruto(e.target.value)}
-                className="rounded-lg px-3 py-2 text-sm border focus:outline-none focus:border-amber-500 font-mono"
-                style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
+                className="rounded-lg px-3 py-2 text-sm border focus:outline-none font-mono"
+                style={{background:"var(--bg-elevated)", borderColor:"var(--border-mid)", color:"var(--text)"}} />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs uppercase tracking-wide" style={{color:"var(--text-muted)"}}>Líquido real (holerite)</label>
               <input type="number" placeholder="¥0" value={auditLiquido}
                 onChange={e => setAuditLiquido(e.target.value)}
-                className="rounded-lg px-3 py-2 text-sm border focus:outline-none focus:border-amber-500 font-mono"
-                style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}} />
+                className="rounded-lg px-3 py-2 text-sm border focus:outline-none font-mono"
+                style={{background:"var(--bg-elevated)", borderColor:"var(--border-mid)", color:"var(--text)"}} />
             </div>
           </div>
 
@@ -308,7 +308,8 @@ function SettingsScreen({ settings, onSave, entries = [], auditHistory = [], onS
               setAuditBruto(""); setAuditLiquido(""); setAuditSaved(true);
               setTimeout(() => setAuditSaved(false), 2500);
             }}
-            className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm transition-colors"
+            className="w-full py-2.5 rounded-xl font-bold text-sm transition-colors"
+            style={{ background: "var(--text)", color: "var(--bg)" }}
           >
             {auditSaved ? "✓ Salvo!" : "Registrar Holerite Real"}
           </button>
@@ -323,40 +324,46 @@ function SettingsScreen({ settings, onSave, entries = [], auditHistory = [], onS
               const avgLiquido = Math.round(auditHistory.filter(a => a.liquidoAcc !== null).reduce((s,a) => s + a.liquidoAcc, 0) / auditHistory.filter(a => a.liquidoAcc !== null).length);
               return (
                 <div className="grid grid-cols-2 gap-2 mb-2">
-                  <div className="bg-zinc-800/40 rounded-xl p-2.5 text-center">
+                  <div className="rounded-xl p-2.5 text-center" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
                     <div className="text-xs" style={{color:"var(--text-muted)"}}>Média Bruto</div>
-                    <div className={`text-xl font-bold ${avgBruto >= 95 ? "text-green-400" : avgBruto >= 85 ? "text-amber-400" : "text-red-400"}`}>{avgBruto}%</div>
+                    <div className="text-xl font-bold" style={{ color: avgBruto >= 95 ? "var(--positive)" : avgBruto >= 85 ? "var(--warning)" : "var(--negative)" }}>{avgBruto}%</div>
                   </div>
-                  <div className="bg-zinc-800/40 rounded-xl p-2.5 text-center">
+                  <div className="rounded-xl p-2.5 text-center" style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
                     <div className="text-xs" style={{color:"var(--text-muted)"}}>Média Líquido</div>
-                    <div className={`text-xl font-bold ${avgLiquido >= 95 ? "text-green-400" : avgLiquido >= 85 ? "text-amber-400" : "text-red-400"}`}>{avgLiquido}%</div>
+                    <div className="text-xl font-bold" style={{ color: avgLiquido >= 95 ? "var(--positive)" : avgLiquido >= 85 ? "var(--warning)" : "var(--negative)" }}>{avgLiquido}%</div>
                   </div>
                 </div>
               );
             })()}
             {auditHistory.map((a, i) => (
-              <div key={a.month} className="rounded-xl p-3 border" style={{borderColor:"var(--border)", background:"var(--bg-card)"}}>
+              <div key={a.month} className="rounded-xl p-3 border" style={{borderColor:"var(--border)", background:"var(--bg-elevated)"}}>
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm font-semibold" style={{color:"var(--text)"}}>
                     {new Date(a.month + "-01").toLocaleDateString("pt-BR", {month:"long", year:"numeric"})}
                   </span>
                   <div className="flex gap-2">
                     {a.brutoAcc !== null && (
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${a.brutoAcc >= 95 ? "bg-green-900/40 text-green-400" : a.brutoAcc >= 85 ? "bg-amber-900/40 text-amber-400" : "bg-red-900/40 text-red-400"}`}>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{
+                        background: a.brutoAcc >= 95 ? "rgba(34,197,94,0.15)" : a.brutoAcc >= 85 ? "rgba(245,158,11,0.15)" : "rgba(239,68,68,0.15)",
+                        color: a.brutoAcc >= 95 ? "var(--positive)" : a.brutoAcc >= 85 ? "var(--warning)" : "var(--negative)"
+                      }}>
                         B: {a.brutoAcc}%
                       </span>
                     )}
                     {a.liquidoAcc !== null && (
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${a.liquidoAcc >= 95 ? "bg-green-900/40 text-green-400" : a.liquidoAcc >= 85 ? "bg-amber-900/40 text-amber-400" : "bg-red-900/40 text-red-400"}`}>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{
+                        background: a.liquidoAcc >= 95 ? "rgba(34,197,94,0.15)" : a.liquidoAcc >= 85 ? "rgba(245,158,11,0.15)" : "rgba(239,68,68,0.15)",
+                        color: a.liquidoAcc >= 95 ? "var(--positive)" : a.liquidoAcc >= 85 ? "var(--warning)" : "var(--negative)"
+                      }}>
                         L: {a.liquidoAcc}%
                       </span>
                     )}
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 text-xs" style={{color:"var(--text-muted)"}}>
-                  <div>App bruto: <span className="font-mono text-green-400">{YEN(a.appBruto)}</span></div>
+                  <div>App bruto: <span className="font-mono" style={{ color: "var(--positive)" }}>{YEN(a.appBruto)}</span></div>
                   <div>Real: <span className="font-mono" style={{color:"var(--text)"}}>{YEN(a.realBruto)}</span></div>
-                  <div>App líquido: <span className="font-mono text-amber-400">{YEN(a.appLiquido)}</span></div>
+                  <div>App líquido: <span className="font-mono" style={{ color: "var(--warning)" }}>{YEN(a.appLiquido)}</span></div>
                   <div>Real: <span className="font-mono" style={{color:"var(--text)"}}>{YEN(a.realLiquido)}</span></div>
                 </div>
               </div>
@@ -369,7 +376,8 @@ function SettingsScreen({ settings, onSave, entries = [], auditHistory = [], onS
 
       <button
         onClick={() => onSave(s)}
-        className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm transition-colors"
+        className="w-full py-3 rounded-xl font-bold text-sm transition-colors"
+        style={{ background: "var(--text)", color: "var(--bg)" }}
       >
         Salvar Configurações
       </button>
