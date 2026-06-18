@@ -281,6 +281,104 @@ export function calcDay(entry, settings, monthlyOvertimeSoFar = 0) {
   };
 }
 
+// ── Vehicle Tax Tables ─────────────────────────────
+export const JIDOUSHA_ZEI_NEW = [
+  { maxCc: 1000, tax: 25000 }, { maxCc: 1500, tax: 30500 }, { maxCc: 2000, tax: 36000 },
+  { maxCc: 2500, tax: 43500 }, { maxCc: 3000, tax: 50000 }, { maxCc: 3500, tax: 57000 },
+  { maxCc: 4000, tax: 65500 }, { maxCc: 4500, tax: 75500 }, { maxCc: 6000, tax: 87000 },
+  { maxCc: Infinity, tax: 110000 },
+];
+export const JIDOUSHA_ZEI_OLD = [
+  { maxCc: 1000, tax: 29500 }, { maxCc: 1500, tax: 34500 }, { maxCc: 2000, tax: 39500 },
+  { maxCc: 2500, tax: 45000 }, { maxCc: 3000, tax: 51000 }, { maxCc: 3500, tax: 58000 },
+  { maxCc: 4000, tax: 66500 }, { maxCc: 4500, tax: 76500 }, { maxCc: 6000, tax: 88000 },
+  { maxCc: Infinity, tax: 111000 },
+];
+export const JURYO_ZEI_TABLE = [
+  { maxKg: 500, base: 2500 }, { maxKg: 1000, base: 5000 }, { maxKg: 1500, base: 7500 },
+  { maxKg: 2000, base: 10000 }, { maxKg: 2500, base: 12500 }, { maxKg: 3000, base: 15000 },
+  { maxKg: 3500, base: 17500 }, { maxKg: Infinity, base: 20000 },
+];
+
+export function calcJidoushaZei(v) {
+  const age = new Date().getFullYear() - (v.registrationYear || new Date().getFullYear());
+  const isJuka = age >= 13;
+  if (v.type === "kei") {
+    const annualTax = isJuka ? 12900 : (v.registrationYear || 2015) < 2015 ? 7200 : 10800;
+    return { annualTax, juryoZei2yr: isJuka ? 9900 : 6600, jibaiseki2yr: 19640, isJuka, age };
+  }
+  const table = (v.registrationYear || 2019) >= 2019 ? JIDOUSHA_ZEI_NEW : JIDOUSHA_ZEI_OLD;
+  const cc = v.displacement || 1500;
+  const baseTax = (table.find((r) => cc <= r.maxCc) || table[table.length - 1]).tax;
+  const annualTax = isJuka ? Math.round((baseTax * 1.15) / 100) * 100 : baseTax;
+  let juryoZei2yr = null;
+  if (v.weight) {
+    const jr = (JURYO_ZEI_TABLE.find((r) => Number(v.weight) <= r.maxKg) || JURYO_ZEI_TABLE[JURYO_ZEI_TABLE.length - 1]).base;
+    juryoZei2yr = isJuka ? Math.round(jr * 1.5) * 2 : jr * 2;
+  }
+  return { annualTax, baseTax, juryoZei2yr, jibaiseki2yr: 20010, isJuka, age };
+}
+
+// ── Municipal Tax (住民税) Estimators ─────────────────
+export function estimateJuuminZei(grossMonthlyTaxable, settings) {
+  const numDependents = (settings.spouseDependent ? 1 : 0) + (settings.dependentChildren || 0);
+  const annualGross = grossMonthlyTaxable * 12;
+  let kyuyoKojo;
+  if      (annualGross <= 1625000) kyuyoKojo = Math.max(550000, annualGross * 0.4 - 100000);
+  else if (annualGross <= 1800000) kyuyoKojo = annualGross * 0.4 - 100000;
+  else if (annualGross <= 3600000) kyuyoKojo = annualGross * 0.3 + 80000;
+  else if (annualGross <= 6600000) kyuyoKojo = annualGross * 0.2 + 440000;
+  else if (annualGross <= 8500000) kyuyoKojo = annualGross * 0.1 + 1100000;
+  else                              kyuyoKojo = 1950000;
+  const kyuyoShotoku = annualGross - kyuyoKojo;
+  const rates = AICHI_RATES;
+  const annualSocial = Math.round(grossMonthlyTaxable * (rates.kenkouHoken + rates.kaigoHoken + rates.kouseiNenkin + rates.koyouHoken)) * 12;
+  const kazeiShotoku = Math.max(0, kyuyoShotoku - annualSocial - 430000 - numDependents * 330000);
+  const shotokuWari  = Math.floor(kazeiShotoku * 0.10);
+  const kintouWari   = 6000;
+  const total        = shotokuWari + kintouWari;
+  return { total, shotokuWari, kintouWari, installment: Math.ceil(total / 4), kazeiShotoku, numDependents };
+}
+
+export function estimateJuuminZeiFromGensen(shiharaiGaku, shakaiHokenGaku, settings) {
+  const numDependents = (settings.spouseDependent ? 1 : 0) + (settings.dependentChildren || 0);
+  let kyuyoKojo;
+  if      (shiharaiGaku <= 1625000) kyuyoKojo = Math.max(550000, shiharaiGaku * 0.4 - 100000);
+  else if (shiharaiGaku <= 1800000) kyuyoKojo = shiharaiGaku * 0.4 - 100000;
+  else if (shiharaiGaku <= 3600000) kyuyoKojo = shiharaiGaku * 0.3 + 80000;
+  else if (shiharaiGaku <= 6600000) kyuyoKojo = shiharaiGaku * 0.2 + 440000;
+  else if (shiharaiGaku <= 8500000) kyuyoKojo = shiharaiGaku * 0.1 + 1100000;
+  else                               kyuyoKojo = 1950000;
+  const kyuyoShotoku  = shiharaiGaku - kyuyoKojo;
+  const kazeiShotoku  = Math.max(0, kyuyoShotoku - shakaiHokenGaku - 430000 - numDependents * 330000);
+  const shotokuWari   = Math.floor(kazeiShotoku * 0.10);
+  const kintouWari    = 6000;
+  const total         = shotokuWari + kintouWari;
+  return { total, shotokuWari, kintouWari, installment: Math.ceil(total / 4), kazeiShotoku, numDependents, fromGensen: true };
+}
+
+export function calcShotokuZeiEstimado(annualGross, annualSocial, settings) {
+  const numDependents = (settings.spouseDependent ? 1 : 0) + (settings.dependentChildren || 0);
+  let kyuyoKojo;
+  if      (annualGross <= 1625000) kyuyoKojo = Math.max(550000, annualGross * 0.4 - 100000);
+  else if (annualGross <= 1800000) kyuyoKojo = annualGross * 0.4 - 100000;
+  else if (annualGross <= 3600000) kyuyoKojo = annualGross * 0.3 + 80000;
+  else if (annualGross <= 6600000) kyuyoKojo = annualGross * 0.2 + 440000;
+  else if (annualGross <= 8500000) kyuyoKojo = annualGross * 0.1 + 1100000;
+  else                              kyuyoKojo = 1950000;
+  const kyuyoShotoku = annualGross - kyuyoKojo;
+  const kazeiShotoku = Math.max(0, kyuyoShotoku - annualSocial - 480000 - numDependents * 380000);
+  let shotokuZei = 0;
+  if      (kazeiShotoku <= 1950000)  shotokuZei = Math.floor(kazeiShotoku * 0.05);
+  else if (kazeiShotoku <= 3300000)  shotokuZei = Math.floor(kazeiShotoku * 0.10 - 97500);
+  else if (kazeiShotoku <= 6950000)  shotokuZei = Math.floor(kazeiShotoku * 0.20 - 427500);
+  else if (kazeiShotoku <= 9000000)  shotokuZei = Math.floor(kazeiShotoku * 0.23 - 636000);
+  else if (kazeiShotoku <= 18000000) shotokuZei = Math.floor(kazeiShotoku * 0.33 - 1536000);
+  else if (kazeiShotoku <= 40000000) shotokuZei = Math.floor(kazeiShotoku * 0.40 - 2796000);
+  else                                shotokuZei = Math.floor(kazeiShotoku * 0.45 - 4796000);
+  return { total: shotokuZei + Math.floor(shotokuZei * 0.021), kazeiShotoku };
+}
+
 export function estimateDeductions(grossMonthly, settings) {
   const age = settings.age || 35;
   const hasEmploymentInsurance = settings.employmentInsurance !== false;

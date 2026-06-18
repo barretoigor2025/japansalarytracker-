@@ -7,6 +7,8 @@ export const STORAGE_KEYS = {
   gastos: "jst_gastos",
   payslipAudit: "jst_audit",
   carro: "jst_carro",
+  gensen: "jst_gensen",
+  taxVehicles: "jst_tax_vehicles",
 };
 
 export function loadData(key, fallback) {
