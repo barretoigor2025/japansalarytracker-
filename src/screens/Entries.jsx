@@ -1,33 +1,16 @@
 import { useState } from "react";
 import { calcDay, DAY_TYPES, YEN, formatMinutes, checkConflict } from "../utils/calc.js";
-import { MonthPicker, Card, Badge } from "../components/ui.jsx";
+import { MonthPicker, Badge } from "../components/ui.jsx";
 import { EntryForm, CalcDetailModal } from "../components/EntryForm.jsx";
 
-// Accent color per day type (top strip on card)
+// Left-border accent color per day type
 const DAY_ACCENT = {
-  normal:           "#3b82f6",
-  saturday:         "#eab308",
-  holiday:          "#ef4444",
-  yukyu:            "#22c55e",
-  overtime_special: "#f97316",
+  normal:           "#3b82f6",   // azul
+  saturday:         "#eab308",   // amarelo
+  holiday:          "#ef4444",   // vermelho
+  yukyu:            "#22c55e",   // verde
+  overtime_special: "#f97316",   // laranja
 };
-
-function ActionBtn({ icon, label, onClick, danger }) {
-  return (
-    <button
-      onClick={onClick}
-      title={label}
-      className={`flex items-center gap-1 px-2 py-1.5 rounded-lg transition-colors ${
-        danger
-          ? "text-zinc-600 hover:text-red-400 hover:bg-red-950/30"
-          : "text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800/40"
-      }`}
-    >
-      <span className="text-sm leading-none">{icon}</span>
-      <span className="text-[10px] font-medium">{label}</span>
-    </button>
-  );
-}
 
 // ── EntriesScreen ─────────────────────────────────────────────────────
 
@@ -45,11 +28,11 @@ function EntriesScreen({ entries, settings, onAdd, onEdit, onDelete }) {
 
   // Month summary
   const monthTotal = filtered.reduce((s, e) => s + (calcDay(e, settings).grossPay || 0), 0);
-  const workDays = filtered.filter(e => e.dayType !== "yukyu").length;
 
   return (
-    <div className="space-y-3 pb-24 sm:pb-28">
-      <div className="flex items-center gap-2">
+    <div className="space-y-2 pb-24 sm:pb-28">
+      {/* Controls */}
+      <div className="flex items-center gap-2 pt-1">
         <div className="flex-1">
           <MonthPicker value={filterMonth} onChange={setFilterMonth} />
         </div>
@@ -61,49 +44,76 @@ function EntriesScreen({ entries, settings, onAdd, onEdit, onDelete }) {
         </button>
       </div>
 
-      {/* Month summary strip */}
+      {/* Month summary */}
       {filtered.length > 0 && (
-        <div className="flex gap-2 text-xs px-1">
-          <span style={{ color: "var(--text-muted)" }}>{workDays} dia{workDays !== 1 ? "s" : ""}</span>
-          <span style={{ color: "var(--text-muted)" }}>·</span>
-          <span className="font-mono font-semibold text-green-400">{YEN(monthTotal)}</span>
-          <span style={{ color: "var(--text-muted)" }}>estimado</span>
+        <div className="flex items-center justify-between px-1 pb-1">
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+            {filtered.filter(e => e.dayType !== "yukyu").length} dias trabalhados
+          </span>
+          <span className="text-sm font-bold font-mono text-green-400">{YEN(monthTotal)}</span>
         </div>
       )}
 
+      {/* Empty state */}
       {filtered.length === 0 && (
-        <Card className="text-center py-12">
+        <div className="rounded-xl border p-10 text-center" style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
           <div className="text-4xl mb-3">📋</div>
           <div className="text-sm" style={{ color: "var(--text-muted)" }}>Nenhum lançamento neste mês</div>
           <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Toque em "+ Lançar" para começar</div>
-        </Card>
+        </div>
       )}
 
+      {/* Entry cards */}
       {filtered.map((entry) => {
         const calc = calcDay(entry, settings);
         const accent = DAY_ACCENT[entry.dayType] || "#8b5cf6";
+
         const dateLabel = new Date(entry.date + "T12:00:00").toLocaleDateString("pt-BR", {
           weekday: "short", day: "2-digit", month: "short",
         });
+
         const timeInfo = entry.dayType === "yukyu"
           ? "有給休暇 · 8h remuneradas"
           : `${entry.start} → ${entry.end} · ${entry.breakMinutes}min intervalo`;
+
         const hoursLabel = calc.breakdown?.jpSaturdayIsAllOT
           ? `${formatMinutes(calc.totalMin)} · 100% HE`
           : formatMinutes(calc.totalMin);
 
+        // Build badge list
+        const badges = [];
+        if (entry.dayType === "yukyu")   badges.push(<Badge key="yukyu" color="green">🌿 有給休暇</Badge>);
+        if (entry.dayType === "holiday") badges.push(<Badge key="hol" color="red">📅 Feriado</Badge>);
+        if (entry.dayType === "saturday") badges.push(<Badge key="sat" color="yellow">土 Sábado</Badge>);
+        if (!["normal","yukyu","holiday","saturday"].includes(entry.dayType)) {
+          const lbl = DAY_TYPES.find(d => d.value === entry.dayType)?.label || entry.dayType;
+          badges.push(<Badge key="dt" color="blue">{lbl}</Badge>);
+        }
+        if (calc.overtimeHours > 0) {
+          const otMin = calc.breakdown?.jpSaturdayIsAllOT ? calc.totalMin : calc.overtimeDailyMin;
+          badges.push(
+            <Badge key="he" color="yellow">
+              HE {formatMinutes(otMin)}
+              {calc.breakdown?.jpSaturdayIsAllOT && <span className="ml-1 opacity-60 text-xs">100%</span>}
+            </Badge>
+          );
+        }
+        if (calc.nightHours > 0) badges.push(<Badge key="night" color="purple">🌙 {formatMinutes(calc.nightMin)}</Badge>);
+
         return (
           <div
             key={entry.id}
-            className="rounded-xl border overflow-hidden"
-            style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}
+            className="rounded-xl border"
+            style={{
+              background: "var(--bg-card)",
+              borderColor: "var(--border)",
+              borderLeftColor: accent,
+              borderLeftWidth: "4px",
+            }}
           >
-            {/* Colored top strip */}
-            <div style={{ height: 3, background: accent }} />
-
-            <div className="p-3 space-y-2">
-              {/* Header */}
-              <div className="flex items-start justify-between gap-2">
+            <div className="p-3">
+              {/* Header: date + pay */}
+              <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>{dateLabel}</div>
                   <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{timeInfo}</div>
@@ -115,47 +125,54 @@ function EntriesScreen({ entries, settings, onAdd, onEdit, onDelete }) {
               </div>
 
               {/* Badges */}
-              {(() => {
-                const badges = [];
-                if (entry.dayType === "yukyu") badges.push(<Badge key="yukyu" color="green">🌿 有給休暇</Badge>);
-                if (entry.dayType === "holiday") badges.push(<Badge key="hol" color="red">📅 Feriado</Badge>);
-                if (entry.dayType === "saturday") badges.push(<Badge key="sat" color="yellow">土 Sábado</Badge>);
-                if (!["normal","yukyu","holiday","saturday"].includes(entry.dayType)) {
-                  const label = DAY_TYPES.find(d => d.value === entry.dayType)?.label || entry.dayType;
-                  badges.push(<Badge key="dt" color="blue">{label}</Badge>);
-                }
-                if (calc.overtimeHours > 0) {
-                  const otMin = calc.breakdown?.jpSaturdayIsAllOT ? calc.totalMin : calc.overtimeDailyMin;
-                  badges.push(
-                    <Badge key="he" color="yellow">
-                      HE {formatMinutes(otMin)}
-                      {calc.breakdown?.jpSaturdayIsAllOT && <span className="ml-1 opacity-60 text-xs">100%</span>}
-                    </Badge>
-                  );
-                }
-                if (calc.nightHours > 0) badges.push(<Badge key="night" color="purple">🌙 {formatMinutes(calc.nightMin)}</Badge>);
-                return badges.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">{badges}</div>
-                ) : null;
-              })()}
-
-              {entry.note && (
-                <div className="text-xs italic" style={{ color: "var(--text-muted)" }}>{entry.note}</div>
+              {badges.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">{badges}</div>
               )}
 
-              {/* Action row */}
-              <div className="flex items-center gap-0.5 pt-1.5 border-t" style={{ borderColor: "var(--border)" }}>
-                <ActionBtn icon="🧮" label="Cálculo" onClick={() => setDetailEntry(entry)} />
-                <ActionBtn icon="✏️" label="Editar" onClick={() => { setEditEntry(entry); setIsDuplicate(false); setShowForm(true); }} />
-                <ActionBtn icon="📋" label="Copiar" onClick={() => { setEditEntry({ ...entry, id: Date.now().toString() }); setIsDuplicate(true); setShowForm(true); }} />
-                <div className="flex-1" />
-                <ActionBtn icon="🗑" label="Excluir" onClick={() => setConfirmDelete(entry.id)} danger />
+              {/* Note */}
+              {entry.note && (
+                <div className="text-xs italic mt-1.5" style={{ color: "var(--text-muted)" }}>{entry.note}</div>
+              )}
+
+              {/* Actions */}
+              <div className="flex items-center gap-0 mt-2.5 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+                <button
+                  onClick={() => setDetailEntry(entry)}
+                  className="text-xs px-1 py-0.5 rounded transition-colors"
+                  style={{ color: "var(--text-muted)" }}
+                  onMouseEnter={e => e.currentTarget.style.color = "#f59e0b"}
+                  onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
+                >Ver cálculo</button>
+                <span className="text-xs mx-1.5" style={{ color: "var(--text-muted)" }}>·</span>
+                <button
+                  onClick={() => { setEditEntry(entry); setIsDuplicate(false); setShowForm(true); }}
+                  className="text-xs px-1 py-0.5 rounded transition-colors"
+                  style={{ color: "var(--text-muted)" }}
+                  onMouseEnter={e => e.currentTarget.style.color = "#60a5fa"}
+                  onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
+                >Editar</button>
+                <span className="text-xs mx-1.5" style={{ color: "var(--text-muted)" }}>·</span>
+                <button
+                  onClick={() => { setEditEntry({ ...entry, id: Date.now().toString() }); setIsDuplicate(true); setShowForm(true); }}
+                  className="text-xs px-1 py-0.5 rounded transition-colors"
+                  style={{ color: "var(--text-muted)" }}
+                  onMouseEnter={e => e.currentTarget.style.color = "#4ade80"}
+                  onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
+                >Duplicar</button>
+                <button
+                  onClick={() => setConfirmDelete(entry.id)}
+                  className="ml-auto text-xs px-1 py-0.5 rounded transition-colors"
+                  style={{ color: "var(--text-muted)" }}
+                  onMouseEnter={e => e.currentTarget.style.color = "#f87171"}
+                  onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
+                >Excluir</button>
               </div>
             </div>
           </div>
         );
       })}
 
+      {/* Forms & modals */}
       {showForm && (
         <EntryForm
           initial={editEntry}
@@ -167,11 +184,8 @@ function EntriesScreen({ entries, settings, onAdd, onEdit, onDelete }) {
               alert("Conflito de horário: " + conflict.message);
               return;
             }
-            if (isDuplicate || !editEntry) {
-              onAdd(entry);
-            } else {
-              onEdit(entry);
-            }
+            if (isDuplicate || !editEntry) onAdd(entry);
+            else onEdit(entry);
             setShowForm(false);
             setEditEntry(null);
             setIsDuplicate(false);
@@ -193,16 +207,12 @@ function EntriesScreen({ entries, settings, onAdd, onEdit, onDelete }) {
             <div className="flex gap-3">
               <button
                 onClick={() => setConfirmDelete(null)}
-                className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
-              >
-                Cancelar
-              </button>
+                className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-sm text-zinc-400"
+              >Cancelar</button>
               <button
                 onClick={() => { onDelete(confirmDelete); setConfirmDelete(null); }}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold text-sm transition-colors"
-              >
-                Excluir
-              </button>
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold text-sm"
+              >Excluir</button>
             </div>
           </div>
         </div>
