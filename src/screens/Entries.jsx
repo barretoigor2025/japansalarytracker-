@@ -1,16 +1,7 @@
 import { useState } from "react";
 import { calcDay, DAY_TYPES, YEN, formatMinutes, checkConflict } from "../utils/calc.js";
-import { MonthPicker, Badge } from "../components/ui.jsx";
+import { MonthPicker, Badge, Card } from "../components/ui.jsx";
 import { EntryForm, CalcDetailModal } from "../components/EntryForm.jsx";
-
-// Left-border accent color per day type
-const DAY_ACCENT = {
-  normal:           "#3b82f6",   // azul
-  saturday:         "#eab308",   // amarelo
-  holiday:          "#ef4444",   // vermelho
-  yukyu:            "#22c55e",   // verde
-  overtime_special: "#f97316",   // laranja
-};
 
 // ── EntriesScreen ─────────────────────────────────────────────────────
 
@@ -66,7 +57,6 @@ function EntriesScreen({ entries, settings, onAdd, onEdit, onDelete }) {
       {/* Entry cards */}
       {filtered.map((entry) => {
         const calc = calcDay(entry, settings);
-        const accent = DAY_ACCENT[entry.dayType] || "#8b5cf6";
 
         const dateLabel = new Date(entry.date + "T12:00:00").toLocaleDateString("pt-BR", {
           weekday: "short", day: "2-digit", month: "short",
@@ -80,7 +70,6 @@ function EntriesScreen({ entries, settings, onAdd, onEdit, onDelete }) {
           ? `${formatMinutes(calc.totalMin)} · 100% HE`
           : formatMinutes(calc.totalMin);
 
-        // Build badge list
         const badges = [];
         if (entry.dayType === "yukyu")   badges.push(<Badge key="yukyu" color="green">🌿 有給休暇</Badge>);
         if (entry.dayType === "holiday") badges.push(<Badge key="hol" color="red">📅 Feriado</Badge>);
@@ -101,74 +90,45 @@ function EntriesScreen({ entries, settings, onAdd, onEdit, onDelete }) {
         if (calc.nightHours > 0) badges.push(<Badge key="night" color="purple">🌙 {formatMinutes(calc.nightMin)}</Badge>);
 
         return (
-          <div
-            key={entry.id}
-            className="rounded-xl border"
-            style={{
-              background: "var(--bg-card)",
-              borderColor: "var(--border)",
-              borderLeftColor: accent,
-              borderLeftWidth: "4px",
-            }}
-          >
-            <div className="p-3">
-              {/* Header: date + pay */}
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>{dateLabel}</div>
-                  <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{timeInfo}</div>
-                </div>
-                <div className="text-right shrink-0">
-                  <div className="text-base font-bold font-mono text-green-400">{YEN(calc.grossPay)}</div>
-                  <div className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>{hoursLabel}</div>
-                </div>
+          <Card key={entry.id} className="space-y-2">
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>{dateLabel}</div>
+                <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{timeInfo}</div>
               </div>
-
-              {/* Badges */}
-              {badges.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">{badges}</div>
-              )}
-
-              {/* Note */}
-              {entry.note && (
-                <div className="text-xs italic mt-1.5" style={{ color: "var(--text-muted)" }}>{entry.note}</div>
-              )}
-
-              {/* Actions */}
-              <div className="flex items-center gap-0 mt-2.5 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
-                <button
-                  onClick={() => setDetailEntry(entry)}
-                  className="text-xs px-1 py-0.5 rounded transition-colors"
-                  style={{ color: "var(--text-muted)" }}
-                  onMouseEnter={e => e.currentTarget.style.color = "#f59e0b"}
-                  onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
-                >Ver cálculo</button>
-                <span className="text-xs mx-1.5" style={{ color: "var(--text-muted)" }}>·</span>
-                <button
-                  onClick={() => { setEditEntry(entry); setIsDuplicate(false); setShowForm(true); }}
-                  className="text-xs px-1 py-0.5 rounded transition-colors"
-                  style={{ color: "var(--text-muted)" }}
-                  onMouseEnter={e => e.currentTarget.style.color = "#60a5fa"}
-                  onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
-                >Editar</button>
-                <span className="text-xs mx-1.5" style={{ color: "var(--text-muted)" }}>·</span>
-                <button
-                  onClick={() => { setEditEntry({ ...entry, id: Date.now().toString() }); setIsDuplicate(true); setShowForm(true); }}
-                  className="text-xs px-1 py-0.5 rounded transition-colors"
-                  style={{ color: "var(--text-muted)" }}
-                  onMouseEnter={e => e.currentTarget.style.color = "#4ade80"}
-                  onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
-                >Duplicar</button>
-                <button
-                  onClick={() => setConfirmDelete(entry.id)}
-                  className="ml-auto text-xs px-1 py-0.5 rounded transition-colors"
-                  style={{ color: "var(--text-muted)" }}
-                  onMouseEnter={e => e.currentTarget.style.color = "#f87171"}
-                  onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
-                >Excluir</button>
+              <div className="text-right">
+                <div className="text-base font-bold font-mono text-green-400">{YEN(calc.grossPay)}</div>
+                <div className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>{hoursLabel}</div>
               </div>
             </div>
-          </div>
+
+            {badges.length > 0 && (
+              <div className="flex flex-wrap gap-1">{badges}</div>
+            )}
+
+            {entry.note && (
+              <div className="text-xs italic" style={{ color: "var(--text-muted)" }}>{entry.note}</div>
+            )}
+
+            <div className="flex gap-2 pt-1 border-t border-zinc-800">
+              <button
+                onClick={() => setDetailEntry(entry)}
+                className="text-xs text-zinc-500 hover:text-amber-400 transition-colors"
+              >Ver cálculo</button>
+              <button
+                onClick={() => { setEditEntry(entry); setIsDuplicate(false); setShowForm(true); }}
+                className="text-xs text-zinc-500 hover:text-blue-400 transition-colors ml-2"
+              >Editar</button>
+              <button
+                onClick={() => { setEditEntry({ ...entry, id: Date.now().toString() }); setIsDuplicate(true); setShowForm(true); }}
+                className="text-xs text-zinc-500 hover:text-green-400 transition-colors"
+              >Duplicar</button>
+              <button
+                onClick={() => setConfirmDelete(entry.id)}
+                className="text-xs text-zinc-500 hover:text-red-400 transition-colors ml-auto"
+              >Excluir</button>
+            </div>
+          </Card>
         );
       })}
 

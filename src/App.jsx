@@ -250,35 +250,29 @@ export default function App() {
         )}
       </div>
 
-      {/* Bottom nav — scrollable with gradient hint, full icon + label */}
+      {/* Bottom nav */}
       <div className={`fixed bottom-0 inset-x-0 z-40 backdrop-blur border-t ${theme === "dark" ? "bg-zinc-950/95 border-zinc-800/50" : "bg-white/95 border-zinc-200"}`}
         style={{paddingBottom: "env(safe-area-inset-bottom, 0px)"}}>
-        <div className="max-w-2xl mx-auto relative">
-          {/* Gradient right edge — visual hint that more tabs exist */}
-          <div className={`absolute right-0 top-0 bottom-0 w-10 z-10 pointer-events-none ${
-            theme === "dark" ? "bg-gradient-to-l from-zinc-950 to-transparent" : "bg-gradient-to-l from-white to-transparent"
-          }`} />
-          <div className="overflow-x-auto scrollbar-none">
-            <div className="flex">
-              {TABS.map((t) => {
-                const active = tab === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => setTab(t.id)}
-                    className={`flex flex-col items-center justify-center py-2 px-2 flex-shrink-0 min-w-[54px] transition-all ${
-                      active
-                        ? "text-amber-400"
-                        : theme === "dark" ? "text-zinc-500 hover:text-zinc-300" : "text-zinc-400 hover:text-zinc-600"
-                    }`}
-                  >
-                    <span className={active ? "text-xl leading-none" : "text-lg leading-none"}>{t.icon}</span>
-                    <span className={`mt-0.5 whitespace-nowrap font-medium leading-none ${active ? "text-[10px]" : "text-[9px]"}`}>{t.label}</span>
-                    {active && <span className="mt-0.5 w-1 h-1 rounded-full bg-amber-400 shrink-0" />}
-                  </button>
-                );
-              })}
-            </div>
+        <div className="max-w-2xl mx-auto">
+          <div className="flex">
+            {TABS.map((t) => {
+              const active = tab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  className={`flex-1 flex flex-col items-center justify-center py-2 min-w-0 transition-all ${
+                    active
+                      ? "text-amber-400"
+                      : theme === "dark" ? "text-zinc-500 hover:text-zinc-300" : "text-zinc-400 hover:text-zinc-600"
+                  }`}
+                >
+                  <span className="text-base leading-none">{t.icon}</span>
+                  <span className="mt-0.5 text-[9px] font-medium leading-none w-full text-center overflow-hidden whitespace-nowrap">{t.label}</span>
+                  {active && <span className="mt-0.5 w-1 h-1 rounded-full bg-amber-400 shrink-0" />}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
