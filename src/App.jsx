@@ -7,6 +7,7 @@ import { ReportsScreen } from "./screens/Reports.jsx";
 import { CompareScreen } from "./screens/Compare.jsx";
 import { GastosScreen } from "./screens/Gastos.jsx";
 import { CarroScreen } from "./screens/Carro.jsx";
+import { CartaoScreen } from "./screens/Cartao.jsx";
 import { GensenScreen } from "./screens/Gensen.jsx";
 import { ImpostosScreen } from "./screens/Impostos.jsx";
 import { SettingsScreen } from "./screens/Settings.jsx";
@@ -25,6 +26,7 @@ const TABS = [
   { id: "reports",   label: "Relatórios", icon: "📊" },
   { id: "compare",   label: "Comparar",   icon: "📈" },
   { id: "gastos",    label: "Gastos",     icon: "💸" },
+  { id: "cartao",    label: "Cartão",     icon: "💳" },
   { id: "carro",     label: "Carro",      icon: "🚗" },
   { id: "gensen",    label: "Gensen",     icon: "📄" },
   { id: "impostos",  label: "Impostos",   icon: "🏛️" },
@@ -221,6 +223,9 @@ export default function App() {
         {tab === "compare" && <CompareScreen entries={entries} settings={settings} />}
         {tab === "gastos" && (
           <GastosScreen gastos={gastos} onSave={setGastos} />
+        )}
+        {tab === "cartao" && (
+          <CartaoScreen gastos={gastos} onSave={setGastos} />
         )}
         {tab === "carro" && (
           <CarroScreen carro={carro} onSave={setCarro} />

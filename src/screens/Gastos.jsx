@@ -137,32 +137,6 @@ function GastosScreen({ gastos, onSave }) {
   const cartaoItems = (localGastos.cartao?.[month] || []);
   const totalCartao = cartaoItems.reduce((a, c) => a + (c.valor || 0), 0);
 
-  const [cartaoModal, setCartaoModal] = useState(null); // { id, nome, valor } | null
-
-  function saveCartaoItem() {
-    if (!cartaoModal) return;
-    const valor = parseFloat(String(cartaoModal.valor).replace(/[^0-9.]/g, "")) || 0;
-    const cartao = { ...(localGastos.cartao || {}) };
-    if (!cartao[month]) cartao[month] = [];
-    if (cartaoModal.id) {
-      cartao[month] = cartao[month].map(c => c.id === cartaoModal.id ? { ...c, nome: cartaoModal.nome, valor } : c);
-    } else {
-      cartao[month] = [...cartao[month], { id: "cc" + Date.now(), nome: cartaoModal.nome, valor }];
-    }
-    const updated = { ...localGastos, cartao };
-    setLocalGastos(updated);
-    onSave(updated);
-    setCartaoModal(null);
-  }
-
-  function deleteCartaoItem(id) {
-    const cartao = { ...(localGastos.cartao || {}) };
-    cartao[month] = (cartao[month] || []).filter(c => c.id !== id);
-    const updated = { ...localGastos, cartao };
-    setLocalGastos(updated);
-    onSave(updated);
-  }
-
   function clearOverride(id) {
     const monthOvr = { ...(localGastos.overrides?.[month] || {}) };
     delete monthOvr[id];
@@ -573,115 +547,19 @@ function GastosScreen({ gastos, onSave }) {
         tipoDesp="hagaki" total={totalHagaki} onAdd={() => addItem("hagaki")} onAddMonth={() => addItemThisMonth("hagaki")}
         badge={`${activeHagaki.length} ativos`} />
 
-      {/* ── Cartão de Crédito ── */}
-      <Card>
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5">
-            <span>💳</span>
-            <span className="text-xs font-semibold uppercase tracking-widest text-purple-400">Cartão de Crédito</span>
+      {/* ── Cartão de Crédito (resumo) ── */}
+      <div className="rounded-2xl border border-purple-900/40 bg-purple-950/20 p-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">💳</span>
+          <div>
+            <div className="text-xs font-semibold text-purple-300">Cartão de Crédito</div>
+            <div className="text-xs text-zinc-600">{cartaoItems.length} lançamento{cartaoItems.length !== 1 ? "s" : ""} · aba Cartão</div>
           </div>
-          <span className="text-sm font-bold font-mono text-purple-400">{YEN(totalCartao)}</span>
         </div>
-
-        {cartaoItems.length === 0 && (
-          <p className="text-xs py-2 text-center" style={{color:"var(--text-muted)"}}>Nenhum lançamento neste mês</p>
-        )}
-
-        {cartaoItems.map(c => (
-          <div key={c.id} className="flex items-center gap-2 py-2 border-b last:border-0" style={{borderColor:"var(--border)"}}>
-            <span className="flex-1 text-xs" style={{color:"var(--text)"}}>{c.nome}</span>
-            <span className="text-xs font-mono font-semibold text-purple-400">{YEN(c.valor)}</span>
-            <button
-              onClick={() => setCartaoModal({ id: c.id, nome: c.nome, valor: String(c.valor) })}
-              className="text-xs px-1.5 py-0.5 rounded border border-zinc-700 text-zinc-500 hover:text-amber-400 hover:border-amber-600 transition-colors"
-            >✏️</button>
-            <button
-              onClick={() => deleteCartaoItem(c.id)}
-              className="text-xs px-1.5 py-0.5 rounded border border-zinc-800 text-zinc-600 hover:text-red-400 hover:border-red-800 transition-colors"
-            >✕</button>
-          </div>
-        ))}
-
-        <button
-          onClick={() => setCartaoModal({ id: null, nome: "", valor: "" })}
-          className="w-full mt-2 py-1.5 rounded-xl border border-dashed text-xs transition-colors hover:border-purple-600 hover:text-purple-400"
-          style={{borderColor:"var(--border)", color:"var(--text-muted)"}}
-        >
-          + Adicionar lançamento
-        </button>
-      </Card>
+        <span className="text-base font-bold font-mono text-purple-400">{YEN(totalCartao)}</span>
+      </div>
 
       {renderEditModal()}
-
-      {/* ── Modal Cartão de Crédito ── */}
-      {cartaoModal && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{background:"rgba(0,0,0,0.82)"}}>
-          <div className="bg-zinc-950 rounded-t-3xl border-t border-zinc-800 px-4 pt-5 pb-8 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold" style={{color:"var(--text)"}}>
-                💳 {cartaoModal.id ? "Editar lançamento" : "Novo lançamento"}
-              </h3>
-              <button onClick={() => setCartaoModal(null)} className="text-2xl leading-none" style={{color:"var(--text-muted)"}}>×</button>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-xs uppercase tracking-wide font-medium" style={{color:"var(--text-muted)"}}>Descrição / Categoria</label>
-              <input
-                autoFocus
-                className="rounded-xl px-4 py-2.5 text-sm border focus:outline-none focus:border-purple-500 transition-all"
-                style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}}
-                value={cartaoModal.nome}
-                onChange={e => setCartaoModal(m => ({...m, nome: e.target.value}))}
-                placeholder="Ex: Supermercado, Amazon, Restaurante..."
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-xs uppercase tracking-wide font-medium" style={{color:"var(--text-muted)"}}>Valor (¥)</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-bold" style={{color:"var(--text-muted)"}}>¥</span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  value={cartaoModal.valor}
-                  onChange={e => setCartaoModal(m => ({...m, valor: e.target.value}))}
-                  className="w-full rounded-xl pl-10 pr-4 py-3 text-2xl font-bold font-mono text-right border focus:outline-none focus:border-purple-500 transition-all"
-                  style={{background:"var(--bg-card)", borderColor:"var(--border)", color:"var(--text)"}}
-                  placeholder="0"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-4 gap-2">
-              {[1000, 3000, 5000, 10000].map(v => (
-                <button
-                  key={v}
-                  onClick={() => setCartaoModal(m => ({...m, valor: String(v)}))}
-                  className={`py-2 rounded-xl text-xs font-semibold border transition-all ${String(v) === String(cartaoModal.valor) ? "bg-purple-600 border-purple-600 text-white" : ""}`}
-                  style={String(v) !== String(cartaoModal.valor) ? {borderColor:"var(--border)", color:"var(--text-sub)", background:"var(--bg-card)"} : {}}
-                >
-                  {YEN(v)}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex gap-3 pt-1">
-              <button onClick={() => setCartaoModal(null)}
-                className="flex-1 py-3 rounded-xl border text-sm font-medium"
-                style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>
-                Cancelar
-              </button>
-              <button
-                onClick={saveCartaoItem}
-                disabled={!cartaoModal.nome.trim()}
-                className="flex-1 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm disabled:opacity-40"
-              >
-                Confirmar ✓
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Modal confirmação DELETE permanente */}
       {confirmDelete && (
