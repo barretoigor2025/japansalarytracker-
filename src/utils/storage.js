@@ -5,6 +5,7 @@ export const STORAGE_KEYS = {
   settings: "jst_settings",
   payslips: "jst_payslips",
   gastos: "jst_gastos",
+  cartao: "jst_cartao",
   payslipAudit: "jst_audit",
   carro: "jst_carro",
   gensen: "jst_gensen",
@@ -24,15 +25,16 @@ export function saveData(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-export function exportBackup(entries, settings, gastos, carro, auditHistory) {
+export function exportBackup(entries, settings, gastos, carro, auditHistory, cartao) {
   const data = {
-    version: 3,
+    version: 5,
     exportedAt: new Date().toISOString(),
     entries,
     settings,
     gastos: gastos || null,
     carro: carro || null,
     auditHistory: auditHistory || [],
+    cartao: cartao || null,
   };
   const json = JSON.stringify(data, null, 2);
   const date = new Date().toISOString().slice(0, 10);

@@ -67,64 +67,13 @@ export default function App() {
   const [tab, setTab] = useState("dashboard");
   const [theme, setTheme] = useState(() => localStorage.getItem("jst_theme") || "dark");
   const [entries, setEntries] = useState(() => loadData(STORAGE_KEYS.entries, []));
-  const [gastos, setGastos] = useState(() => {
-    const current = loadData(STORAGE_KEYS.gastos, defaultGastos);
-    // Migration v2: recover cartão data from old v1 profile storage.
-    // v1 stored data in jst_p_{pid}_gastos with two possible formats:
-    //   a) old.cartao[month] = [{id, nome, valor}]  — newer v1
-    //   b) old.overrides[month]["d9"] = number       — classic v1 (total only)
-    if (localStorage.getItem("jst_v1_cartao_migrated") !== "2") {
-      try {
-        const cartao = { ...(current.cartao || {}) };
-        let merged = false;
-
-        const sources = [];
-        try {
-          const profiles = JSON.parse(localStorage.getItem("jst_profiles") || "null");
-          if (Array.isArray(profiles)) {
-            profiles.forEach(({ id: pid }) => {
-              const raw = localStorage.getItem(`jst_p_${pid}_gastos`);
-              if (raw) sources.push(JSON.parse(raw));
-            });
-          }
-        } catch {}
-        // Also check direct jst_gastos as fallback (may have d9 overrides)
-        sources.push(current);
-
-        sources.forEach(old => {
-          if (!old) return;
-          // Format a: per-item cartão array
-          if (old.cartao && typeof old.cartao === "object") {
-            Object.entries(old.cartao).forEach(([month, items]) => {
-              if (Array.isArray(items) && items.length > 0 && (!cartao[month] || cartao[month].length === 0)) {
-                cartao[month] = items;
-                merged = true;
-              }
-            });
-          }
-          // Format b: d9 override (classic v1 total-only)
-          if (old.overrides && typeof old.overrides === "object") {
-            Object.entries(old.overrides).forEach(([month, ovr]) => {
-              const d9val = ovr?.["d9"];
-              if (d9val > 0 && (!cartao[month] || cartao[month].length === 0)) {
-                cartao[month] = [{ id: "cc_v1_" + month.replace("-", ""), nome: "Cartão de Crédito", valor: d9val }];
-                merged = true;
-              }
-            });
-          }
-        });
-
-        if (merged) {
-          const updated = { ...current, cartao };
-          localStorage.setItem(STORAGE_KEYS.gastos, JSON.stringify(updated));
-          localStorage.setItem("jst_v1_cartao_migrated", "2");
-          return updated;
-        }
-      } catch {}
-      localStorage.setItem("jst_v1_cartao_migrated", "2");
-    }
-    return current;
-  });
+  const [gastos, setGastos] = useState(() => loadData(STORAGE_KEYS.gastos, defaultGastos));
+  const [cartao, setCartao] = useState(() => loadData(STORAGE_KEYS.cartao, {
+    setup: { name: "", closingDay: 15, dueDay: 11, limit: 0 },
+    lancamentos: [],
+    parcelas: [],
+    conferencias: [],
+  }));
   const [auditHistory, setAuditHistory] = useState(() => loadData(STORAGE_KEYS.payslipAudit, []));
   const [carro, setCarro] = useState(() => {
     const saved = loadData(STORAGE_KEYS.carro, defaultCarro);
@@ -149,6 +98,7 @@ export default function App() {
   useEffect(() => { saveData(STORAGE_KEYS.entries, entries); }, [entries]);
   useEffect(() => { saveData(STORAGE_KEYS.settings, settings); }, [settings]);
   useEffect(() => { saveData(STORAGE_KEYS.gastos, gastos); }, [gastos]);
+  useEffect(() => { saveData(STORAGE_KEYS.cartao, cartao); }, [cartao]);
   useEffect(() => { saveData(STORAGE_KEYS.payslipAudit, auditHistory); }, [auditHistory]);
   useEffect(() => { saveData(STORAGE_KEYS.carro, carro); }, [carro]);
   useEffect(() => { localStorage.setItem("jst_theme", theme); }, [theme]);
@@ -171,6 +121,7 @@ export default function App() {
     if (data.gastos) setGastos(data.gastos);
     if (data.carro) setCarro(data.carro);
     if (data.auditHistory) setAuditHistory(data.auditHistory);
+    if (data.cartao) setCartao(data.cartao);
     showToast("Backup restaurado com sucesso!", "blue");
   };
 
@@ -279,10 +230,10 @@ export default function App() {
         {tab === "reports" && <ReportsScreen entries={entries} settings={settings} />}
         {tab === "compare" && <CompareScreen entries={entries} settings={settings} />}
         {tab === "gastos" && (
-          <GastosScreen gastos={gastos} onSave={setGastos} />
+          <GastosScreen gastos={gastos} onSave={setGastos} cartao={cartao} />
         )}
         {tab === "cartao" && (
-          <CartaoScreen gastos={gastos} onSave={setGastos} />
+          <CartaoScreen cartao={cartao} onSave={setCartao} />
         )}
         {tab === "carro" && (
           <CarroScreen carro={carro} onSave={setCarro} />
@@ -329,6 +280,7 @@ export default function App() {
           gastos={gastos}
           carro={carro}
           auditHistory={auditHistory}
+          cartao={cartao}
           onRestore={handleRestore}
           onClose={() => setShowBackup(false)}
         />

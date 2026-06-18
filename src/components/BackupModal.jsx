@@ -4,7 +4,7 @@ import { exportBackup, parseBackup, STORAGE_KEYS } from "../utils/storage.js";
 
 // ── BackupModal ───────────────────────────────────────────────────────────────
 
-function BackupModal({ entries, settings, gastos, carro, auditHistory, onRestore, onClose }) {
+function BackupModal({ entries, settings, gastos, carro, auditHistory, cartao, onRestore, onClose }) {
   const [tab, setTab] = useState("export");
   const [dragOver, setDragOver] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -53,7 +53,7 @@ function BackupModal({ entries, settings, gastos, carro, auditHistory, onRestore
   const [backupJson, setBackupJson] = useState(null);
 
   function doExport() {
-    const json = exportBackup(entries, settings, gastos, carro, auditHistory);
+    const json = exportBackup(entries, settings, gastos, carro, auditHistory, cartao);
     localStorage.setItem(lastBackupKey, new Date().toISOString());
     setBackupJson(json);
   }

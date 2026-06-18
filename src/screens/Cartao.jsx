@@ -1,40 +1,59 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { YEN } from "../utils/calc.js";
 import { MonthPicker, Card } from "../components/ui.jsx";
 
-const CATEGORIAS = [
-  { id: "mercado",    label: "Mercado",       icon: "🛒" },
-  { id: "refeicao",  label: "Refeição",       icon: "🍽️" },
-  { id: "transporte",label: "Transporte",     icon: "🚃" },
-  { id: "compras",   label: "Compras",        icon: "🛍️" },
-  { id: "online",    label: "Online/Amazon",  icon: "📦" },
-  { id: "servicos",  label: "Serviços/Apps",  icon: "📱" },
-  { id: "saude",     label: "Saúde",          icon: "🏥" },
-  { id: "lazer",     label: "Lazer",          icon: "🎮" },
-  { id: "contas",    label: "Contas/Tarifas", icon: "💡" },
-  { id: "outros",    label: "Outros",         icon: "📝" },
+const CATS = [
+  { id: "mercado_jp",   label: "Supermercado",  icon: "🛒" },
+  { id: "konbini",      label: "Konbini",        icon: "🏪" },
+  { id: "restaurante",  label: "Restaurante",    icon: "🍜" },
+  { id: "posto",        label: "Combustível",    icon: "⛽" },
+  { id: "online",       label: "Online/Amazon",  icon: "💻" },
+  { id: "homecenter",   label: "Home Center",    icon: "🔨" },
+  { id: "mercado_br",   label: "Brasil",         icon: "🇧🇷" },
+  { id: "outro",        label: "Outro",          icon: "📦" },
 ];
 
+const CAT_MAP = Object.fromEntries(CATS.map(c => [c.id, c]));
+
 function getCat(id) {
-  return CATEGORIAS.find(c => c.id === id) || CATEGORIAS[CATEGORIAS.length - 1];
+  return CAT_MAP[id] || { label: id || "Outro", icon: "📦" };
 }
 
-function ItemModal({ initial, onSave, onClose }) {
-  const [nome, setNome] = useState(initial?.nome || "");
-  const [categoria, setCategoria] = useState(initial?.categoria || "outros");
-  const [valor, setValor] = useState(initial?.valor ? String(initial.valor) : "");
+const DEFAULT_CARTAO = {
+  setup: { name: "", closingDay: 15, dueDay: 11, limit: 0 },
+  lancamentos: [],
+  parcelas: [],
+  conferencias: [],
+};
+
+// ── Item Modal ────────────────────────────────────────────────────────────────
+
+function ItemModal({ initial, onSave, onDelete, onClose }) {
+  const todayDate = new Date().toISOString().slice(0, 10);
+  const [date, setDate] = useState(initial?.date || todayDate);
+  const [cat, setCat] = useState(initial?.cat || "mercado_jp");
+  const [desc, setDesc] = useState(initial?.desc || "");
+  const [amount, setAmount] = useState(initial?.amount ? String(initial.amount) : "");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   function handleSave() {
-    const v = parseFloat(String(valor).replace(/[^0-9.]/g, "")) || 0;
-    if (!nome.trim() || v <= 0) return;
-    onSave({ nome: nome.trim(), categoria, valor: v });
+    const v = parseInt(String(amount).replace(/[^0-9]/g, "")) || 0;
+    if (v <= 0) return;
+    onSave({
+      id: initial?.id || (Date.now() + "_0"),
+      date,
+      cat,
+      desc: desc.trim(),
+      customCat: initial?.customCat || "",
+      amount: v,
+    });
   }
 
-  const iCls = "w-full rounded-xl px-4 py-2.5 text-sm border focus:outline-none focus:border-purple-500 transition-all bg-zinc-900 border-zinc-700 text-zinc-100";
+  const iCls = "w-full rounded-xl px-4 py-2.5 text-sm border border-zinc-700 bg-zinc-900 text-zinc-100 focus:outline-none focus:border-purple-500 transition-all";
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ background: "rgba(0,0,0,0.82)" }}>
-      <div className="bg-zinc-950 rounded-t-3xl border-t border-zinc-800 px-4 pt-5 pb-8 space-y-4 max-h-[92vh] overflow-y-auto">
+      <div className="bg-zinc-950 rounded-t-3xl border-t border-zinc-800 px-4 pt-5 pb-8 space-y-4 max-h-[95vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-zinc-100">
             💳 {initial?.id ? "Editar lançamento" : "Novo lançamento"}
@@ -42,40 +61,50 @@ function ItemModal({ initial, onSave, onClose }) {
           <button onClick={onClose} className="text-2xl leading-none text-zinc-500">×</button>
         </div>
 
-        {/* Descrição */}
+        {/* Date */}
         <div className="space-y-1">
-          <label className="text-xs uppercase tracking-wide font-medium text-zinc-500">Descrição</label>
+          <label className="text-xs uppercase tracking-wide font-medium text-zinc-500">Data</label>
           <input
-            autoFocus
+            type="date"
+            value={date}
+            onChange={e => setDate(e.target.value)}
             className={iCls}
-            value={nome}
-            onChange={e => setNome(e.target.value)}
-            placeholder="Ex: Supermercado, Amazon, Restaurante..."
           />
         </div>
 
-        {/* Categoria */}
+        {/* Category */}
         <div className="space-y-2">
           <label className="text-xs uppercase tracking-wide font-medium text-zinc-500">Categoria</label>
           <div className="grid grid-cols-2 gap-1.5">
-            {CATEGORIAS.map(c => (
+            {CATS.map(c => (
               <button
                 key={c.id}
-                onClick={() => setCategoria(c.id)}
+                onClick={() => setCat(c.id)}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs border transition-all text-left ${
-                  categoria === c.id
+                  cat === c.id
                     ? "bg-purple-600/30 border-purple-500 text-purple-200"
                     : "border-zinc-700 text-zinc-400 hover:border-zinc-500"
                 }`}
               >
                 <span>{c.icon}</span>
-                <span>{c.label}</span>
+                <span className="truncate">{c.label}</span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Valor */}
+        {/* Description */}
+        <div className="space-y-1">
+          <label className="text-xs uppercase tracking-wide font-medium text-zinc-500">Descrição (opcional)</label>
+          <input
+            className={iCls}
+            value={desc}
+            onChange={e => setDesc(e.target.value)}
+            placeholder="Ex: Costco, Amazon, Ramen..."
+          />
+        </div>
+
+        {/* Amount */}
         <div className="space-y-1">
           <label className="text-xs uppercase tracking-wide font-medium text-zinc-500">Valor (¥)</label>
           <div className="relative">
@@ -83,8 +112,8 @@ function ItemModal({ initial, onSave, onClose }) {
             <input
               type="number"
               inputMode="numeric"
-              value={valor}
-              onChange={e => setValor(e.target.value)}
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
               className="w-full rounded-xl pl-10 pr-4 py-3 text-2xl font-bold font-mono text-right border border-zinc-700 bg-zinc-900 text-zinc-100 focus:outline-none focus:border-purple-500 transition-all"
               placeholder="0"
             />
@@ -93,9 +122,9 @@ function ItemModal({ initial, onSave, onClose }) {
             {[500, 1000, 3000, 5000].map(v => (
               <button
                 key={v}
-                onClick={() => setValor(String(v))}
+                onClick={() => setAmount(String(v))}
                 className={`py-2 rounded-xl text-xs font-semibold border transition-all ${
-                  String(v) === valor
+                  String(v) === amount
                     ? "bg-purple-600 border-purple-600 text-white"
                     : "border-zinc-700 text-zinc-400"
                 }`}
@@ -107,13 +136,29 @@ function ItemModal({ initial, onSave, onClose }) {
         </div>
 
         <div className="flex gap-3 pt-1">
+          {initial?.id && onDelete && !confirmingDelete && (
+            <button
+              onClick={() => setConfirmingDelete(true)}
+              className="px-4 py-3 rounded-xl border border-red-900/60 text-red-500 text-sm transition-colors hover:bg-red-950/30"
+            >
+              🗑
+            </button>
+          )}
+          {confirmingDelete && (
+            <button
+              onClick={() => onDelete(initial.id)}
+              className="px-4 py-3 rounded-xl bg-red-700 text-white text-sm font-bold"
+            >
+              Confirmar
+            </button>
+          )}
           <button onClick={onClose}
             className="flex-1 py-3 rounded-xl border border-zinc-700 text-sm font-medium text-zinc-400">
             Cancelar
           </button>
           <button
             onClick={handleSave}
-            disabled={!nome.trim() || !(parseFloat(valor) > 0)}
+            disabled={!(parseInt(amount) > 0)}
             className="flex-1 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm disabled:opacity-40"
           >
             {initial?.id ? "Salvar" : "Adicionar"} ✓
@@ -124,125 +169,62 @@ function ItemModal({ initial, onSave, onClose }) {
   );
 }
 
-export function CartaoScreen({ gastos, onSave }) {
+// ── CartaoScreen ──────────────────────────────────────────────────────────────
+
+export function CartaoScreen({ cartao, onSave }) {
   const today = new Date().toISOString().slice(0, 7);
-  // Start on the most recent month that has data, or today
+  const data = cartao || DEFAULT_CARTAO;
+
   const [month, setMonth] = useState(() => {
-    const existing = Object.keys(gastos.cartao || {}).filter(m => (gastos.cartao[m] || []).length > 0).sort().reverse();
-    return existing[0] || today;
+    const months = [...new Set((data.lancamentos || []).map(l => l.date.slice(0, 7)))].sort();
+    const past = months.filter(m => m <= today);
+    return past.length ? past[past.length - 1] : today;
   });
   const [modal, setModal] = useState(null);
-  const [confirmDel, setConfirmDel] = useState(null);
-  const [diagResult, setDiagResult] = useState(null);
 
-  const items = (gastos.cartao?.[month] || []);
-  const total = items.reduce((a, c) => a + (c.valor || 0), 0);
+  // Sync when cartao prop changes from outside (e.g. backup restore)
+  useEffect(() => {
+    if (!cartao?.lancamentos?.length) return;
+    const months = [...new Set(cartao.lancamentos.map(l => l.date.slice(0, 7)))].sort();
+    const past = months.filter(m => m <= today);
+    if (past.length) setMonth(past[past.length - 1]);
+  }, [cartao]);
 
-  function runRecovery() {
-    const cartao = { ...(gastos.cartao || {}) };
-    let found = [];
-    let merged = false;
+  const lancamentos = data.lancamentos || [];
+  const monthItems = lancamentos
+    .filter(l => l.date.slice(0, 7) === month)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const total = monthItems.reduce((s, l) => s + (l.amount || 0), 0);
 
-    const sources = [];
-    try {
-      const profiles = JSON.parse(localStorage.getItem("jst_profiles") || "null");
-      if (Array.isArray(profiles)) {
-        profiles.forEach(({ id: pid }) => {
-          const raw = localStorage.getItem(`jst_p_${pid}_gastos`);
-          if (raw) sources.push({ key: `jst_p_${pid}_gastos`, data: JSON.parse(raw) });
-        });
-      }
-    } catch {}
+  // Category breakdown sorted by total desc
+  const catSums = {};
+  monthItems.forEach(l => { catSums[l.cat] = (catSums[l.cat] || 0) + l.amount; });
+  const catBreakdown = CATS
+    .filter(c => catSums[c.id])
+    .map(c => ({ ...c, sum: catSums[c.id] }))
+    .sort((a, b) => b.sum - a.sum);
 
-    // Scan all jst_* keys for gastos-looking data
-    Object.keys(localStorage).forEach(k => {
-      if (k.includes("gastos") && !sources.find(s => s.key === k)) {
-        try { sources.push({ key: k, data: JSON.parse(localStorage.getItem(k)) }); } catch {}
-      }
-    });
+  function save(updated) { onSave(updated); }
 
-    // Also check jst_cartao — a separate key used by some app versions
-    const jstCartaoRaw = localStorage.getItem("jst_cartao");
-    if (jstCartaoRaw) {
-      try {
-        const jstCartao = JSON.parse(jstCartaoRaw);
-        // Format: { "2026-04": [{id, nome, valor, categoria?}], ... }
-        if (jstCartao && typeof jstCartao === "object" && !Array.isArray(jstCartao)) {
-          Object.entries(jstCartao).forEach(([m, items]) => {
-            if (Array.isArray(items) && items.length > 0) {
-              found.push(`jst_cartao: [${m}] = ${items.length} item(s)`);
-              if (!cartao[m] || cartao[m].length === 0) { cartao[m] = items; merged = true; }
-            }
-          });
-        }
-      } catch {}
-    }
-
-    sources.forEach(({ key, data }) => {
-      if (!data) return;
-      if (data.cartao && typeof data.cartao === "object") {
-        Object.entries(data.cartao).forEach(([m, items]) => {
-          if (Array.isArray(items) && items.length > 0) {
-            found.push(`${key}: cartao[${m}] = ${items.length} item(s)`);
-            if (!cartao[m] || cartao[m].length === 0) { cartao[m] = items; merged = true; }
-          }
-        });
-      }
-      if (data.overrides && typeof data.overrides === "object") {
-        Object.entries(data.overrides).forEach(([m, ovr]) => {
-          const d9 = ovr?.["d9"];
-          if (d9 > 0) {
-            found.push(`${key}: overrides[${m}].d9 = ¥${d9}`);
-            if (!cartao[m] || cartao[m].length === 0) {
-              cartao[m] = [{ id: "cc_v1_" + m.replace("-",""), nome: "Cartão de Crédito", valor: d9 }];
-              merged = true;
-            }
-          }
-        });
-      }
-    });
-
-    const allKeys = Object.keys(localStorage).filter(k => k.startsWith("jst"));
-
-    if (merged) {
-      localStorage.setItem("jst_v1_cartao_migrated", "2");
-      onSave({ ...gastos, cartao });
-      setDiagResult({ ok: true, found, keys: allKeys });
-    } else {
-      // Even if nothing new to merge, show what exists
-      setDiagResult({ ok: false, found, keys: allKeys });
-    }
+  function addItem(item) {
+    save({ ...data, lancamentos: [item, ...lancamentos] });
+    setModal(null);
+    setMonth(item.date.slice(0, 7));
   }
 
-  // Group by category for summary
-  const byCategory = CATEGORIAS
-    .map(cat => ({
-      ...cat,
-      items: items.filter(i => (i.categoria || "outros") === cat.id),
-      subtotal: items.filter(i => (i.categoria || "outros") === cat.id).reduce((a, i) => a + (i.valor || 0), 0),
-    }))
-    .filter(cat => cat.items.length > 0);
-
-  function handleSave({ nome, categoria, valor }) {
-    const cartao = { ...(gastos.cartao || {}) };
-    if (!cartao[month]) cartao[month] = [];
-    if (modal?.id) {
-      cartao[month] = cartao[month].map(c =>
-        c.id === modal.id ? { ...c, nome, categoria, valor } : c
-      );
-    } else {
-      cartao[month] = [...cartao[month], { id: "cc" + Date.now(), nome, categoria, valor }];
-    }
-    onSave({ ...gastos, cartao });
+  function updateItem(item) {
+    save({ ...data, lancamentos: lancamentos.map(l => l.id === item.id ? item : l) });
     setModal(null);
   }
 
-  function handleDelete(id) {
-    const cartao = { ...(gastos.cartao || {}) };
-    cartao[month] = (cartao[month] || []).filter(c => c.id !== id);
-    onSave({ ...gastos, cartao });
-    setConfirmDel(null);
+  function deleteItem(id) {
+    save({ ...data, lancamentos: lancamentos.filter(l => l.id !== id) });
+    setModal(null);
   }
+
+  const { name: cardName, closingDay, dueDay, limit } = data.setup || {};
+  const conferencias = data.conferencias || [];
+  const monthConf = conferencias.find(c => c.ym === month);
 
   return (
     <div className="space-y-3 pb-24 sm:pb-28">
@@ -251,10 +233,15 @@ export function CartaoScreen({ gastos, onSave }) {
         <div>
           <div className="text-xs uppercase tracking-widest text-zinc-500">Controle</div>
           <h2 className="text-lg font-bold text-zinc-100">💳 Cartão de Crédito</h2>
+          {cardName && (
+            <div className="text-xs text-zinc-500 mt-0.5">
+              {cardName} · Fecha dia {closingDay} · Vence dia {dueDay}
+            </div>
+          )}
         </div>
         <button
           onClick={() => setModal({})}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 text-white text-xs font-bold"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-colors"
         >
           + Lançamento
         </button>
@@ -262,18 +249,21 @@ export function CartaoScreen({ gastos, onSave }) {
 
       <MonthPicker value={month} onChange={setMonth} />
 
-      {/* Total card */}
+      {/* Summary card */}
       <Card className="border-purple-800/40">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-xs text-zinc-500 uppercase tracking-widest">Total do mês</div>
-            <div className="text-xs text-zinc-600 mt-0.5">{items.length} lançamento{items.length !== 1 ? "s" : ""}</div>
+            <div className="text-xs text-zinc-600 mt-0.5">
+              {monthItems.length} lançamento{monthItems.length !== 1 ? "s" : ""}
+            </div>
           </div>
           <div className="text-2xl font-bold font-mono text-purple-400">{YEN(total)}</div>
         </div>
-        {total > 0 && (
+
+        {catBreakdown.length > 0 && (
           <div className="mt-3 space-y-1.5">
-            {byCategory.map(cat => (
+            {catBreakdown.map(cat => (
               <div key={cat.id} className="flex items-center gap-2">
                 <div className="flex items-center gap-1 w-32 shrink-0">
                   <span className="text-xs">{cat.icon}</span>
@@ -282,24 +272,64 @@ export function CartaoScreen({ gastos, onSave }) {
                 <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                   <div
                     className="h-1.5 rounded-full bg-purple-500/70"
-                    style={{ width: total > 0 ? `${(cat.subtotal / total) * 100}%` : "0%" }}
+                    style={{ width: total > 0 ? `${(cat.sum / total) * 100}%` : "0%" }}
                   />
                 </div>
-                <span className="text-xs font-mono text-zinc-400 shrink-0 w-20 text-right">{YEN(cat.subtotal)}</span>
+                <span className="text-xs font-mono text-zinc-400 shrink-0 w-20 text-right">{YEN(cat.sum)}</span>
               </div>
             ))}
           </div>
         )}
+
+        {limit > 0 && (
+          <div className="mt-3 pt-2 border-t border-zinc-800">
+            <div className="flex justify-between text-xs text-zinc-600 mb-1">
+              <span>Uso do limite</span>
+              <span className="font-mono">{Math.round((total / limit) * 100)}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+              <div
+                className="h-1.5 rounded-full bg-purple-500/50"
+                style={{ width: `${Math.min(100, (total / limit) * 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-xs text-zinc-700 mt-1">
+              <span>{YEN(total)}</span>
+              <span>Limite: {YEN(limit)}</span>
+            </div>
+          </div>
+        )}
       </Card>
 
+      {/* Conferencia badge */}
+      {monthConf && (
+        <div className={`rounded-xl border p-3 flex items-center justify-between ${
+          monthConf.pago
+            ? "border-green-800/40 bg-green-950/20"
+            : "border-yellow-800/40 bg-yellow-950/20"
+        }`}>
+          <div>
+            <div className={`text-xs font-semibold ${monthConf.pago ? "text-green-400" : "text-yellow-400"}`}>
+              {monthConf.pago ? "✓ Fatura paga" : "⏳ Fatura em aberto"}
+            </div>
+            <div className="text-xs text-zinc-600 mt-0.5">
+              Boletado: {YEN(monthConf.boletado)}
+            </div>
+          </div>
+          <span className={`text-sm font-bold font-mono ${monthConf.pago ? "text-green-400" : "text-yellow-400"}`}>
+            {YEN(monthConf.boletado)}
+          </span>
+        </div>
+      )}
+
       {/* Items list */}
-      {items.length === 0 ? (
+      {monthItems.length === 0 ? (
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 text-center space-y-2">
           <div className="text-3xl">💳</div>
           <div className="text-sm text-zinc-400">Nenhum lançamento em {month}</div>
           <button
             onClick={() => setModal({})}
-            className="mt-2 px-4 py-2 rounded-xl bg-purple-600 text-white text-sm font-semibold"
+            className="mt-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold transition-colors"
           >
             Adicionar lançamento
           </button>
@@ -308,31 +338,28 @@ export function CartaoScreen({ gastos, onSave }) {
         <Card>
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold uppercase tracking-widest text-purple-400">Lançamentos</span>
-            <span className="text-xs text-zinc-600">{items.length} itens</span>
+            <span className="text-xs text-zinc-600">{monthItems.length} itens</span>
           </div>
-          {items.map(item => {
-            const cat = getCat(item.categoria || "outros");
+          {monthItems.map(item => {
+            const cat = getCat(item.cat);
+            const label = item.desc || cat.label;
+            const dayStr = item.date.slice(5).replace("-", "/");
             return (
-              <div
+              <button
                 key={item.id}
-                className="flex items-center gap-2 py-2.5 border-b last:border-0"
+                onClick={() => setModal(item)}
+                className="w-full flex items-center gap-2 py-2.5 border-b last:border-0 text-left transition-colors hover:bg-zinc-800/30 active:bg-zinc-700/30 -mx-1 px-1 rounded"
                 style={{ borderColor: "var(--border)" }}
               >
                 <span className="text-base shrink-0">{cat.icon}</span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs text-zinc-100 truncate">{item.nome}</div>
-                  <div className="text-[10px] text-zinc-600">{cat.label}</div>
+                  <div className="text-xs text-zinc-100 truncate">{label}</div>
+                  <div className="text-[10px] text-zinc-600">
+                    {dayStr}{item.desc ? ` · ${cat.label}` : ""}
+                  </div>
                 </div>
-                <span className="text-sm font-mono font-semibold text-purple-400 shrink-0">{YEN(item.valor)}</span>
-                <button
-                  onClick={() => setModal(item)}
-                  className="text-xs px-1.5 py-0.5 rounded border border-zinc-700 text-zinc-500 hover:text-amber-400 hover:border-amber-600 transition-colors shrink-0"
-                >✏️</button>
-                <button
-                  onClick={() => setConfirmDel(item)}
-                  className="text-xs px-1.5 py-0.5 rounded border border-zinc-800 text-zinc-600 hover:text-red-400 hover:border-red-800 transition-colors shrink-0"
-                >✕</button>
-              </div>
+                <span className="text-sm font-mono font-semibold text-purple-400 shrink-0">{YEN(item.amount)}</span>
+              </button>
             );
           })}
           <button
@@ -347,78 +374,10 @@ export function CartaoScreen({ gastos, onSave }) {
       {modal !== null && (
         <ItemModal
           initial={modal.id ? modal : null}
-          onSave={handleSave}
+          onSave={modal.id ? updateItem : addItem}
+          onDelete={modal.id ? deleteItem : null}
           onClose={() => setModal(null)}
         />
-      )}
-
-      {/* Recovery / diagnostic */}
-      <button
-        onClick={runRecovery}
-        className="w-full py-2.5 rounded-xl border border-dashed border-zinc-700 text-xs text-zinc-500 hover:border-purple-700 hover:text-purple-400 transition-colors"
-      >
-        🔍 Recuperar dados do app anterior
-      </button>
-
-      {diagResult && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ background: "rgba(0,0,0,0.85)" }}>
-          <div className="bg-zinc-950 rounded-t-3xl border-t border-zinc-800 px-4 pt-5 pb-8 space-y-3 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-zinc-100">
-                {diagResult.ok ? "✅ Dados recuperados!" : "🔍 Diagnóstico"}
-              </h3>
-              <button onClick={() => setDiagResult(null)} className="text-2xl leading-none text-zinc-500">×</button>
-            </div>
-            {diagResult.ok ? (
-              <p className="text-xs text-green-400">Lançamentos encontrados e importados. Navegue pelos meses para ver.</p>
-            ) : (
-              <p className="text-xs text-zinc-400">Nenhum dado de cartão encontrado no armazenamento local.</p>
-            )}
-            {diagResult.found.length > 0 && (
-              <div className="space-y-1">
-                <p className="text-xs text-zinc-500 font-semibold uppercase tracking-widest">O que foi encontrado:</p>
-                {diagResult.found.map((f, i) => (
-                  <div key={i} className="text-xs font-mono text-green-300 bg-zinc-900 rounded px-2 py-1">{f}</div>
-                ))}
-              </div>
-            )}
-            <div className="space-y-1">
-              <p className="text-xs text-zinc-500 font-semibold uppercase tracking-widest">Chaves no localStorage ({diagResult.keys.length}):</p>
-              <div className="text-xs font-mono text-zinc-500 bg-zinc-900 rounded px-2 py-2 space-y-0.5 max-h-40 overflow-y-auto">
-                {diagResult.keys.map(k => <div key={k}>{k}</div>)}
-              </div>
-            </div>
-            <button onClick={() => setDiagResult(null)} className="w-full py-2.5 rounded-xl bg-zinc-800 text-zinc-300 text-sm">Fechar</button>
-          </div>
-        </div>
-      )}
-
-      {confirmDel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-6" style={{ background: "rgba(0,0,0,0.85)" }}>
-          <div className="w-full max-w-sm rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-900 shadow-2xl">
-            <div className="p-5 text-center">
-              <div className="text-3xl mb-3">🗑</div>
-              <div className="text-sm font-semibold text-zinc-100 mb-1">Remover lançamento?</div>
-              <div className="text-xs text-zinc-500">
-                <span className="text-red-400 font-semibold">{confirmDel.nome}</span> — {YEN(confirmDel.valor)}
-              </div>
-            </div>
-            <div className="flex border-t border-zinc-800">
-              <button
-                onClick={() => setConfirmDel(null)}
-                className="flex-1 py-3 text-sm font-medium border-r border-zinc-800 text-zinc-400"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => handleDelete(confirmDel.id)}
-                className="flex-1 py-3 text-sm font-bold text-red-400"
-              >
-                Remover
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
