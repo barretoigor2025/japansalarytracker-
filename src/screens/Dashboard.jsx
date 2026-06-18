@@ -49,8 +49,8 @@ function DashboardScreen({ entries, settings, onAddEntry }) {
       {/* Header boas-vindas */}
       <div className="pt-2 flex items-start justify-between gap-3">
         <div>
-          <div className="text-xs text-zinc-500 uppercase tracking-widest">日本給与管理</div>
-          <h2 className="text-2xl font-bold text-zinc-100 mt-1">
+          <div className="text-xs uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>日本給与管理</div>
+          <h2 className="text-2xl font-bold mt-1" style={{ color: "var(--text)" }}>
             {settings.name ? `Olá, ${settings.name.split(" ")[0]}` : "Japan Salary Tracker"}
           </h2>
         </div>
@@ -81,15 +81,18 @@ function DashboardScreen({ entries, settings, onAddEntry }) {
       {totals.overtimeHours > 0 && (
         <Card>
           <div className="flex justify-between text-xs mb-2">
-            <span className="text-zinc-400">Horas Extras (limite 60h/mês)</span>
-            <span className={`font-mono font-bold ${totals.overtimeHours > 60 ? "text-red-400" : "text-amber-400"}`}>
+            <span style={{ color: "var(--text-muted)" }}>Horas Extras (limite 60h/mês)</span>
+            <span className="font-mono font-bold" style={{ color: totals.overtimeHours > 60 ? "var(--negative)" : "var(--warning)" }}>
               {totals.overtimeHours.toFixed(1)}h / 60h
             </span>
           </div>
-          <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+          <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "var(--bg-elevated)" }}>
             <div
-              className={`h-2 rounded-full transition-all ${totals.overtimeHours > 60 ? "bg-red-500" : "bg-amber-500"}`}
-              style={{ width: `${Math.min(100, (totals.overtimeHours / 60) * 100)}%` }}
+              className="h-2 rounded-full transition-all"
+              style={{
+                width: `${Math.min(100, (totals.overtimeHours / 60) * 100)}%`,
+                background: totals.overtimeHours > 60 ? "var(--negative)" : "var(--warning)"
+              }}
             />
           </div>
         </Card>
@@ -105,28 +108,29 @@ function DashboardScreen({ entries, settings, onAddEntry }) {
         return (
           <div className="flex gap-2">
             {/* Card: disponíveis */}
-            <div className="flex-1 bg-zinc-900/80 border border-zinc-800 rounded-xl p-2.5">
-              <div className="flex items-center gap-1.5 text-zinc-500 text-xs mb-1">
+            <div className="flex-1 rounded-xl p-2.5" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
+              <div className="flex items-center gap-1.5 text-xs mb-1" style={{ color: "var(--text-muted)" }}>
                 <span>🌿</span>
                 <span className="uppercase tracking-widest font-medium text-xs">有給 disponível</span>
               </div>
-              <div className="text-xl font-bold text-green-400">{remainingDays} <span className="text-sm font-normal text-zinc-500">dias</span></div>
-              <div className="text-xs text-zinc-600 mt-0.5">Folga Remunerada (Yuukyuu)</div>
-              {hasAlert && <div className="text-xs text-red-400 mt-0.5">⚠️ vencendo em breve</div>}
-              {!settings.hireDate && <div className="text-xs text-zinc-600 mt-0.5">configure contratação</div>}
+              <div className="text-xl font-bold" style={{ color: "var(--positive)" }}>{remainingDays} <span className="text-sm font-normal" style={{ color: "var(--text-muted)" }}>dias</span></div>
+              <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>Folga Remunerada (Yuukyuu)</div>
+              {hasAlert && <div className="text-xs mt-0.5" style={{ color: "var(--negative)" }}>⚠️ vencendo em breve</div>}
+              {!settings.hireDate && <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>configure contratação</div>}
             </div>
             {/* Card: utilizados — clicável */}
             <button
               onClick={() => setShowYukyu(true)}
-              className="flex-1 bg-zinc-900/80 border border-zinc-800 rounded-xl p-2.5 text-left hover:border-green-800/60 transition-all"
+              className="flex-1 rounded-xl p-2.5 text-left transition-all"
+              style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
             >
-              <div className="flex items-center gap-1.5 text-zinc-500 text-xs mb-1">
+              <div className="flex items-center gap-1.5 text-xs mb-1" style={{ color: "var(--text-muted)" }}>
                 <span>📋</span>
                 <span className="uppercase tracking-widest font-medium text-xs">有給 usadas</span>
               </div>
-              <div className="text-xl font-bold text-amber-400">{usedDays} <span className="text-sm font-normal text-zinc-500">dias</span></div>
-              <div className="text-xs text-zinc-600 mt-0.5">Folga Remunerada (Yuukyuu)</div>
-              <div className="text-xs text-zinc-600">toque para ver histórico</div>
+              <div className="text-xl font-bold" style={{ color: "var(--warning)" }}>{usedDays} <span className="text-sm font-normal" style={{ color: "var(--text-muted)" }}>dias</span></div>
+              <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>Folga Remunerada (Yuukyuu)</div>
+              <div className="text-xs" style={{ color: "var(--text-muted)" }}>toque para ver histórico</div>
             </button>
           </div>
         );
@@ -136,32 +140,33 @@ function DashboardScreen({ entries, settings, onAddEntry }) {
       {lastEntry && lastCalc && (
         <Card>
           <div className="flex justify-between items-start mb-2">
-            <div className="text-xs text-zinc-500 uppercase tracking-widest">Último Lançamento</div>
+            <div className="text-xs uppercase tracking-widest" style={{ color: "var(--text-muted)" }}>Último Lançamento</div>
             <Badge color="gray">{new Date(lastEntry.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</Badge>
           </div>
           <div className="flex justify-between items-center">
             <div>
-              <div className="text-sm text-zinc-300">{lastEntry.start} → {lastEntry.end}</div>
-              <div className="text-xs text-zinc-600">break {lastEntry.breakMinutes}min · {formatMinutes(lastCalc.totalMin)} trabalhadas</div>
+              <div className="text-sm" style={{ color: "var(--text-sub)" }}>{lastEntry.start} → {lastEntry.end}</div>
+              <div className="text-xs" style={{ color: "var(--text-muted)" }}>break {lastEntry.breakMinutes}min · {formatMinutes(lastCalc.totalMin)} trabalhadas</div>
             </div>
             <div className="text-right">
-              <div className="font-mono font-bold text-green-400">{YEN(lastCalc.grossPay)}</div>
-              {lastCalc.overtimeHours > 0 && <div className="text-xs text-amber-400">HE: {formatMinutes(lastCalc.overtimeDailyMin)}</div>}
+              <div className="font-mono font-bold" style={{ color: "var(--positive)" }}>{YEN(lastCalc.grossPay)}</div>
+              {lastCalc.overtimeHours > 0 && <div className="text-xs" style={{ color: "var(--warning)" }}>HE: {formatMinutes(lastCalc.overtimeDailyMin)}</div>}
             </div>
           </div>
         </Card>
       )}
 
       {/* Cenário de teste obrigatório */}
-      <Card className="border-amber-800/30">
-        <div className="text-xs text-amber-500 uppercase tracking-widest mb-2">🧪 Exemplo de Cálculo (22/02/2026)</div>
+      <Card style={{ border: "1px solid var(--border)" }}>
+        <div className="text-xs uppercase tracking-widest mb-2" style={{ color: "var(--text-muted)" }}>🧪 Exemplo de Cálculo (22/02/2026)</div>
         <ExampleCalc settings={settings} />
       </Card>
 
       {/* Botão rápido */}
       <button
         onClick={() => setShowForm(true)}
-        className="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm transition-colors"
+        className="w-full py-3.5 rounded-xl font-bold text-sm transition-colors"
+        style={{ background: "var(--text)", color: "var(--bg)" }}
       >
         + Lançar Dia de Trabalho
       </button>

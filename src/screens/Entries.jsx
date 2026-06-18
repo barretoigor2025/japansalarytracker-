@@ -24,7 +24,8 @@ function EntriesScreen({ entries, settings, onAdd, onEdit, onDelete, onDuplicate
 <MonthPicker value={filterMonth} onChange={setFilterMonth} />
         <button
           onClick={() => { setEditEntry(null); setShowForm(true); }}
-          className="ml-auto flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-semibold text-sm rounded-xl transition-colors whitespace-nowrap"
+          className="ml-auto flex items-center gap-2 px-4 py-2 font-semibold text-sm rounded-xl transition-colors whitespace-nowrap"
+          style={{ background: "var(--text)", color: "var(--bg)" }}
         >
           + Lançar
         </button>
@@ -33,8 +34,8 @@ function EntriesScreen({ entries, settings, onAdd, onEdit, onDelete, onDuplicate
       {filtered.length === 0 && (
         <Card className="text-center py-12">
           <div className="text-4xl mb-3">📋</div>
-          <div className="text-zinc-400 text-sm">Nenhum lançamento neste mês</div>
-          <div className="text-zinc-600 text-xs mt-1">Clique em "+ Lançar" para começar</div>
+          <div className="text-sm" style={{ color: "var(--text-sub)" }}>Nenhum lançamento neste mês</div>
+          <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Clique em "+ Lançar" para começar</div>
         </Card>
       )}
 
@@ -45,18 +46,18 @@ function EntriesScreen({ entries, settings, onAdd, onEdit, onDelete, onDuplicate
           <Card key={entry.id} className="space-y-2">
             <div className="flex items-start justify-between">
               <div>
-                <div className="text-sm font-semibold text-zinc-100">
+                <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
                   {new Date(entry.date + "T12:00:00").toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" })}
                 </div>
-                <div className="text-xs text-zinc-500 mt-0.5">
+                <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
                   {entry.dayType === "yukyu"
                     ? "有給休暇 · 8h remuneradas"
                     : `${entry.start} → ${entry.end} · break ${entry.breakMinutes}min`}
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-base font-bold font-mono text-green-400">{YEN(calc.grossPay)}</div>
-                <div className="text-xs text-zinc-500">
+                <div className="text-base font-bold font-mono" style={{ color: "var(--positive)" }}>{YEN(calc.grossPay)}</div>
+                <div className="text-xs" style={{ color: "var(--text-muted)" }}>
                   {calc.breakdown?.jpSaturdayIsAllOT
                     ? `${formatMinutes(calc.totalMin)} · 100% HE`
                     : `${formatMinutes(calc.totalMin)} trabalhadas`}
@@ -80,30 +81,42 @@ function EntriesScreen({ entries, settings, onAdd, onEdit, onDelete, onDuplicate
               {calc.nightHours > 0 && <Badge color="purple">🌙 {formatMinutes(calc.nightMin)}</Badge>}
             </div>
 
-            {entry.note && <div className="text-xs text-zinc-600 italic">{entry.note}</div>}
+            {entry.note && <div className="text-xs italic" style={{ color: "var(--text-muted)" }}>{entry.note}</div>}
 
-            <div className="flex gap-2 pt-1 border-t border-zinc-800">
+            <div className="flex gap-2 pt-1 border-t" style={{ borderColor: "var(--border)" }}>
               <button
                 onClick={() => setDetailEntry(entry)}
-                className="text-xs text-zinc-500 hover:text-amber-400 transition-colors"
+                className="text-xs transition-colors"
+                style={{ color: "var(--text-muted)" }}
+                onMouseOver={e => e.currentTarget.style.color = "var(--warning)"}
+                onMouseOut={e => e.currentTarget.style.color = "var(--text-muted)"}
               >
                 Ver cálculo
               </button>
               <button
                 onClick={() => { setEditEntry(entry); setIsDuplicate(false); setShowForm(true); }}
-                className="text-xs text-zinc-500 hover:text-blue-400 transition-colors ml-2"
+                className="text-xs transition-colors ml-2"
+                style={{ color: "var(--text-muted)" }}
+                onMouseOver={e => e.currentTarget.style.color = "var(--text)"}
+                onMouseOut={e => e.currentTarget.style.color = "var(--text-muted)"}
               >
                 Editar
               </button>
               <button
                 onClick={() => { setEditEntry({...entry, id: Date.now().toString()}); setIsDuplicate(true); setShowForm(true); }}
-                className="text-xs text-zinc-500 hover:text-green-400 transition-colors"
+                className="text-xs transition-colors"
+                style={{ color: "var(--text-muted)" }}
+                onMouseOver={e => e.currentTarget.style.color = "var(--positive)"}
+                onMouseOut={e => e.currentTarget.style.color = "var(--text-muted)"}
               >
                 Duplicar
               </button>
               <button
                 onClick={() => setConfirmDelete(entry.id)}
-                className="text-xs text-zinc-500 hover:text-red-400 transition-colors ml-auto"
+                className="text-xs transition-colors ml-auto"
+                style={{ color: "var(--text-muted)" }}
+                onMouseOver={e => e.currentTarget.style.color = "var(--negative)"}
+                onMouseOut={e => e.currentTarget.style.color = "var(--text-muted)"}
               >
                 Excluir
               </button>
@@ -139,21 +152,23 @@ function EntriesScreen({ entries, settings, onAdd, onEdit, onDelete, onDuplicate
         <CalcDetailModal entry={detailEntry} settings={settings} onClose={() => setDetailEntry(null)} />
       )}
       {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{background:"rgba(0,0,0,0.8)"}}>
-          <div className="w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl p-6 text-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: "rgba(0,0,0,0.85)" }}>
+          <div className="w-full max-w-sm rounded-2xl shadow-2xl p-6 text-center" style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
             <div className="text-3xl mb-3">🗑️</div>
-            <div className="text-base font-semibold text-zinc-100 mb-1">Excluir lançamento?</div>
-            <div className="text-sm text-zinc-500 mb-6">Esta ação não pode ser desfeita.</div>
+            <div className="text-base font-semibold mb-1" style={{ color: "var(--text)" }}>Excluir lançamento?</div>
+            <div className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>Esta ação não pode ser desfeita.</div>
             <div className="flex gap-3">
               <button
                 onClick={() => setConfirmDelete(null)}
-                className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
+                className="flex-1 py-2.5 rounded-xl text-sm transition-colors"
+                style={{ border: "1px solid var(--border-mid)", color: "var(--text-sub)" }}
               >
                 Cancelar
               </button>
               <button
                 onClick={() => { onDelete(confirmDelete); setConfirmDelete(null); }}
-                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold text-sm transition-colors"
+                className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-colors"
+                style={{ background: "var(--negative)", color: "#fff" }}
               >
                 Excluir
               </button>

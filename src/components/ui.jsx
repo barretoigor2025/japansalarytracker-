@@ -1,97 +1,113 @@
 import { useState } from "react";
 
-// ── Shared UI Components ──────────────────────────────────────────────────────
-
-function Badge({ color, children }) {
-  const colors = {
-    red: "bg-red-900/40 text-red-300 border-red-800/50",
-    yellow: "bg-yellow-900/40 text-yellow-300 border-yellow-800/50",
-    blue: "bg-blue-900/40 text-blue-300 border-blue-800/50",
-    green: "bg-green-900/40 text-green-300 border-green-800/50",
-    gray: "bg-zinc-800 text-zinc-400 border-zinc-700",
-    purple: "bg-purple-900/40 text-purple-300 border-purple-800/50",
+// ── Badge ─────────────────────────────────────────────────────────────────────
+// color: "green" | "red" | "yellow" | "blue" | "gray" | "purple" | "orange"
+function Badge({ color = "gray", children }) {
+  const map = {
+    green:  { bg: "rgba(34,197,94,0.12)",  text: "var(--positive)",  border: "rgba(34,197,94,0.25)" },
+    red:    { bg: "rgba(239,68,68,0.12)",  text: "var(--negative)",  border: "rgba(239,68,68,0.25)" },
+    yellow: { bg: "rgba(234,179,8,0.12)",  text: "#ca8a04",          border: "rgba(234,179,8,0.25)" },
+    blue:   { bg: "rgba(96,165,250,0.12)", text: "var(--info)",      border: "rgba(96,165,250,0.25)" },
+    gray:   { bg: "var(--bg-elevated)",    text: "var(--text-sub)",  border: "var(--border-mid)" },
+    purple: { bg: "rgba(168,85,247,0.12)", text: "var(--night)",     border: "rgba(168,85,247,0.25)" },
+    orange: { bg: "rgba(251,146,60,0.12)", text: "#f97316",          border: "rgba(251,146,60,0.25)" },
   };
+  const s = map[color] || map.gray;
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${colors[color] || colors.gray}`}>
+    <span style={{ background: s.bg, color: s.text, border: `1px solid ${s.border}` }}
+      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium">
       {children}
     </span>
   );
 }
 
-function Input({ label, ...props }) {
+// ── Input ─────────────────────────────────────────────────────────────────────
+function Input({ label, className = "", ...props }) {
   return (
-    <div className="flex flex-col gap-1">
-      {label && <label className="text-xs text-zinc-400 font-medium tracking-wide uppercase">{label}</label>}
+    <div className={`flex flex-col gap-1 ${className}`}>
+      {label && (
+        <label className="text-xs font-semibold uppercase tracking-widest"
+          style={{ color: "var(--text-muted)" }}>{label}</label>
+      )}
       <input
-        className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 transition-all placeholder:text-zinc-600"
+        className="input-base"
+        style={{ background: "var(--bg-input)", borderColor: "var(--border-mid)", color: "var(--text)" }}
         {...props}
       />
     </div>
   );
 }
 
-function Select({ label, options, ...props }) {
+// ── Select ────────────────────────────────────────────────────────────────────
+function Select({ label, options, className = "", ...props }) {
   return (
-    <div className="flex flex-col gap-1">
-      {label && <label className="text-xs text-zinc-400 font-medium tracking-wide uppercase">{label}</label>}
+    <div className={`flex flex-col gap-1 ${className}`}>
+      {label && (
+        <label className="text-xs font-semibold uppercase tracking-widest"
+          style={{ color: "var(--text-muted)" }}>{label}</label>
+      )}
       <select
-        className="bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 transition-all"
+        className="input-base"
+        style={{ background: "var(--bg-input)", borderColor: "var(--border-mid)", color: "var(--text)" }}
         {...props}
       >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
+        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
     </div>
   );
 }
 
+// ── Toggle ────────────────────────────────────────────────────────────────────
 function Toggle({ label, checked, onChange, note }) {
   return (
-    <label className="flex items-center gap-3 cursor-pointer">
+    <label className="flex items-center gap-3 cursor-pointer select-none">
       <div
         onClick={() => onChange(!checked)}
-        className={`relative w-10 h-5 rounded-full transition-colors ${checked ? "bg-amber-500" : "bg-zinc-700"}`}
-      >
+        className="relative w-10 h-5 rounded-full transition-colors shrink-0"
+        style={{ background: checked ? "var(--positive)" : "var(--border-strong)" }}>
         <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-5" : ""}`} />
       </div>
       <div>
-        <div className="text-sm text-zinc-200">{label}</div>
-        {note && <div className="text-xs text-zinc-500">{note}</div>}
+        <div className="text-sm font-medium" style={{ color: "var(--text)" }}>{label}</div>
+        {note && <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{note}</div>}
       </div>
     </label>
   );
 }
 
-function Card({ children, className = "", light = false }) {
+// ── Card ──────────────────────────────────────────────────────────────────────
+function Card({ children, className = "" }) {
   return (
-    <div className={`rounded-xl p-3 border ${className}`}
-      style={{ background: "var(--bg-card)", borderColor: "var(--border)" }}>
+    <div className={`rounded-xl p-3 ${className}`}
+      style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}>
       {children}
     </div>
   );
 }
 
+// ── SummaryCard ───────────────────────────────────────────────────────────────
 function SummaryCard({ icon, label, value, sub, accent }) {
   return (
     <Card className="flex flex-col gap-0.5">
-      <div className="flex items-center gap-1.5 text-zinc-500 text-xs mb-0.5">
-        <span>{icon}</span>
-        <span className="uppercase tracking-widest font-medium">{label}</span>
+      <div className="flex items-center gap-1.5 mb-0.5" style={{ color: "var(--text-muted)" }}>
+        <span className="text-sm">{icon}</span>
+        <span className="text-xs uppercase tracking-widest font-semibold">{label}</span>
       </div>
-      <div className={`text-xl font-bold font-mono ${accent || "text-zinc-100"}`}>{value}</div>
-      {sub && <div className="text-xs text-zinc-500">{sub}</div>}
+      <div className={`text-xl font-bold font-mono ${accent || ""}`}
+        style={!accent ? { color: "var(--text)" } : {}}>
+        {value}
+      </div>
+      {sub && <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{sub}</div>}
     </Card>
   );
 }
 
+// ── MonthPicker ───────────────────────────────────────────────────────────────
 function MonthPicker({ value, onChange }) {
   function shift(delta) {
     const [y, m] = value.split("-").map(Number);
     const d = new Date(y, m - 1 + delta, 1);
-    const ny = d.getFullYear();
-    const nm = String(d.getMonth() + 1).padStart(2, "0");
-    onChange(ny + "-" + nm);
+    onChange(d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"));
   }
   const label = new Date(value + "-01").toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   const labelFmt = label.charAt(0).toUpperCase() + label.slice(1);
@@ -99,17 +115,17 @@ function MonthPicker({ value, onChange }) {
   return (
     <div className="flex items-center gap-1">
       <button onClick={() => shift(-1)}
-        className="w-8 h-8 flex items-center justify-center rounded-lg border transition-colors hover:border-amber-500 hover:text-amber-400"
-        style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>
+        className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-sm"
+        style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-mid)", color: "var(--text-sub)" }}>
         ‹
       </button>
-      <div className="flex-1 text-center px-2 py-1.5 rounded-lg border text-sm font-medium"
-        style={{borderColor:"var(--border)", color:"var(--text)", background:"var(--bg-card)", minWidth:"140px"}}>
+      <div className="flex-1 text-center py-1.5 rounded-lg text-sm font-semibold"
+        style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-mid)", color: "var(--text)", minWidth: "140px" }}>
         {labelFmt}
       </div>
       <button onClick={() => shift(1)}
-        className="w-8 h-8 flex items-center justify-center rounded-lg border transition-colors hover:border-amber-500 hover:text-amber-400"
-        style={{borderColor:"var(--border)", color:"var(--text-muted)"}}>
+        className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-sm"
+        style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-mid)", color: "var(--text-sub)" }}>
         ›
       </button>
     </div>
