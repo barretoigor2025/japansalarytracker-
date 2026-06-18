@@ -67,7 +67,40 @@ export default function App() {
   const [tab, setTab] = useState("dashboard");
   const [theme, setTheme] = useState(() => localStorage.getItem("jst_theme") || "dark");
   const [entries, setEntries] = useState(() => loadData(STORAGE_KEYS.entries, []));
-  const [gastos, setGastos] = useState(() => loadData(STORAGE_KEYS.gastos, defaultGastos));
+  const [gastos, setGastos] = useState(() => {
+    const current = loadData(STORAGE_KEYS.gastos, defaultGastos);
+    // One-time migration: recover cartão data from old profile-based storage (jst_p_{pid}_gastos)
+    if (!localStorage.getItem("jst_v1_cartao_migrated")) {
+      try {
+        const profiles = JSON.parse(localStorage.getItem("jst_profiles") || "null");
+        if (profiles && Array.isArray(profiles)) {
+          let merged = false;
+          const cartao = { ...(current.cartao || {}) };
+          profiles.forEach(({ id: pid }) => {
+            try {
+              const old = JSON.parse(localStorage.getItem(`jst_p_${pid}_gastos`) || "null");
+              if (old?.cartao && typeof old.cartao === "object") {
+                Object.entries(old.cartao).forEach(([month, items]) => {
+                  if (!cartao[month] || cartao[month].length === 0) {
+                    cartao[month] = items;
+                    merged = true;
+                  }
+                });
+              }
+            } catch {}
+          });
+          if (merged) {
+            const updated = { ...current, cartao };
+            localStorage.setItem(STORAGE_KEYS.gastos, JSON.stringify(updated));
+            localStorage.setItem("jst_v1_cartao_migrated", "1");
+            return updated;
+          }
+        }
+      } catch {}
+      localStorage.setItem("jst_v1_cartao_migrated", "1");
+    }
+    return current;
+  });
   const [auditHistory, setAuditHistory] = useState(() => loadData(STORAGE_KEYS.payslipAudit, []));
   const [carro, setCarro] = useState(() => {
     const saved = loadData(STORAGE_KEYS.carro, defaultCarro);
