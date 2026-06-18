@@ -1,3 +1,66 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── CSS Custom Properties ─────────────────────────────────────── */
+:root,
+.theme-dark {
+  --bg: #09090b;
+  --bg-card: rgba(24, 24, 27, 0.95);
+  --border: #27272a;
+  --text: #f4f4f5;
+  --text-sub: #a1a1aa;
+  --text-muted: #52525b;
+}
+
+.theme-light {
+  --bg: #f4f4f5;
+  --bg-card: #ffffff;
+  --border: #e4e4e7;
+  --text: #18181b;
+  --text-sub: #71717a;
+  --text-muted: #a1a1aa;
+}
+
+/* ── Base ──────────────────────────────────────────────────────── */
+*  { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { height: 100%; height: -webkit-fill-available; }
+
+body {
+  margin: 0;
+  font-family: 'Plus Jakarta Sans', 'Noto Sans JP', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  background: #09090b;
+  color: #f4f4f5;
+  transition: background 0.3s;
+}
+
+/* ── Fonts ─────────────────────────────────────────────────────── */
+.font-mono {
+  font-family: 'Plus Jakarta Sans', 'Noto Sans JP', sans-serif !important;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* ── Safe area ─────────────────────────────────────────────────── */
+.safe-top    { padding-top:    max(12px, env(safe-area-inset-top)); }
+.safe-bottom { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+
+/* ── Scrollbar ─────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 2px; }
+
+/* ── Inputs ────────────────────────────────────────────────────── */
+input, select, textarea { font-size: 16px; }
+input[type="time"],
+input[type="date"],
+input[type="month"] {
+  -webkit-appearance: none;
+  color-scheme: dark;
+}
+
+/* ── Interactions ──────────────────────────────────────────────── */
+button:active { opacity: 0.75; transform: scale(0.97); }

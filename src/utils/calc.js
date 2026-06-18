@@ -78,6 +78,9 @@ export const defaultGastos = {
     { id: "d18", name: "Empréstimo", amount: 0, tipo: "hagaki", active: false },
   ],
   overrides: {},
+  cartao: {},
+  monthItems: {},
+  monthHidden: {},
 };
 
 export const defaultCarro = {

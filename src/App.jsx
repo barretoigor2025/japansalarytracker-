@@ -105,47 +105,15 @@ export default function App() {
     showToast("Backup restaurado com sucesso!", "blue");
   };
 
-  const bodyBg = theme === "dark" ? "#09090b" : "#f4f4f5";
-  const rootCls = `min-h-screen font-sans theme-${theme} ` + (theme === "dark" ? "bg-zinc-950 text-zinc-100" : "bg-zinc-100 text-zinc-900");
+  const rootCls = `min-h-screen theme-${theme} ` + (theme === "dark" ? "bg-zinc-950 text-zinc-100" : "bg-zinc-100 text-zinc-900");
 
-  const staticCss = `
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&display=swap');
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        html { height: 100%; height: -webkit-fill-available; }
-        body {
-          margin: 0;
-          background: ${bodyBg};
-          transition: background 0.3s;
-          font-family: 'DM Sans', 'Noto Sans JP', sans-serif;
-          -webkit-font-smoothing: antialiased;
-          overscroll-behavior: none;
-          min-height: 100vh;
-          min-height: -webkit-fill-available;
-        }
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 2px; }
-        .font-mono { font-family: 'DM Mono', 'Noto Sans JP', monospace; }
-        .safe-top    { padding-top:    max(12px, env(safe-area-inset-top)); }
-        .safe-bottom { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
-        button:active { opacity: 0.75; transform: scale(0.97); }
-        input[type="time"], input[type="date"], input[type="month"] {
-          -webkit-appearance: none;
-          color-scheme: dark;
-        }
-        input, select, textarea { font-size: 16px; }
-        .theme-light { --bg: #f4f4f5; --bg-card: #ffffff; --border: #e4e4e7; --text: #18181b; --text-sub: #71717a; --text-muted: #a1a1aa; }
-        .theme-dark  { --bg: #09090b; --bg-card: rgba(24,24,27,0.8); --border: #27272a; --text: #f4f4f5; --text-sub: #a1a1aa; --text-muted: #52525b; }
-        @media (min-width: 640px) { body { font-size: 15px; } }
-        @media (min-width: 1024px) {
-          .main-scroll { padding-bottom: 80px; }
-          .bottom-nav-inner { padding: 0 2rem; }
-        }
-      `;
+  useEffect(() => {
+    document.body.style.background = theme === "dark" ? "#09090b" : "#f4f4f5";
+    document.body.style.color = theme === "dark" ? "#f4f4f5" : "#18181b";
+  }, [theme]);
 
   return (
-    <div className={rootCls} style={{ fontFamily: "'DM Sans', 'Noto Sans JP', sans-serif" }}>
-      <style>{staticCss}</style>
+    <div className={rootCls}>
 
       {/* Top bar */}
       <div className={`sticky top-0 z-40 backdrop-blur border-b px-4 py-2 ${theme === "dark" ? "bg-zinc-950/90 border-zinc-800/50" : "bg-white/90 border-zinc-200"}`}>
