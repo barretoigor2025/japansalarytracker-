@@ -253,7 +253,7 @@ export default function App() {
       {/* Bottom nav */}
       <div className={`fixed bottom-0 inset-x-0 z-40 backdrop-blur border-t ${theme === "dark" ? "bg-zinc-950/95 border-zinc-800/50" : "bg-white/95 border-zinc-200"}`}
         style={{paddingBottom: "env(safe-area-inset-bottom, 0px)"}}>
-        <div className="max-w-2xl mx-auto overflow-x-auto scrollbar-none">
+        <div className="max-w-2xl mx-auto">
           <div className="flex">
             {TABS.map((t) => {
               const active = tab === t.id;
@@ -261,15 +261,15 @@ export default function App() {
                 <button
                   key={t.id}
                   onClick={() => setTab(t.id)}
-                  className={`flex flex-col items-center justify-center py-2 flex-shrink-0 min-w-[52px] transition-all ${
+                  className={`flex-1 flex flex-col items-center justify-center py-1.5 min-w-0 transition-all ${
                     active
                       ? "text-amber-400"
                       : theme === "dark" ? "text-zinc-500 hover:text-zinc-300" : "text-zinc-400 hover:text-zinc-600"
                   }`}
                 >
-                  <span className="text-lg leading-none">{t.icon}</span>
-                  <span className="mt-0.5 text-[9px] font-medium leading-none whitespace-nowrap">{t.label}</span>
-                  {active && <span className="mt-0.5 w-1 h-1 rounded-full bg-amber-400 shrink-0" />}
+                  <span className={active ? "text-xl leading-none" : "text-lg leading-none"}>{t.icon}</span>
+                  <span className={`mt-0.5 text-[9px] font-medium leading-none whitespace-nowrap ${active ? "" : "invisible"}`}>{t.label}</span>
+                  <span className={`mt-0.5 w-1 h-1 rounded-full bg-amber-400 shrink-0 ${active ? "" : "invisible"}`} />
                 </button>
               );
             })}
