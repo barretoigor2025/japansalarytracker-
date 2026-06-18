@@ -127,11 +127,72 @@ function ItemModal({ initial, onSave, onClose }) {
 export function CartaoScreen({ gastos, onSave }) {
   const today = new Date().toISOString().slice(0, 7);
   const [month, setMonth] = useState(today);
-  const [modal, setModal] = useState(null); // null | {} (new) | {id,nome,categoria,valor} (edit)
+  const [modal, setModal] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
+  const [diagResult, setDiagResult] = useState(null);
 
   const items = (gastos.cartao?.[month] || []);
   const total = items.reduce((a, c) => a + (c.valor || 0), 0);
+
+  function runRecovery() {
+    const cartao = { ...(gastos.cartao || {}) };
+    let found = [];
+    let merged = false;
+
+    const sources = [];
+    try {
+      const profiles = JSON.parse(localStorage.getItem("jst_profiles") || "null");
+      if (Array.isArray(profiles)) {
+        profiles.forEach(({ id: pid }) => {
+          const raw = localStorage.getItem(`jst_p_${pid}_gastos`);
+          if (raw) { sources.push({ key: `jst_p_${pid}_gastos`, data: JSON.parse(raw) }); }
+        });
+      }
+    } catch {}
+
+    // Also scan all jst_* keys for any gastos-looking data
+    Object.keys(localStorage).forEach(k => {
+      if (k.includes("gastos") && !sources.find(s => s.key === k)) {
+        try { sources.push({ key: k, data: JSON.parse(localStorage.getItem(k)) }); } catch {}
+      }
+    });
+
+    sources.forEach(({ key, data }) => {
+      if (!data) return;
+      // Format a: cartao[month] array
+      if (data.cartao && typeof data.cartao === "object") {
+        Object.entries(data.cartao).forEach(([m, items]) => {
+          if (Array.isArray(items) && items.length > 0) {
+            found.push(`${key}: cartao[${m}] = ${items.length} item(s)`);
+            if (!cartao[m] || cartao[m].length === 0) { cartao[m] = items; merged = true; }
+          }
+        });
+      }
+      // Format b: d9 override
+      if (data.overrides && typeof data.overrides === "object") {
+        Object.entries(data.overrides).forEach(([m, ovr]) => {
+          const d9 = ovr?.["d9"];
+          if (d9 > 0) {
+            found.push(`${key}: overrides[${m}].d9 = ¥${d9}`);
+            if (!cartao[m] || cartao[m].length === 0) {
+              cartao[m] = [{ id: "cc_v1_" + m.replace("-",""), nome: "Cartão de Crédito", valor: d9 }];
+              merged = true;
+            }
+          }
+        });
+      }
+    });
+
+    const allKeys = Object.keys(localStorage).filter(k => k.startsWith("jst"));
+
+    if (merged) {
+      localStorage.setItem("jst_v1_cartao_migrated", "2");
+      onSave({ ...gastos, cartao });
+      setDiagResult({ ok: true, found, keys: allKeys });
+    } else {
+      setDiagResult({ ok: false, found, keys: allKeys });
+    }
+  }
 
   // Group by category for summary
   const byCategory = CATEGORIAS
@@ -269,6 +330,47 @@ export function CartaoScreen({ gastos, onSave }) {
           onSave={handleSave}
           onClose={() => setModal(null)}
         />
+      )}
+
+      {/* Recovery / diagnostic */}
+      <button
+        onClick={runRecovery}
+        className="w-full py-2.5 rounded-xl border border-dashed border-zinc-700 text-xs text-zinc-500 hover:border-purple-700 hover:text-purple-400 transition-colors"
+      >
+        🔍 Recuperar dados do app anterior
+      </button>
+
+      {diagResult && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ background: "rgba(0,0,0,0.85)" }}>
+          <div className="bg-zinc-950 rounded-t-3xl border-t border-zinc-800 px-4 pt-5 pb-8 space-y-3 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-zinc-100">
+                {diagResult.ok ? "✅ Dados recuperados!" : "🔍 Diagnóstico"}
+              </h3>
+              <button onClick={() => setDiagResult(null)} className="text-2xl leading-none text-zinc-500">×</button>
+            </div>
+            {diagResult.ok ? (
+              <p className="text-xs text-green-400">Lançamentos encontrados e importados. Navegue pelos meses para ver.</p>
+            ) : (
+              <p className="text-xs text-zinc-400">Nenhum dado de cartão encontrado no armazenamento local.</p>
+            )}
+            {diagResult.found.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-xs text-zinc-500 font-semibold uppercase tracking-widest">O que foi encontrado:</p>
+                {diagResult.found.map((f, i) => (
+                  <div key={i} className="text-xs font-mono text-green-300 bg-zinc-900 rounded px-2 py-1">{f}</div>
+                ))}
+              </div>
+            )}
+            <div className="space-y-1">
+              <p className="text-xs text-zinc-500 font-semibold uppercase tracking-widest">Chaves no localStorage ({diagResult.keys.length}):</p>
+              <div className="text-xs font-mono text-zinc-500 bg-zinc-900 rounded px-2 py-2 space-y-0.5 max-h-40 overflow-y-auto">
+                {diagResult.keys.map(k => <div key={k}>{k}</div>)}
+              </div>
+            </div>
+            <button onClick={() => setDiagResult(null)} className="w-full py-2.5 rounded-xl bg-zinc-800 text-zinc-300 text-sm">Fechar</button>
+          </div>
+        </div>
       )}
 
       {confirmDel && (
