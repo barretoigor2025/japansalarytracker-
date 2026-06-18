@@ -126,7 +126,11 @@ function ItemModal({ initial, onSave, onClose }) {
 
 export function CartaoScreen({ gastos, onSave }) {
   const today = new Date().toISOString().slice(0, 7);
-  const [month, setMonth] = useState(today);
+  // Start on the most recent month that has data, or today
+  const [month, setMonth] = useState(() => {
+    const existing = Object.keys(gastos.cartao || {}).filter(m => (gastos.cartao[m] || []).length > 0).sort().reverse();
+    return existing[0] || today;
+  });
   const [modal, setModal] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
   const [diagResult, setDiagResult] = useState(null);
@@ -145,21 +149,37 @@ export function CartaoScreen({ gastos, onSave }) {
       if (Array.isArray(profiles)) {
         profiles.forEach(({ id: pid }) => {
           const raw = localStorage.getItem(`jst_p_${pid}_gastos`);
-          if (raw) { sources.push({ key: `jst_p_${pid}_gastos`, data: JSON.parse(raw) }); }
+          if (raw) sources.push({ key: `jst_p_${pid}_gastos`, data: JSON.parse(raw) });
         });
       }
     } catch {}
 
-    // Also scan all jst_* keys for any gastos-looking data
+    // Scan all jst_* keys for gastos-looking data
     Object.keys(localStorage).forEach(k => {
       if (k.includes("gastos") && !sources.find(s => s.key === k)) {
         try { sources.push({ key: k, data: JSON.parse(localStorage.getItem(k)) }); } catch {}
       }
     });
 
+    // Also check jst_cartao — a separate key used by some app versions
+    const jstCartaoRaw = localStorage.getItem("jst_cartao");
+    if (jstCartaoRaw) {
+      try {
+        const jstCartao = JSON.parse(jstCartaoRaw);
+        // Format: { "2026-04": [{id, nome, valor, categoria?}], ... }
+        if (jstCartao && typeof jstCartao === "object" && !Array.isArray(jstCartao)) {
+          Object.entries(jstCartao).forEach(([m, items]) => {
+            if (Array.isArray(items) && items.length > 0) {
+              found.push(`jst_cartao: [${m}] = ${items.length} item(s)`);
+              if (!cartao[m] || cartao[m].length === 0) { cartao[m] = items; merged = true; }
+            }
+          });
+        }
+      } catch {}
+    }
+
     sources.forEach(({ key, data }) => {
       if (!data) return;
-      // Format a: cartao[month] array
       if (data.cartao && typeof data.cartao === "object") {
         Object.entries(data.cartao).forEach(([m, items]) => {
           if (Array.isArray(items) && items.length > 0) {
@@ -168,7 +188,6 @@ export function CartaoScreen({ gastos, onSave }) {
           }
         });
       }
-      // Format b: d9 override
       if (data.overrides && typeof data.overrides === "object") {
         Object.entries(data.overrides).forEach(([m, ovr]) => {
           const d9 = ovr?.["d9"];
@@ -190,6 +209,7 @@ export function CartaoScreen({ gastos, onSave }) {
       onSave({ ...gastos, cartao });
       setDiagResult({ ok: true, found, keys: allKeys });
     } else {
+      // Even if nothing new to merge, show what exists
       setDiagResult({ ok: false, found, keys: allKeys });
     }
   }
