@@ -155,7 +155,7 @@ export default function App() {
         }
         input, select, textarea { font-size: 16px; }
         .theme-light { --bg: #f4f4f5; --bg-card: #ffffff; --border: #e4e4e7; --text: #18181b; --text-sub: #71717a; --text-muted: #a1a1aa; }
-        .theme-dark  { --bg: #09090b; --bg-card: rgba(24,24,27,0.8); --border: #27272a; --text: #f4f4f5; --text-sub: #a1a1aa; --text-muted: #52525b; }
+        .theme-dark  { --bg: #09090b; --bg-card: #18181b; --border: #27272a; --text: #f4f4f5; --text-sub: #a1a1aa; --text-muted: #52525b; }
         @media (min-width: 640px) { body { font-size: 15px; } }
         @media (min-width: 1024px) {
           .main-scroll { padding-bottom: 80px; }
@@ -253,7 +253,7 @@ export default function App() {
       {/* Bottom nav */}
       <div className={`fixed bottom-0 inset-x-0 z-40 backdrop-blur border-t ${theme === "dark" ? "bg-zinc-950/95 border-zinc-800/50" : "bg-white/95 border-zinc-200"}`}
         style={{paddingBottom: "env(safe-area-inset-bottom, 0px)"}}>
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto overflow-x-auto scrollbar-none">
           <div className="flex">
             {TABS.map((t) => {
               const active = tab === t.id;
@@ -261,14 +261,14 @@ export default function App() {
                 <button
                   key={t.id}
                   onClick={() => setTab(t.id)}
-                  className={`flex-1 flex flex-col items-center justify-center py-2 min-w-0 transition-all ${
+                  className={`flex flex-col items-center justify-center py-2 flex-shrink-0 min-w-[52px] transition-all ${
                     active
                       ? "text-amber-400"
                       : theme === "dark" ? "text-zinc-500 hover:text-zinc-300" : "text-zinc-400 hover:text-zinc-600"
                   }`}
                 >
-                  <span className="text-base leading-none">{t.icon}</span>
-                  <span className="mt-0.5 text-[9px] font-medium leading-none w-full text-center overflow-hidden whitespace-nowrap">{t.label}</span>
+                  <span className="text-lg leading-none">{t.icon}</span>
+                  <span className="mt-0.5 text-[9px] font-medium leading-none whitespace-nowrap">{t.label}</span>
                   {active && <span className="mt-0.5 w-1 h-1 rounded-full bg-amber-400 shrink-0" />}
                 </button>
               );

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { calcDay, DAY_TYPES, YEN, formatMinutes, checkConflict } from "../utils/calc.js";
-import { MonthPicker, Badge, Card } from "../components/ui.jsx";
+import { MonthPicker, Badge } from "../components/ui.jsx";
 import { EntryForm, CalcDetailModal } from "../components/EntryForm.jsx";
 
 // ── EntriesScreen ─────────────────────────────────────────────────────
@@ -90,15 +90,15 @@ function EntriesScreen({ entries, settings, onAdd, onEdit, onDelete }) {
         if (calc.nightHours > 0) badges.push(<Badge key="night" color="purple">🌙 {formatMinutes(calc.nightMin)}</Badge>);
 
         return (
-          <Card key={entry.id} className="space-y-2">
+          <div key={entry.id} className="bg-zinc-900 border border-zinc-700/60 rounded-xl p-3 space-y-2">
             <div className="flex items-start justify-between">
-              <div>
-                <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>{dateLabel}</div>
-                <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{timeInfo}</div>
+              <div className="min-w-0 flex-1 pr-3">
+                <div className="text-sm font-semibold text-zinc-100">{dateLabel}</div>
+                <div className="text-xs mt-0.5 text-zinc-500">{timeInfo}</div>
               </div>
-              <div className="text-right">
+              <div className="text-right shrink-0">
                 <div className="text-base font-bold font-mono text-green-400">{YEN(calc.grossPay)}</div>
-                <div className="text-xs font-mono" style={{ color: "var(--text-muted)" }}>{hoursLabel}</div>
+                <div className="text-xs font-mono text-zinc-500">{hoursLabel}</div>
               </div>
             </div>
 
@@ -107,10 +107,10 @@ function EntriesScreen({ entries, settings, onAdd, onEdit, onDelete }) {
             )}
 
             {entry.note && (
-              <div className="text-xs italic" style={{ color: "var(--text-muted)" }}>{entry.note}</div>
+              <div className="text-xs italic text-zinc-600">{entry.note}</div>
             )}
 
-            <div className="flex gap-2 pt-1 border-t border-zinc-800">
+            <div className="flex gap-2 pt-1.5 border-t border-zinc-800">
               <button
                 onClick={() => setDetailEntry(entry)}
                 className="text-xs text-zinc-500 hover:text-amber-400 transition-colors"
@@ -128,7 +128,7 @@ function EntriesScreen({ entries, settings, onAdd, onEdit, onDelete }) {
                 className="text-xs text-zinc-500 hover:text-red-400 transition-colors ml-auto"
               >Excluir</button>
             </div>
-          </Card>
+          </div>
         );
       })}
 
