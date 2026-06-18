@@ -250,26 +250,29 @@ export default function App() {
         )}
       </div>
 
-      {/* Bottom nav — scrollable for 9 tabs */}
+      {/* Bottom nav — equal-width tabs, icon-only when inactive */}
       <div className={`fixed bottom-0 inset-x-0 z-40 backdrop-blur border-t ${theme === "dark" ? "bg-zinc-950/95 border-zinc-800/50" : "bg-white/95 border-zinc-200"}`}
         style={{paddingBottom: "env(safe-area-inset-bottom, 0px)"}}>
-        <div className="max-w-2xl mx-auto overflow-x-auto scrollbar-none">
-          <div className="flex min-w-max mx-auto">
-            {TABS.map((t) => (
+        <div className="max-w-2xl mx-auto flex">
+          {TABS.map((t) => {
+            const active = tab === t.id;
+            return (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`flex flex-col items-center py-2 px-3 transition-colors min-w-[56px] ${
-                  tab === t.id
+                className={`flex-1 flex flex-col items-center justify-center py-2 min-w-0 transition-colors ${
+                  active
                     ? "text-amber-400"
                     : theme === "dark" ? "text-zinc-600 hover:text-zinc-400" : "text-zinc-400 hover:text-zinc-600"
                 }`}
               >
-                <span className="text-lg">{t.icon}</span>
-                <span className="text-[10px] mt-0.5 font-medium whitespace-nowrap">{t.label}</span>
+                <span className={`leading-none transition-transform ${active ? "text-xl" : "text-lg"}`}>{t.icon}</span>
+                {active && (
+                  <span className="text-[9px] font-semibold mt-0.5 leading-tight truncate w-full text-center px-0.5">{t.label}</span>
+                )}
               </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
       </div>
 
